@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/features/personalization/controllers/recycle_activity_controller.dart';
 import 'package:fyp/features/personalization/models/recycle_activity_model.dart';
+import 'package:fyp/features/personalization/screens/recycle_activity/activity_detail.dart';
 import 'package:fyp/features/recycling_center/models/waste_category.dart';
 import 'package:fyp/utils/loaders/circular_loader.dart';
 import 'package:get/get.dart';
@@ -608,7 +609,17 @@ class RecycleHistoryScreen extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
-          onTap: () => controller.navigateToActivityDetail(activity),
+          onTap: () async {
+            final result = await Get.to(
+                  () => const ActivityDetailScreen(),
+              arguments: activity, // Pass the activity data
+            );
+
+            // If activity was deleted, refresh the list
+            if (result == true) {
+              controller.refreshActivities();
+            }
+          },
           child: Padding(
             padding: const EdgeInsets.all(FSizes.lg),
             child: Column(

@@ -1,4 +1,6 @@
+import 'package:fyp/features/personalization/controllers/activity_detail_controller.dart';
 import 'package:fyp/features/personalization/models/recycle_activity_model.dart';
+import 'package:fyp/features/personalization/screens/recycle_activity/activity_detail.dart';
 import 'package:fyp/features/recycling_center/models/waste_category.dart';
 import 'package:fyp/utils/popups/loaders.dart';
 import 'package:get/get.dart';
@@ -363,9 +365,17 @@ class RecycleActivityController extends GetxController {
   }
 
   /// Navigate to activity detail
-  void navigateToActivityDetail(RecyclingActivity activity) {
-    Get.toNamed('/recycle-activity-detail', arguments: activity);
-  }
+  // void navigateToActivityDetail(RecyclingActivity activity) {
+  //   Get.toNamed('/recycle-activity-detail', arguments: activity);
+  // }
+
+  // void navigateToActivityDetail(RecyclingActivity activity) {
+  //   Get.to(() {
+  //     // 创建controller并传入activity
+  //     final controller = Get.put(ActivityDetailController(activity));
+  //     return ActivityDetailScreen(controller: controller);
+  //   },);
+  // }
 
   /// Get total points earned
   int get totalPointsEarned {

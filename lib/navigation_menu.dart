@@ -8,6 +8,8 @@ import 'package:fyp/features/community/screens/posts/post_list_screen.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 
+import 'features/event/screens/event/event.dart';
+
 class NavigationMenu extends StatelessWidget {
   const NavigationMenu({super.key});
 
@@ -52,7 +54,7 @@ class NavigationController extends GetxController {
   // List of screens corresponding to navigation destinations
   final screens = [
     const HomeScreen(),
-    Container(),
+    const EventsScreen(),
     Container(),
     const PostsScreen(),
     const RecycleHistoryScreen(),

@@ -103,6 +103,7 @@ class UserModel extends RoleModel {
   }
 
   /// ✅ 转 Firestore JSON
+  @override
   Map<String, dynamic> toJson() {
     return {
       'UserId': userId,
@@ -125,6 +126,7 @@ class UserModel extends RoleModel {
     };
   }
 
+  @override
   UserModel copyWith({
     DateTime? dob,
     DateTime? joinDate,

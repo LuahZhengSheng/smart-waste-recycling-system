@@ -1,294 +1,285 @@
-import 'package:fyp/features/personalization/models/recycle_activity_model.dart';
-import 'package:fyp/features/recycling_center/models/partner_recycling_center.dart';
 import 'package:fyp/utils/popups/loaders.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fyp/utils/device/device_utility.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:fyp/features/personalization/models/recycle_activity_model.dart';
+import 'package:fyp/features/recycling_center/models/waste_category.dart';
+import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 
 class ActivityDetailController extends GetxController {
-  static ActivityDetailController get instance => Get.find();
-
-  // Observable variables
-  final Rx<RecyclingActivity> activity = RecyclingActivity.empty().obs;
-  final Rx<PartnerRecyclingCenter> recyclingCenter = PartnerRecyclingCenter.empty().obs;
+  final Rx<RecyclingActivity?> activity = Rx<RecyclingActivity?>(null);
   final RxBool isLoading = false.obs;
-  final RxBool isCenterLoading = false.obs;
-  final RxString selectedImageUrl = ''.obs;
+  final RxBool isDeleting = false.obs;
+  final RxString selectedTab = 'details'.obs;
 
-  // Firebase instance
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // Mock recycling center data
+  final RxString recyclingCenterName = 'Green Earth Recycling Center'.obs;
+  final RxString recyclingCenterAddress = '123 Eco Street, Green City'.obs;
+  final RxString recyclingCenterPhone = '+1 234 567 8900'.obs;
+  final RxDouble recyclingCenterRating = 4.5.obs;
+
+  // Timeline data
+  final RxList<ActivityTimelineItem> timeline = <ActivityTimelineItem>[].obs;
+
+  // Mock waste categories - in real app, this would come from repository
+  final List<WasteCategory> _wasteCategories = [
+    WasteCategory(
+      categoryId: '1',
+      name: 'Plastic',
+      description: 'Plastic bottles, containers, bags and other plastic items',
+      disposalMethod: 'Clean and sort by type for recycling',
+      icon: Iconsax.box,
+      color: const Color(0xFF2196F3),
+      basePoints: 10.0,
+      examples: ['Plastic bottles', 'Food containers', 'Plastic bags'],
+      isRecyclable: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ),
+    WasteCategory(
+      categoryId: '2',
+      name: 'Paper',
+      description: 'Newspapers, cardboard, magazines and paper products',
+      disposalMethod: 'Keep dry and separate from other materials',
+      icon: Iconsax.document,
+      color: const Color(0xFF8BC34A),
+      basePoints: 8.0,
+      examples: ['Newspapers', 'Cardboard boxes', 'Magazines'],
+      isRecyclable: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ),
+    WasteCategory(
+      categoryId: '3',
+      name: 'Glass',
+      description: 'Bottles, jars and glass containers',
+      disposalMethod: 'Clean and sort by color',
+      icon: Iconsax.glass,
+      color: const Color(0xFF00BCD4),
+      basePoints: 12.0,
+      examples: ['Glass bottles', 'Jars', 'Glass containers'],
+      isRecyclable: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ),
+    WasteCategory(
+      categoryId: '4',
+      name: 'Metal',
+      description: 'Aluminum cans, steel containers and metal items',
+      disposalMethod: 'Clean and separate ferrous from non-ferrous',
+      icon: Iconsax.cpu,
+      color: const Color(0xFF607D8B),
+      basePoints: 15.0,
+      examples: ['Aluminum cans', 'Steel containers', 'Metal scraps'],
+      isRecyclable: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ),
+    WasteCategory(
+      categoryId: '5',
+      name: 'Electronics',
+      description: 'Old phones, computers, batteries and electronic devices',
+      disposalMethod: 'Special handling required for electronic components',
+      icon: Iconsax.mobile,
+      color: const Color(0xFF9C27B0),
+      basePoints: 20.0,
+      examples: ['Old phones', 'Computers', 'Batteries'],
+      isRecyclable: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    ),
+  ];
 
   @override
   void onInit() {
     super.onInit();
-    // Get activity from arguments
-    final RecyclingActivity activityArg = Get.arguments as RecyclingActivity;
-    activity.value = activityArg;
-    selectedImageUrl.value = activityArg.supportImage;
-
-    // Fetch recycling center details
-    fetchRecyclingCenter();
-  }
-
-  /// Fetch recycling center details
-  Future<void> fetchRecyclingCenter() async {
-    try {
-      isCenterLoading.value = true;
-
-      final doc = await _db
-          .collection('PartnerRecyclingCenters')
-          .doc(activity.value.centerId)
-          .get();
-
-      if (doc.exists) {
-        recyclingCenter.value = PartnerRecyclingCenter.fromSnapshot(doc);
-      }
-    } catch (e) {
-      FLoaders.errorSnackBar(
-        title: 'Error',
-        message: 'Failed to load recycling center details: ${e.toString()}',
-      );
-    } finally {
-      isCenterLoading.value = false;
+    final args = Get.arguments as RecyclingActivity?;
+    if (args != null) {
+      activity.value = args;
+      _generateTimeline();
     }
   }
 
-  /// Refresh activity data
-  Future<void> refreshActivity() async {
-    try {
-      isLoading.value = true;
+  void _generateTimeline() {
+    if (activity.value == null) return;
 
-      final doc = await _db
-          .collection('RecyclingActivities')
-          .doc(activity.value.activityId)
-          .get();
+    final act = activity.value!;
+    timeline.clear();
 
-      if (doc.exists) {
-        activity.value = RecyclingActivity.fromSnapshot(doc);
-        FLoaders.successSnackBar(
-          title: 'Updated',
-          message: 'Activity details have been refreshed',
-        );
+    // Always add submission
+    timeline.add(ActivityTimelineItem(
+      title: 'Activity Submitted',
+      description: 'Your recycling activity was submitted for review',
+      timestamp: act.createdAt,
+      status: TimelineStatus.completed,
+      icon: 'upload',
+    ));
+
+    // Add review if not pending
+    if (!act.isPending) {
+      timeline.add(ActivityTimelineItem(
+        title: 'Under Review',
+        description: 'Our team is verifying your submission',
+        timestamp: act.createdAt.add(const Duration(hours: 2)),
+        status: TimelineStatus.completed,
+        icon: 'eye',
+      ));
+
+      // Add approval/rejection based on status
+      if (act.isApproved) {
+        timeline.add(ActivityTimelineItem(
+          title: 'Activity Approved',
+          description: 'Great! Your activity has been verified and points awarded',
+          timestamp: act.createdAt.add(const Duration(hours: 24)),
+          status: TimelineStatus.completed,
+          icon: 'check_circle',
+        ));
+      } else if (act.isRejected) {
+        timeline.add(ActivityTimelineItem(
+          title: 'Activity Rejected',
+          description: 'Unfortunately, your submission did not meet our criteria',
+          timestamp: act.createdAt.add(const Duration(hours: 24)),
+          status: TimelineStatus.rejected,
+          icon: 'close_circle',
+        ));
+      } else if (act.isCompleted) {
+        timeline.add(ActivityTimelineItem(
+          title: 'Activity Completed',
+          description: 'Your recycling activity has been processed successfully',
+          timestamp: act.createdAt.add(const Duration(hours: 48)),
+          status: TimelineStatus.completed,
+          icon: 'check_circle',
+        ));
       }
-    } catch (e) {
-      FLoaders.errorSnackBar(
-        title: 'Error',
-        message: 'Failed to refresh activity: ${e.toString()}',
-      );
-    } finally {
-      isLoading.value = false;
+    } else {
+      // Add pending review
+      timeline.add(ActivityTimelineItem(
+        title: 'Pending Review',
+        description: 'Waiting for verification by our team',
+        timestamp: DateTime.now(),
+        status: TimelineStatus.pending,
+        icon: 'clock',
+      ));
     }
+
+    // Sort by timestamp
+    timeline.sort((a, b) => a.timestamp.compareTo(b.timestamp));
   }
 
-  /// Delete the current activity
+  void selectTab(String tab) {
+    selectedTab.value = tab;
+  }
+
   Future<void> deleteActivity() async {
+    if (activity.value == null || !activity.value!.canDelete) return;
+
     try {
-      if (!activity.value.canDelete) {
-        FLoaders.warningSnackBar(
-          title: 'Cannot Delete',
-          message: 'Only pending or rejected activities can be deleted',
-        );
-        return;
-      }
+      isDeleting.value = true;
 
-      isLoading.value = true;
-
-      await _db.collection('RecyclingActivities').doc(activity.value.activityId).delete();
+      // Simulate API call - in real app, call repository method
+      await Future.delayed(const Duration(seconds: 1));
 
       FLoaders.successSnackBar(
-        title: 'Deleted',
-        message: 'Activity has been deleted successfully',
+        title: 'Success',
+        message: 'Activity deleted successfully',
       );
 
-      // Navigate back to history screen
-      Get.back();
+      Get.back(result: true); // Return true to indicate deletion
     } catch (e) {
       FLoaders.errorSnackBar(
         title: 'Error',
-        message: 'Failed to delete activity: ${e.toString()}',
+        message: 'Failed to delete activity',
+      );
+    } finally {
+      isDeleting.value = false;
+    }
+  }
+
+  Future<void> resubmitActivity() async {
+    if (activity.value == null) return;
+
+    try {
+      isLoading.value = true;
+
+      // Simulate API call - in real app, call repository method
+      await Future.delayed(const Duration(seconds: 1));
+
+      // Update activity status using model's method
+      final updatedActivity = activity.value!.copyWith(status: 'pending');
+      activity.value = updatedActivity;
+      _generateTimeline();
+
+      FLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Activity resubmitted for review',
+      );
+    } catch (e) {
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to resubmit activity',
       );
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// Share activity details
-  void shareActivity() {
-    final text = '''
-🌱 Recycling Activity Details 🌱
+  WasteCategory? getWasteCategory() {
+    if (activity.value == null) return null;
 
-Waste Type: ${activity.value.wasteObject}
-Weight: ${activity.value.formattedWeight}
-Points Earned: ${activity.value.pointsEarned} pts
-Status: ${activity.value.statusDisplayText}
-Date: ${activity.value.formattedCreatedAt}
-
-${recyclingCenter.value.name.isNotEmpty ? 'Recycling Center: ${recyclingCenter.value.name}' : ''}
-
-#RecycleRight #SaveEarth #GoGreen
-    ''';
-
-    Share.share(text, subject: 'My Recycling Activity');
-  }
-
-  /// Contact recycling center
-  void contactCenter() {
-    if (recyclingCenter.value.phoneNo.isNotEmpty) {
-      FDeviceUtils.launchUrl('tel:${recyclingCenter.value.phoneNo}');
-    } else {
-      FLoaders.warningSnackBar(
-        title: 'No Contact',
-        message: 'Phone number not available for this center',
+    try {
+      return _wasteCategories.firstWhere(
+            (cat) => cat.categoryId == activity.value!.wasteCategoryId,
       );
+    } catch (e) {
+      // Return first category as fallback if not found
+      return _wasteCategories.isNotEmpty ? _wasteCategories.first : null;
     }
   }
 
-  /// Visit center website
-  void visitCenterWebsite() {
-    if (recyclingCenter.value.website.isNotEmpty) {
-      FDeviceUtils.launchUrl(recyclingCenter.value.website);
+  // Environmental impact calculations based on activity weight
+  double get carbonFootprintReduced {
+    if (activity.value == null) return 0.0;
+    return activity.value!.weight * 0.5; // Mock calculation: 0.5kg CO2 per kg waste
+  }
+
+  double get energySaved {
+    if (activity.value == null) return 0.0;
+    return activity.value!.weight * 2.1; // Mock calculation: 2.1 kWh per kg
+  }
+
+  double get waterSaved {
+    if (activity.value == null) return 0.0;
+    return activity.value!.weight * 3.7; // Mock calculation: 3.7L per kg
+  }
+
+  String get activityAgeText {
+    if (activity.value == null) return '';
+
+    final age = activity.value!.ageInHours;
+    if (age < 1) {
+      return 'Less than an hour ago';
+    } else if (age < 24) {
+      return '$age hours ago';
     } else {
-      FLoaders.warningSnackBar(
-        title: 'No Website',
-        message: 'Website not available for this center',
-      );
-    }
-  }
-
-  /// Send email to center
-  void emailCenter() {
-    if (recyclingCenter.value.email.isNotEmpty) {
-      final subject = 'Inquiry about Recycling Activity ${activity.value.activityId}';
-      final body = 'Hello,\n\nI have a question about my recycling activity:\n\nActivity ID: ${activity.value.activityId}\nWaste Type: ${activity.value.wasteObject}\nDate: ${activity.value.formattedCreatedAt}\n\nThank you.';
-      FDeviceUtils.launchUrl('mailto:${recyclingCenter.value.email}?subject=$subject&body=$body');
-    } else {
-      FLoaders.warningSnackBar(
-        title: 'No Email',
-        message: 'Email not available for this center',
-      );
-    }
-  }
-
-  /// Get status message for user
-  String get statusMessage {
-    switch (activity.value.status.toLowerCase()) {
-      case 'pending':
-        return 'Your recycling activity is being reviewed by the center. You\'ll be notified once it\'s processed.';
-      case 'approved':
-        return 'Great! Your recycling activity has been approved. Points will be added to your account.';
-      case 'rejected':
-        return 'Unfortunately, your activity was rejected. Please contact the center for more details.';
-      case 'completed':
-        return 'Congratulations! Your recycling activity is complete and points have been added to your account.';
-      default:
-        return 'Status unknown. Please contact support if this persists.';
-    }
-  }
-
-  /// Get next steps message
-  String get nextStepsMessage {
-    switch (activity.value.status.toLowerCase()) {
-      case 'pending':
-        return 'Please wait for center review. Estimated processing time: 1-2 business days.';
-      case 'approved':
-        return 'Your points will be credited within 24 hours.';
-      case 'rejected':
-        return 'You can delete this activity or contact the center for clarification.';
-      case 'completed':
-        return 'Keep up the great work! Start your next recycling activity.';
-      default:
-        return 'Contact support for assistance.';
-    }
-  }
-
-  /// Check if activity is recent (within 24 hours)
-  bool get isRecentActivity {
-    return activity.value.isRecent;
-  }
-
-  /// Get activity age text
-  String get activityAge {
-    final hours = activity.value.ageInHours;
-    if (hours < 1) {
-      return 'Just now';
-    } else if (hours < 24) {
-      return '$hours hour${hours == 1 ? '' : 's'} ago';
-    } else {
-      final days = (hours / 24).floor();
-      return '$days day${days == 1 ? '' : 's'} ago';
-    }
-  }
-
-  /// Open image in full screen
-  void openFullScreenImage() {
-    if (activity.value.supportImage.isNotEmpty) {
-      Get.toNamed('/full-screen-image', arguments: {
-        'imageUrl': activity.value.supportImage,
-        'title': '${activity.value.wasteObject} - Support Image',
-      });
-    }
-  }
-
-  /// Copy activity ID to clipboard
-  void copyActivityId() {
-    if (activity.value.activityId.isNotEmpty) {
-      // Copy to clipboard logic here
-      FLoaders.customToast(message: 'Activity ID copied to clipboard');
-    }
-  }
-
-  /// Navigate to edit activity (if allowed)
-  void editActivity() {
-    if (activity.value.canEdit) {
-      Get.toNamed('/edit-recycling-activity', arguments: activity.value);
-    } else {
-      FLoaders.warningSnackBar(
-        title: 'Cannot Edit',
-        message: 'Only pending activities can be edited',
-      );
-    }
-  }
-
-  /// Get environment impact message
-  String get environmentImpact {
-    final weight = activity.value.weight;
-    switch (activity.value.wasteObject.toLowerCase()) {
-      case 'plastic':
-        final bottles = (weight * 20).round(); // Approx 50g per bottle
-        return 'Equivalent to recycling ~$bottles plastic bottles';
-      case 'paper':
-        final sheets = (weight * 200).round(); // Approx 5g per sheet
-        return 'Equivalent to recycling ~$sheets sheets of paper';
-      case 'glass':
-        final bottles = (weight * 2).round(); // Approx 500g per bottle
-        return 'Equivalent to recycling ~$bottles glass bottles';
-      case 'metal':
-        final cans = (weight * 67).round(); // Approx 15g per can
-        return 'Equivalent to recycling ~$cans aluminum cans';
-      case 'electronics':
-        return 'Helped prevent toxic materials from entering landfills';
-      default:
-        return 'Made a positive environmental impact!';
-    }
-  }
-
-  /// Calculate CO2 saved (rough estimate)
-  double get co2Saved {
-    final weight = activity.value.weight;
-    switch (activity.value.wasteObject.toLowerCase()) {
-      case 'plastic':
-        return weight * 2.0; // 2kg CO2 per kg plastic
-      case 'paper':
-        return weight * 1.5; // 1.5kg CO2 per kg paper
-      case 'glass':
-        return weight * 0.3; // 0.3kg CO2 per kg glass
-      case 'metal':
-        return weight * 4.0; // 4kg CO2 per kg metal
-      case 'electronics':
-        return weight * 3.0; // 3kg CO2 per kg electronics
-      default:
-        return weight * 1.0;
+      final days = (age / 24).floor();
+      return '$days day${days > 1 ? 's' : ''} ago';
     }
   }
 }
+
+class ActivityTimelineItem {
+  final String title;
+  final String description;
+  final DateTime timestamp;
+  final TimelineStatus status;
+  final String icon;
+
+  ActivityTimelineItem({
+    required this.title,
+    required this.description,
+    required this.timestamp,
+    required this.status,
+    required this.icon,
+  });
+}
+
+enum TimelineStatus { completed, pending, rejected, inProgress }
