@@ -2,9 +2,9 @@
 // import 'package:fyp/features/community/models/post_model.dart';
 //
 // class PostHeader extends StatelessWidget {
-//   final Post post;
+//   final Post community;
 //
-//   const PostHeader({super.key, required this.post});
+//   const PostHeader({super.key, required this.community});
 //
 //   @override
 //   Widget build(BuildContext context) {
@@ -12,7 +12,7 @@
 //       crossAxisAlignment: CrossAxisAlignment.start,
 //       children: [
 //         Text(
-//           post.title,
+//           community.title,
 //           style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
 //         ),
 //         const SizedBox(height: 8),
@@ -26,8 +26,8 @@
 //             Column(
 //               crossAxisAlignment: CrossAxisAlignment.start,
 //               children: [
-//                 Text(post.user.displayName ?? 'Unknown User', style: const TextStyle(color: Colors.white)),
-//                 Text(post.timeAgo, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+//                 Text(community.user.displayName ?? 'Unknown User', style: const TextStyle(color: Colors.white)),
+//                 Text(community.timeAgo, style: const TextStyle(color: Colors.grey, fontSize: 12)),
 //               ],
 //             ),
 //             const Spacer(),

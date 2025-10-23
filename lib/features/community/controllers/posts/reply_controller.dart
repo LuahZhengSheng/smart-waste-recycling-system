@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,11 +7,15 @@ import 'package:fyp/features/community/controllers/posts/comment_controller.dart
 import 'package:get/get.dart';
 import 'package:fyp/features/community/models/reply_model.dart';
 
+import '../../../../data/repositories/community/comment_repository.dart';
+import '../../../../data/repositories/community/reply_repository.dart';
+
 class ReplyController extends GetxController {
   static ReplyController get instance => Get.find();
 
   // Dependencies
-  // final _commentRepository = Get.put(CommentRepository());
+  final ReplyRepository replyRepository = Get.put(ReplyRepository());
+  final CommentRepository commentRepository = Get.put(CommentRepository());
 
   // Observable variables
   final RxList<Reply> replies = <Reply>[].obs;
@@ -18,17 +24,19 @@ class ReplyController extends GetxController {
   final RxBool isSubmitting = false.obs;
   final RxBool isRefreshing = false.obs;
 
-  // Comment ID for which we're managing replies
+  // IDs
+  String postId = '';
   String commentId = '';
+
+  // Stream subscription
+  StreamSubscription<List<Reply>>? _repliesSubscription;
 
   // Text controller for reply input
   final TextEditingController replyController = TextEditingController();
   final FocusNode replyFocusNode = FocusNode();
 
-  // Pagination
-  int _currentPage = 1;
-  final int _pageSize = 20;
-  bool _hasMoreReplies = true;
+  // Reactive variable for reply input validation
+  final RxBool isReplyValid = false.obs;
 
   // Get CommentController instance
   CommentController get _commentController => CommentController.instance;
@@ -36,12 +44,12 @@ class ReplyController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Listen to text controller changes
     replyController.addListener(_validateReplyInput);
   }
 
   @override
   void onClose() {
+    _repliesSubscription?.cancel();
     replyController.removeListener(_validateReplyInput);
     replyController.dispose();
     replyFocusNode.dispose();
@@ -49,8 +57,9 @@ class ReplyController extends GetxController {
   }
 
   /// Initialize controller with comment ID
-  Future<void> initialize(String commentId, {bool autoFocus = false}) async {
+  Future<void> initialize(String postId, String commentId, {bool autoFocus = false}) async {
     try {
+      this.postId = postId;
       this.commentId = commentId;
 
       // Auto focus reply input if needed
@@ -60,54 +69,34 @@ class ReplyController extends GetxController {
         });
       }
 
-      // Load initial replies
-      await loadReplies(refresh: true);
+      // Load replies via stream
+      await loadReplies();
     } catch (e) {
       _showError('Failed to initialize', e.toString());
     }
   }
 
-  /// Load replies for the comment
-  Future<void> loadReplies({bool refresh = false}) async {
+  /// Load replies for the comment via stream
+  Future<void> loadReplies() async {
     try {
-      if (refresh) {
-        _resetPagination();
-        replies.clear();
-      }
+      isLoading.value = true;
 
-      if (!_hasMoreReplies && !refresh) return;
+      // Subscribe to replies stream
+      _repliesSubscription?.cancel();
+      _repliesSubscription = replyRepository.getRepliesStream(commentId).listen(
+            (repliesList) {
+          replies.assignAll(repliesList);
+          isLoading.value = false;
+        },
+        onError: (error) {
+          isLoading.value = false;
+          _showError('Failed to load replies', error.toString());
+        },
+      );
 
-      // Set loading states
-      if (refresh) {
-        isRefreshing.value = true;
-      } else {
-        isLoading.value = _currentPage == 1;
-        isLoadingMore.value = _currentPage > 1;
-      }
-
-      // Simulate API call delay
-      await Future.delayed(const Duration(milliseconds: 800));
-
-      // Use mock data for now
-      final newReplies = _getMockReplies(commentId, _currentPage);
-
-      if (newReplies.length < _pageSize) {
-        _hasMoreReplies = false;
-      }
-
-      if (refresh) {
-        replies.assignAll(newReplies);
-      } else {
-        replies.addAll(newReplies);
-      }
-
-      _currentPage++;
     } catch (e) {
-      _showError('Failed to load replies', e.toString());
-    } finally {
       isLoading.value = false;
-      isLoadingMore.value = false;
-      isRefreshing.value = false;
+      _showError('Failed to load replies', e.toString());
     }
   }
 
@@ -119,11 +108,13 @@ class ReplyController extends GetxController {
       isSubmitting.value = true;
 
       final replyContent = replyController.text.trim();
-      final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Create new reply with temporary ID
+      // Generate new reply ID
+      final replyId = FirebaseFirestore.instance.collection('temp').doc().id;
+
+      // Create new reply
       final newReply = Reply(
-        replyId: tempId,
+        replyId: replyId,
         userId: _commentController.getCurrentUserId(),
         content: replyContent,
         likes: [],
@@ -131,39 +122,19 @@ class ReplyController extends GetxController {
         updatedAt: DateTime.now(),
       );
 
-      // Add to local list at the beginning (optimistic update)
-      replies.insert(0, newReply);
-
-      // Update comment reply count
-      _commentController.updateReplyCount(1);
-
-      // Clear input
+      // Clear input immediately for better UX
       replyController.clear();
-      replyFocusNode.unfocus();
+      isReplyValid.value = false; // Reset validation
 
-      // Simulate API call
-      await Future.delayed(const Duration(milliseconds: 1000));
+      // Add to Firestore
+      await replyRepository.addReply(postId, commentId, newReply);
 
-      // Update with real ID from server
-      final realReplyId = 'reply_${DateTime.now().millisecondsSinceEpoch}';
-      final replyIndex = replies.indexWhere((r) => r.replyId == tempId);
-      if (replyIndex != -1) {
-        replies[replyIndex] = Reply(
-          replyId: realReplyId,
-          userId: newReply.userId,
-          content: newReply.content,
-          likes: newReply.likes,
-          createdAt: newReply.createdAt,
-          updatedAt: newReply.updatedAt,
-        );
-      }
+      // Update comment reply count in parent controller
+      _commentController.updateReplyCount(1);
 
       _showSuccess('Reply posted successfully');
 
     } catch (e) {
-      // Revert optimistic update on error
-      replies.removeWhere((r) => r.replyId.startsWith('temp_'));
-      _commentController.updateReplyCount(-1);
       _showError('Failed to post reply', e.toString());
     } finally {
       isSubmitting.value = false;
@@ -188,8 +159,8 @@ class ReplyController extends GetxController {
         updatedAt: DateTime.now(),
       );
 
-      // TODO: Send request to backend
-      // await _commentRepository.updateReply(replyId, newContent);
+      // Update in Firestore
+      await replyRepository.updateReply(replyId, newContent);
 
       _showSuccess('Reply updated successfully');
 
@@ -229,8 +200,8 @@ class ReplyController extends GetxController {
         updatedAt: reply.updatedAt,
       );
 
-      // TODO: Send request to backend
-      // await _commentRepository.toggleReplyLike(replyId);
+      // Update in Firestore
+      await replyRepository.toggleReplyLike(replyId, updatedLikes);
 
     } catch (e) {
       // Revert optimistic update on error
@@ -245,8 +216,6 @@ class ReplyController extends GetxController {
       final replyIndex = replies.indexWhere((r) => r.replyId == replyId);
       if (replyIndex == -1) return;
 
-      final reply = replies[replyIndex];
-
       // Show confirmation dialog
       final confirmed = await _showDeleteConfirmationDialog(
         'Delete Reply',
@@ -255,18 +224,15 @@ class ReplyController extends GetxController {
 
       if (!confirmed) return;
 
-      // Remove from local list first (optimistic update)
-      replies.removeAt(replyIndex);
-      _commentController.updateReplyCount(-1);
+      // Delete from Firestore
+      await replyRepository.deleteReply(commentId, replyId);
 
-      // TODO: Delete from backend
-      // await _commentRepository.deleteReply(replyId);
+      // Update comment reply count
+      _commentController.updateReplyCount(-1);
 
       _showSuccess('Reply deleted');
 
     } catch (e) {
-      // Rollback on error
-      await loadReplies(refresh: true);
       _showError('Failed to delete reply', e.toString());
     }
   }
@@ -285,7 +251,6 @@ class ReplyController extends GetxController {
   Future<void> reportReply(String replyId, String reason) async {
     try {
       // TODO: Implement reporting
-      // await _commentRepository.reportReply(replyId, reason);
       _showSuccess('Reply reported. Thank you for your feedback.');
     } catch (e) {
       _showError('Failed to report reply', e.toString());
@@ -299,51 +264,39 @@ class ReplyController extends GetxController {
 
   /// Refresh replies
   Future<void> refreshReplies() async {
-    await loadReplies(refresh: true);
+    isRefreshing.value = true;
+    try {
+      // Stream will automatically update
+      await Future.delayed(const Duration(milliseconds: 500));
+    } finally {
+      isRefreshing.value = false;
+    }
   }
-
-  /// Load more replies (for pagination)
-  Future<void> loadMoreReplies() async {
-    if (!_hasMoreReplies || isLoadingMore.value) return;
-    await loadReplies();
-  }
-
-  /// Check if there are more replies to load
-  bool get hasMoreReplies => _hasMoreReplies;
-
-  /// Check if reply input is valid
-  bool get isReplyValid => replyController.text.trim().isNotEmpty;
 
   /// Get replies count
   int get repliesCount => replies.length;
-
-  /// Add external reply (from other parts of the app)
-  void addReply(Reply reply) {
-    replies.insert(0, reply);
-    _commentController.updateReplyCount(1);
-  }
 
   /// Clear all data
   void clearData() {
     replies.clear();
     replyController.clear();
+    isReplyValid.value = false;
     replyFocusNode.unfocus();
-    _resetPagination();
+    postId = '';
     commentId = '';
+    _repliesSubscription?.cancel();
   }
 
   /// Private helper methods
-  void _resetPagination() {
-    _currentPage = 1;
-    _hasMoreReplies = true;
-  }
-
   bool _canSubmitReply() {
-    return replyController.text.trim().isNotEmpty && !isSubmitting.value;
+    return isReplyValid.value && !isSubmitting.value;
   }
 
   void _validateReplyInput() {
-    // This could be used to show/hide send button or show character count
+    final isValid = replyController.text.trim().isNotEmpty;
+    if (isReplyValid.value != isValid) {
+      isReplyValid.value = isValid;
+    }
   }
 
   Future<bool> _showDeleteConfirmationDialog(String title, String content) async {
@@ -391,12 +344,11 @@ class ReplyController extends GetxController {
 
   Future<void> _revertReplyLike(String replyId) async {
     try {
-      // TODO: Fetch fresh reply data
-      // final freshReply = await _commentRepository.getReply(replyId);
-      // final replyIndex = replies.indexWhere((r) => r.replyId == replyId);
-      // if (replyIndex != -1) {
-      //   replies[replyIndex] = freshReply;
-      // }
+      final freshReply = await replyRepository.getReplyById(replyId);
+      final replyIndex = replies.indexWhere((r) => r.replyId == replyId);
+      if (replyIndex != -1 && freshReply != null) {
+        replies[replyIndex] = freshReply;
+      }
     } catch (e) {
       debugPrint('Failed to revert reply like: $e');
     }
@@ -404,74 +356,13 @@ class ReplyController extends GetxController {
 
   Future<void> _revertReplyChanges(String replyId) async {
     try {
-      // TODO: Fetch fresh reply data
-      // final freshReply = await _commentRepository.getReply(replyId);
-      // final replyIndex = replies.indexWhere((r) => r.replyId == replyId);
-      // if (replyIndex != -1) {
-      //   replies[replyIndex] = freshReply;
-      // }
+      final freshReply = await replyRepository.getReplyById(replyId);
+      final replyIndex = replies.indexWhere((r) => r.replyId == replyId);
+      if (replyIndex != -1 && freshReply != null) {
+        replies[replyIndex] = freshReply;
+      }
     } catch (e) {
       debugPrint('Failed to revert reply changes: $e');
     }
-  }
-
-  /// Mock data for testing
-  List<Reply> _getMockReplies(String commentId, int page) {
-    if (page > 1) return []; // No more data for pagination demo
-
-    final mockReplies = <Reply>[];
-
-    // Different replies based on comment ID
-    if (commentId == 'comment1') {
-      mockReplies.addAll([
-        Reply(
-          replyId: 'reply1_1',
-          userId: 'sarah_johnson',
-          content: 'I totally agree! This is amazing work.',
-          likes: ['mark_ramos', 'current_user_id'],
-          createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
-        ),
-        Reply(
-          replyId: 'reply1_2',
-          userId: 'mike_chen',
-          content: 'Thanks for sharing this with us! Really helpful.',
-          likes: ['anna_mary'],
-          createdAt: DateTime.now().subtract(const Duration(minutes: 20)),
-        ),
-        Reply(
-          replyId: 'reply1_3',
-          userId: 'lisa_wong',
-          content: 'Could you share more details about this approach?',
-          likes: ['david_kim', 'mark_ramos', 'sarah_johnson'],
-          createdAt: DateTime.now().subtract(const Duration(minutes: 25)),
-        ),
-        Reply(
-          replyId: 'reply1_4',
-          userId: 'current_user_id',
-          content: 'Great question! I\'ll post more details soon.',
-          likes: ['lisa_wong'],
-          createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
-        ),
-      ]);
-    } else if (commentId == 'comment2') {
-      mockReplies.addAll([
-        Reply(
-          replyId: 'reply2_1',
-          userId: 'mark_ramos',
-          content: 'You\'re welcome! Glad it helped.',
-          likes: ['current_user_id', 'mike_chen'],
-          createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
-        ),
-        Reply(
-          replyId: 'reply2_2',
-          userId: 'david_kim',
-          content: 'I had the same question too!',
-          likes: ['sarah_johnson'],
-          createdAt: DateTime.now().subtract(const Duration(minutes: 35)),
-        ),
-      ]);
-    }
-
-    return mockReplies;
   }
 }

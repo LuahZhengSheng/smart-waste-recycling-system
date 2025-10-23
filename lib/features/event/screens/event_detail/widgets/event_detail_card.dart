@@ -390,7 +390,7 @@ class EventDetailsWidget extends StatelessWidget {
     return FColors.darkGrey;
   }
 
-  /// Get button color
+  /// Get buttons color
   Color _getButtonColor() {
     // Mock: Check if user is already registered
     final isUserRegistered = false; // Replace with actual check
@@ -399,7 +399,7 @@ class EventDetailsWidget extends StatelessWidget {
     return FColors.primary;
   }
 
-  /// Get button text
+  /// Get buttons text
   String _getButtonText() {
     // Mock: Check if user is already registered
     final isUserRegistered = false; // Replace with actual check

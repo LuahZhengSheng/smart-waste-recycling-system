@@ -1,19 +1,25 @@
-import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:fyp/features/community/models/comment_model.dart';
 
+import '../../../../data/repositories/community/comment_repository.dart';
+
 class CommentController extends GetxController {
   static CommentController get instance => Get.find();
 
   // Dependencies
-  // final _commentRepository = Get.put(CommentRepository());
-  // final _authController = AuthenticationController.instance;
-  // final _userController = UserController.instance;
+  final CommentRepository commentRepository = Get.put(CommentRepository());
 
   // Current comment data
   Rx<Comment> currentComment = Comment.empty().obs;
+
+  // Current post ID
+  String _currentPostId = '';
+
+  // Text controller for adding comments
+  final commentController = TextEditingController();
 
   // User cache for quick lookup
   final RxMap<String, Map<String, String>> _userCache = <String, Map<String, String>>{}.obs;
@@ -24,9 +30,18 @@ class CommentController extends GetxController {
     _initializeUserCache();
   }
 
+  @override
+  void onClose() {
+    commentController.dispose();
+    super.onClose();
+  }
+
   /// Initialize controller with comment data
-  void initialize(Comment comment) {
+  void initialize(Comment comment, {String? postId}) {
     currentComment.value = comment;
+    if (postId != null) {
+      _currentPostId = postId;
+    }
   }
 
   /// Toggle like on the main comment
@@ -47,8 +62,11 @@ class CommentController extends GetxController {
 
       _updateComment(likes: updatedLikes);
 
-      // TODO: Send request to backend
-      // await _commentRepository.toggleCommentLike(currentComment.value.commentId);
+      // Update in Firestore
+      await commentRepository.toggleCommentLike(
+        currentComment.value.commentId,
+        updatedLikes,
+      );
 
     } catch (e) {
       // Revert optimistic update on error
@@ -57,27 +75,89 @@ class CommentController extends GetxController {
     }
   }
 
+  /// Toggle like on any comment (for use in PostDetailsController)
+  Future<void> toggleCommentLike(String commentId) async {
+    try {
+      final currentUserId = getCurrentUserId();
+
+      final isCurrentlyLiked = currentComment.value.likes.contains(currentUserId);
+
+      // Optimistically update UI
+      List<String> updatedLikes = List.from(currentComment.value.likes);
+      if (isCurrentlyLiked) {
+        updatedLikes.remove(currentUserId);
+      } else {
+        updatedLikes.add(currentUserId);
+      }
+
+      _updateComment(likes: updatedLikes);
+
+      // Update in Firestore
+      await commentRepository.toggleCommentLike(
+        commentId,
+        updatedLikes,
+      );
+
+    } catch (e) {
+      // Revert optimistic update on error
+      await _revertLike();
+      _showError('Failed to update like', e.toString());
+    }
+  }
+
+  /// Add comment to a post
+  Future<void> addComment(String postId) async {
+    final content = commentController.text.trim();
+    if (content.isEmpty) return;
+
+    try {
+      final newComment = Comment(
+        commentId: _db.collection('temp').doc().id, // Generate ID
+        userId: getCurrentUserId(),
+        content: content,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      // Clear input immediately for better UX
+      commentController.clear();
+
+      // Add to Firestore
+      await commentRepository.addComment(postId, newComment);
+
+      _showSuccess('Comment added successfully');
+
+    } catch (e) {
+      _showError('Failed to add comment', e.toString());
+    }
+  }
+
   /// Edit the main comment
   Future<void> edit(String newContent) async {
-    try {
-      final originalContent = currentComment.value.content;
+    final originalContent = currentComment.value.content;
 
+    try {
       // Optimistically update UI
       _updateComment(content: newContent, updatedAt: DateTime.now());
 
-      // TODO: Update in backend
-      // await _commentRepository.updateComment(currentComment.value.commentId, newContent);
+      // Update in Firestore
+      await commentRepository.updateComment(
+        currentComment.value.commentId,
+        newContent,
+      );
 
       _showSuccess('Comment updated successfully');
     } catch (e) {
       // Revert on error
-      // _updateComment(content: originalContent);
+      _updateComment(content: originalContent);
       _showError('Failed to update comment', e.toString());
     }
   }
 
   /// Delete the main comment
   Future<void> delete() async {
+    if (_currentPostId.isEmpty) return;
+
     try {
       final confirmed = await _showDeleteConfirmationDialog(
         'Delete Comment',
@@ -86,12 +166,15 @@ class CommentController extends GetxController {
 
       if (!confirmed) return;
 
-      // TODO: Delete from backend
-      // await _commentRepository.deleteComment(currentComment.value.commentId);
+      // Delete from Firestore
+      await commentRepository.deleteComment(
+        _currentPostId,
+        currentComment.value.commentId,
+      );
 
       _showSuccess('Comment deleted successfully');
 
-      // Navigate back or notify parent
+      // Navigate back
       Get.back();
     } catch (e) {
       _showError('Failed to delete comment', e.toString());
@@ -111,8 +194,7 @@ class CommentController extends GetxController {
   /// Report comment
   Future<void> report(String reason) async {
     try {
-      // TODO: Implement reporting
-      // await _commentRepository.reportComment(currentComment.value.commentId, reason);
+      // TODO: Implement reporting in repository
       _showSuccess('Comment reported. Thank you for your feedback.');
     } catch (e) {
       _showError('Failed to report comment', e.toString());
@@ -125,10 +207,14 @@ class CommentController extends GetxController {
     _updateComment(replyCount: newCount.clamp(0, double.infinity).toInt());
   }
 
+  /// Set current post ID
+  void setPostId(String postId) {
+    _currentPostId = postId;
+  }
+
   /// Get current user ID
   String getCurrentUserId() {
     // TODO: Get from authentication service
-    // return _authController.user.value?.id ?? '';
     return 'current_user_id';
   }
 
@@ -147,29 +233,37 @@ class CommentController extends GetxController {
     return currentComment.value.userId == getCurrentUserId();
   }
 
-  /// Format time ago
-  String formatTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays > 365) {
-      return '${(difference.inDays / 365).floor()}y';
-    } else if (difference.inDays > 30) {
-      return '${(difference.inDays / 30).floor()}mo';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}d';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m';
-    } else {
-      return 'now';
-    }
+  /// Check if current user can delete/edit any comment
+  bool canModifyComment(Comment comment) {
+    return comment.userId == getCurrentUserId();
   }
 
   /// Clear comment data
   void clearData() {
     currentComment.value = Comment.empty();
+    _currentPostId = '';
+  }
+
+  /// Format time ago (moved from PostDetailsController)
+  String formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inSeconds < 60) {
+      return '${difference.inSeconds}s ago';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays < 30) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inDays < 365) {
+      final months = (difference.inDays / 30).floor();
+      return '${months}mo ago';
+    } else {
+      final years = (difference.inDays / 365).floor();
+      return '${years}y ago';
+    }
   }
 
   /// Private helper methods
@@ -236,9 +330,12 @@ class CommentController extends GetxController {
 
   Future<void> _revertLike() async {
     try {
-      // TODO: Fetch fresh comment data
-      // final freshComment = await _commentRepository.getComment(currentComment.value.commentId);
-      // currentComment.value = freshComment;
+      final freshComment = await commentRepository.getCommentById(
+        currentComment.value.commentId,
+      );
+      if (freshComment != null) {
+        currentComment.value = freshComment;
+      }
     } catch (e) {
       debugPrint('Failed to revert comment like: $e');
     }
@@ -276,4 +373,7 @@ class CommentController extends GetxController {
       },
     });
   }
+
+  // Reference to Firestore for ID generation
+  final _db = FirebaseFirestore.instance;
 }

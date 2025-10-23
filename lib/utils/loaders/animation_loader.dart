@@ -3,16 +3,16 @@ import 'package:lottie/lottie.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 
-/// A widgets for displaying an animated Loading indicator with optional text and action button.
+/// A widgets for displaying an animated Loading indicator with optional text and action buttons.
 class FAnimationLoaderWidget extends StatelessWidget {
   /// Default constructor for the FAnimationLoaderWidget.
   ///
   /// Parameters:
   /// - text: The text to be displayed below the animation.
   /// - animation: The path to the Lottie animation file.
-  /// - showAction: Whether to show an action button below the text.
-  /// - actionText: The text to be displayed on the action button.
-  /// - onActionPressed: Callback function to be executed when the action button is pressed.
+  /// - showAction: Whether to show an action buttons below the text.
+  /// - actionText: The text to be displayed on the action buttons.
+  /// - onActionPressed: Callback function to be executed when the action buttons is pressed.
   const FAnimationLoaderWidget(
       {super.key,
       required this.text,

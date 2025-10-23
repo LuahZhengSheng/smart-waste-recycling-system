@@ -85,12 +85,12 @@ class Event {
   }
 
   /// Creates Event instance from Firebase DocumentSnapshot
-  factory Event.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
-    final data = snapshot.data();
+  factory Event.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
     if (data == null) return Event.empty();
 
     return Event(
-      eventId: snapshot.id,
+      eventId: doc.id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
       contactEmail: data['contactEmail'] ?? '',

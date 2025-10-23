@@ -3,11 +3,11 @@
 // import 'package:fyp/features/community/models/post_model.dart';
 //
 // class PostContainer extends StatelessWidget {
-//   final Post post;
+//   final Post community;
 //
 //   const PostContainer({
 //     Key key,
-//     @required this.post,
+//     @required this.community,
 //   }) : super(key: key);
 //
 //   @override
@@ -29,24 +29,24 @@
 //               child: Column(
 //                 crossAxisAlignment: CrossAxisAlignment.stretch,
 //                 children: [
-//                   _PostHeader(post: post),
+//                   _PostHeader(community: community),
 //                   const SizedBox(height: 4.0),
-//                   Text(post.caption),
-//                   post.imageUrl != null
+//                   Text(community.caption),
+//                   community.imageUrl != null
 //                       ? const SizedBox.shrink()
 //                       : const SizedBox(height: 6.0),
 //                 ],
 //               ),
 //             ),
-//             post.imageUrl != null
+//             community.imageUrl != null
 //                 ? Padding(
 //               padding: const EdgeInsets.symmetric(vertical: 8.0),
-//               child: CachedNetworkImage(imageUrl: post.imageUrl),
+//               child: CachedNetworkImage(imageUrl: community.imageUrl),
 //             )
 //                 : const SizedBox.shrink(),
 //             Padding(
 //               padding: const EdgeInsets.symmetric(horizontal: 12.0),
-//               child: _PostStats(post: post),
+//               child: _PostStats(community: community),
 //             ),
 //           ],
 //         ),
@@ -56,25 +56,25 @@
 // }
 //
 // class _PostHeader extends StatelessWidget {
-//   final Post post;
+//   final Post community;
 //
 //   const _PostHeader({
 //     required Key key,
-//     required this.post,
+//     required this.community,
 //   }) : super(key: key);
 //
 //   @override
 //   Widget build(BuildContext context) {
 //     return Row(
 //       children: [
-//         ProfileAvatar(imageUrl: post.user.imageUrl),
+//         ProfileAvatar(imageUrl: community.user.imageUrl),
 //         const SizedBox(width: 8.0),
 //         Expanded(
 //           child: Column(
 //             crossAxisAlignment: CrossAxisAlignment.start,
 //             children: [
 //               Text(
-//                 post.user.name,
+//                 community.user.name,
 //                 style: const TextStyle(
 //                   fontWeight: FontWeight.w600,
 //                 ),
@@ -82,7 +82,7 @@
 //               Row(
 //                 children: [
 //                   Text(
-//                     '${post.timeAgo} • ',
+//                     '${community.timeAgo} • ',
 //                     style: TextStyle(
 //                       color: Colors.grey[600],
 //                       fontSize: 12.0,
@@ -108,11 +108,11 @@
 // }
 //
 // class _PostStats extends StatelessWidget {
-//   final Post post;
+//   final Post community;
 //
 //   const _PostStats({
 //     Key key,
-//     @required this.post,
+//     @required this.community,
 //   }) : super(key: key);
 //
 //   @override
@@ -136,21 +136,21 @@
 //             const SizedBox(width: 4.0),
 //             Expanded(
 //               child: Text(
-//                 '${post.likes}',
+//                 '${community.likes}',
 //                 style: TextStyle(
 //                   color: Colors.grey[600],
 //                 ),
 //               ),
 //             ),
 //             Text(
-//               '${post.comments} Comments',
+//               '${community.comments} Comments',
 //               style: TextStyle(
 //                 color: Colors.grey[600],
 //               ),
 //             ),
 //             const SizedBox(width: 8.0),
 //             Text(
-//               '${post.shares} Shares',
+//               '${community.shares} Shares',
 //               style: TextStyle(
 //                 color: Colors.grey[600],
 //               ),

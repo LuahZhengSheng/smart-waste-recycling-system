@@ -46,12 +46,12 @@ class Reminder {
     );
   }
 
-  /// Creates Reminder instance from Firebase DocumentSnapshot
-  factory Reminder.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
-    if (snapshot.data() != null) {
-      final data = snapshot.data()!;
+  /// Creates Reminder instance from Firebase Documentdoc
+  factory Reminder.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
+    if (doc.data() != null) {
+      final data = doc.data()!;
       return Reminder(
-        reminderId: snapshot.id,
+        reminderId: doc.id,
         registrationId: data['registrationId'] ?? '',
         title: data['title'] ?? '',
         message: data['message'] ?? '',

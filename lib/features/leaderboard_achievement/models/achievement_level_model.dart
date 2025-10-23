@@ -15,7 +15,43 @@ class AchievementLevelModel {
     required this.badgeImage,
   });
 
-  /// Create from Firestore or Map
+  /// Empty AchievementLevel
+  static AchievementLevelModel empty() {
+    return AchievementLevelModel(
+      achievementLevelId: '',
+      level: 0,
+      unlockCriteria: 0,
+      description: '',
+      badgeImage: '',
+    );
+  }
+
+  /// To JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'achievementLevelId': achievementLevelId,
+      'level': level,
+      'unlockCriteria': unlockCriteria,
+      'description': description,
+      'badgeImage': badgeImage,
+    };
+  }
+
+  /// From Snapshot
+  factory AchievementLevelModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
+    final data = document.data();
+    if (data == null) return AchievementLevelModel.empty();
+
+    return AchievementLevelModel(
+      achievementLevelId: document.id, // 从文档ID获取
+      level: data['level'] ?? 0,
+      unlockCriteria: data['unlockCriteria'] ?? 0,
+      description: data['description'] ?? '',
+      badgeImage: data['badgeImage'] ?? '',
+    );
+  }
+
+  /// From Map (保持原有功能)
   factory AchievementLevelModel.fromMap(Map<String, dynamic> map) {
     return AchievementLevelModel(
       achievementLevelId: map['achievementLevelId'] ?? '',
@@ -26,27 +62,7 @@ class AchievementLevelModel {
     );
   }
 
-  /// Convert to Map for Firestore or JSON
-  Map<String, dynamic> toMap() {
-    return {
-      'achievementLevelId': achievementLevelId,
-      'level': level,
-      'unlockCriteria': unlockCriteria,
-      'description': description,
-      'badgeImage': badgeImage,
-    };
-  }
-
-  /// Create from Firestore document
-  factory AchievementLevelModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>?;
-    if (data == null) {
-      throw StateError("Missing data for AchievementLevelModel: ${doc.id}");
-    }
-    return AchievementLevelModel.fromMap(data);
-  }
-
-  /// Copy with new values
+  /// CopyWith method for easy updates
   AchievementLevelModel copyWith({
     String? achievementLevelId,
     int? level,

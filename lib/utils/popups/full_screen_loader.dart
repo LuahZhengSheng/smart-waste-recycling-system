@@ -17,7 +17,7 @@ class FFullScreenLoader {
       context: Get.overlayContext!, // Use Get.overlayContext for overlay dialogs
       barrierDismissible: false, // The dialog can't be dismissed by tapping outside it
       builder: (_) => PopScope(
-        canPop: false, // Disable popping with the back button
+        canPop: false, // Disable popping with the back buttons
         child: Container(
           color: FHelperFunctions.isDarkMode(Get.context!) ? FColors.dark : FColors.white,
           width: double.infinity,
@@ -35,7 +35,7 @@ class FFullScreenLoader {
 
   /// Stop the currently open loading dialog.
   /// This method doesn't return anything.
-  static stopLoading() {
+  static void stopLoading() {
     Navigator.of(Get.overlayContext!).pop(); // Close the dialog using the Navigator
   }
 }

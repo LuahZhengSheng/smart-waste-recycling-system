@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fyp/features/leaderboard_achievement/models/achievement_level_model.dart';
+
+import 'achievement_level_model.dart';
 
 class AchievementModel {
   final String achievementId;
@@ -18,37 +19,81 @@ class AchievementModel {
     this.achievementLevels = const [],
   });
 
-  /// Create from Firestore / JSON Map
-  factory AchievementModel.fromMap(Map<String, dynamic> map) {
+  /// Empty Achievement
+  static AchievementModel empty() {
     return AchievementModel(
-      achievementId: map['achievementId'] ?? '',
-      title: map['title'] ?? '',
-      category: map['category'] ?? '',
-      maxLevel: map['maxLevel'] ?? 0,
-      createdAt: (map['createdAt'] is Timestamp)
-          ? (map['createdAt'] as Timestamp).toDate()
-          : DateTime.tryParse(map['createdAt']?.toString() ?? '') ?? DateTime.now(),
-      achievementLevels: (map['achievementLevels'] as List<dynamic>?)
-          ?.map((lvl) => AchievementLevelModel.fromMap(
-          Map<String, dynamic>.from(lvl as Map)))
-          .toList() ??
-          [],
+      achievementId: '',
+      title: '',
+      category: '',
+      maxLevel: 0,
+      createdAt: DateTime(0),
+      achievementLevels: [],
     );
   }
 
-  /// Convert to Map for Firestore / JSON
-  Map<String, dynamic> toMap() {
+  /// To JSON
+  Map<String, dynamic> toJson() {
     return {
       'achievementId': achievementId,
       'title': title,
       'category': category,
       'maxLevel': maxLevel,
       'createdAt': Timestamp.fromDate(createdAt),
-      'achievementLevels': achievementLevels.map((lvl) => lvl.toMap()).toList(),
+      'achievementLevels': achievementLevels.map((level) => level.toJson()).toList(),
     };
   }
 
+  /// From Snapshot
+  factory AchievementModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
+    final data = document.data();
+    if (data == null) return AchievementModel.empty();
+
+    // 将 Timestamp 转换为 DateTime
+    Timestamp getTimestamp(String fieldName) => data[fieldName] ?? Timestamp.fromDate(DateTime(0));
+
+    // 处理 achievementLevels 数组
+    List<dynamic> levelsData = data['achievementLevels'] ?? [];
+    List<AchievementLevelModel> levelsList = levelsData.map((levelMap) => AchievementLevelModel.fromMap(levelMap)).toList();
+
+    return AchievementModel(
+      achievementId: document.id, // 从文档ID获取
+      title: data['title'] ?? '',
+      category: data['category'] ?? '',
+      maxLevel: data['maxLevel'] ?? 0,
+      createdAt: getTimestamp('createdAt').toDate(),
+      achievementLevels: levelsList,
+    );
+  }
+
+  factory AchievementModel.fromMap(Map<String, dynamic> map) {
+    // 将 Timestamp 转换为 DateTime
+    DateTime getDateTime(dynamic timestamp) {
+      if (timestamp is Timestamp) {
+        return timestamp.toDate();
+      } else if (timestamp is String) {
+        return DateTime.tryParse(timestamp) ?? DateTime(0);
+      } else {
+        return DateTime(0);
+      }
+    }
+
+    // 处理 achievementLevels 数组
+    List<dynamic> levelsData = map['achievementLevels'] ?? [];
+    List<AchievementLevelModel> levelsList = levelsData.map((levelMap) => AchievementLevelModel.fromMap(levelMap)).toList();
+
+    return AchievementModel(
+      achievementId: map['achievementId'] ?? '',
+      title: map['title'] ?? '',
+      category: map['category'] ?? '',
+      maxLevel: map['maxLevel'] ?? 0,
+      createdAt: getDateTime(map['createdAt']),
+      achievementLevels: levelsList,
+    );
+  }
+
+  /// CopyWith method for easy updates
   AchievementModel copyWith({
+    String? achievementId,
     String? title,
     String? category,
     int? maxLevel,
@@ -56,7 +101,7 @@ class AchievementModel {
     List<AchievementLevelModel>? achievementLevels,
   }) {
     return AchievementModel(
-      achievementId: achievementId,
+      achievementId: achievementId ?? this.achievementId,
       title: title ?? this.title,
       category: category ?? this.category,
       maxLevel: maxLevel ?? this.maxLevel,

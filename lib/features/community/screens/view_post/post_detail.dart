@@ -3,9 +3,15 @@ import 'package:fyp/features/community/controllers/posts/post_detail_controller.
 import 'package:fyp/features/community/screens/comments/widgets/comment_header.dart';
 import 'package:fyp/features/community/screens/comments/widgets/comment_list.dart';
 import 'package:fyp/features/community/screens/comments/widgets/write_comment.dart';
-import 'package:fyp/features/community/screens/view_post/widgets/post_detail_card.dart';
 import 'package:get/get.dart';
 import 'package:fyp/utils/constants/sizes.dart';
+
+import '../../../../common/widgets/appbar/appbar.dart';
+import '../../../../utils/constants/colors.dart';
+import '../../../../utils/helpers/helper_functions.dart';
+import 'widgets/post_card.dart';
+
+import 'package:fyp/features/community/controllers/posts/comment_controller.dart';
 
 // Post Details Screen
 class PostDetailsScreen extends StatelessWidget {
@@ -15,40 +21,64 @@ class PostDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 确保控制器在 PostDetailsScreen 中初始化
     final controller = Get.put(PostDetailsController());
+    final commentController = Get.put(CommentController()); // 添加 CommentController
 
-    // Load post details when screen is created
+    final dark = FHelperFunctions.isDarkMode(context);
+
+    // Load community details when screen is created
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.loadPostDetails(postId);
     });
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: dark ? FColors.dark : FColors.white,
+      appBar: FAppBar(
+        showBackArrow: true,
+        title: Text(
+          "Details",
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [
             // Main content
             Expanded(
-              child: SingleChildScrollView(
-                child: Obx(() {
-                  if (controller.isLoading.value) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+              child: Obx(() {
+                if (controller.isLoading.value) {
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: FColors.primary,
+                    ),
+                  );
+                }
 
-                  if (controller.post.value.postId.isEmpty) {
-                    return const Center(child: Text('Post not found'));
-                  }
+                if (controller.post.value.postId.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'Post not found',
+                      style: TextStyle(
+                        color: dark ? FColors.white : FColors.black,
+                      ),
+                    ),
+                  );
+                }
 
-                  return Column(
+                return SingleChildScrollView(
+                  child: Column(
                     children: [
-                      // Post content
-                      FPostDetailsCard(post: controller.post.value),
+                      // Post content - 使用修改后的 FPostCard
+                      FPostCard(
+                        post: controller.post.value,
+                        isInDetailScreen: true, // 标记在详情页面
+                      ),
 
                       const SizedBox(height: FSizes.spaceBtwSections),
 
                       // Comments section
                       Container(
-                        color: Colors.white,
+                        color: dark ? FColors.dark : FColors.white,
                         child: Column(
                           children: [
                             // Comments header with sorting
@@ -56,19 +86,20 @@ class PostDetailsScreen extends StatelessWidget {
 
                             // Comments list
                             Obx(() => FCommentsList(
+                              postId: postId,
                               comments: controller.sortedComments,
                             )),
                           ],
                         ),
                       ),
                     ],
-                  );
-                }),
-              ),
+                  ),
+                );
+              }),
             ),
 
             // Write comment input at bottom
-            FWriteCommentInput(),
+            FWriteCommentInput(postId: postId),
           ],
         ),
       ),
@@ -76,7 +107,6 @@ class PostDetailsScreen extends StatelessWidget {
   }
 }
 
-// Media Viewer (Full Screen)
 class FMediaViewer extends StatefulWidget {
   final List<String> mediaUrls;
   final int initialIndex;
@@ -105,7 +135,7 @@ class _FMediaViewerState extends State<FMediaViewer> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.black, // 强制设置为黑色背景
       body: Stack(
         children: [
           // Media viewer
@@ -118,18 +148,21 @@ class _FMediaViewerState extends State<FMediaViewer> {
             },
             itemCount: widget.mediaUrls.length,
             itemBuilder: (context, index) {
-              return Center(
-                child: InteractiveViewer(
-                  child: Image.network(
-                    widget.mediaUrls[index],
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(
-                        Icons.error,
-                        color: Colors.white,
-                        size: 64,
-                      );
-                    },
+              return Container(
+                color: Colors.black, // 确保页面背景也是黑色
+                child: Center(
+                  child: InteractiveViewer(
+                    child: Image.network(
+                      widget.mediaUrls[index],
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          Icons.error,
+                          color: Colors.white, // 错误图标改为白色
+                          size: 64,
+                        );
+                      },
+                    ),
                   ),
                 ),
               );
@@ -145,12 +178,12 @@ class _FMediaViewerState extends State<FMediaViewer> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withOpacity(0.5), // 使用黑色半透明
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Icon(
                   Icons.close,
-                  color: Colors.white,
+                  color: Colors.white, // 关闭图标改为白色
                   size: 24,
                 ),
               ),
@@ -164,11 +197,19 @@ class _FMediaViewerState extends State<FMediaViewer> {
               left: 0,
               right: 0,
               child: Center(
-                child: Text(
-                  '${_currentIndex + 1} / ${widget.mediaUrls.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6), // 使用黑色半透明
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${_currentIndex + 1} / ${widget.mediaUrls.length}',
+                    style: const TextStyle(
+                      color: Colors.white, // 文字改为白色
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),

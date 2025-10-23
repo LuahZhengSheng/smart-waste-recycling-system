@@ -26,7 +26,7 @@ class FSizes {
 
   // AppBar Sizes
   static const double appBarHeight = 56.0;
-  static const double appBarFontSize = 28.0;
+  static const double appBarFontSize = 24.0;
 
   // Image Sizes
   static const double imageThumbSize = 80.0;

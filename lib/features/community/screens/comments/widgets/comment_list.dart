@@ -5,8 +5,13 @@ import 'package:fyp/utils/constants/sizes.dart';
 
 class FCommentsList extends StatelessWidget {
   final List<Comment> comments;
+  final String postId;
 
-  const FCommentsList({super.key, required this.comments});
+  const FCommentsList({
+    super.key,
+    required this.comments,
+    required this.postId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +26,7 @@ class FCommentsList extends StatelessWidget {
 
     return Column(
       children: comments.map((comment) => FCommentCard(
+        postId: postId,
         comment: comment,
       )).toList(),
     );

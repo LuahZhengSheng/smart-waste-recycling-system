@@ -2,9 +2,9 @@
 // import 'package:fyp/features/community/models/post_model.dart';
 //
 // class PostContent extends StatelessWidget {
-//   final Post post;
+//   final Post community;
 //
-//   const PostContent({super.key, required this.post});
+//   const PostContent({super.key, required this.community});
 //
 //   @override
 //   Widget build(BuildContext context) {
@@ -13,22 +13,22 @@
 //       children: [
 //         // 帖子文本内容
 //         Text(
-//           post.caption,
+//           community.caption,
 //           style: const TextStyle(color: Colors.white70, fontSize: 16),
 //         ),
 //         const SizedBox(height: 16),
 //
 //         // 帖子图片/影片
-//         if (post.imageUrl != null && post.imageUrl!.isNotEmpty) // 如果有图片，则显示
+//         if (community.imageUrl != null && community.imageUrl!.isNotEmpty) // 如果有图片，则显示
 //           ClipRRect(
 //             borderRadius: BorderRadius.circular(10),
 //             child: Image(
-//               image: AssetImage(post.imageUrl!),
+//               image: AssetImage(community.imageUrl!),
 //               fit: BoxFit.cover
 //             ),
 //           ),
 //
-//         if (post.videoUrl != null && post.videoUrl!.isNotEmpty) // 如果有视频，则显示
+//         if (community.videoUrl != null && community.videoUrl!.isNotEmpty) // 如果有视频，则显示
 //           Container(
 //             margin: const EdgeInsets.only(top: 16),
 //             height: 200, // 你可以调整高度

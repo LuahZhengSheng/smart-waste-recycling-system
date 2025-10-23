@@ -22,6 +22,7 @@ class Reply {
   /// Convert to Firestore JSON
   Map<String, dynamic> toJson() {
     return {
+      'replyId': replyId,
       'userId': userId,
       'content': content,
       'likes': likes,

@@ -1,133 +1,317 @@
-import 'package:fyp/features/community/models/post_model.dart';
+import 'package:flutter/material.dart';
+import 'package:fyp/features/community/screens/edit_post/edit_post.dart';
+import 'package:fyp/features/community/screens/my_post/my_post.dart';
+import 'package:fyp/features/community/screens/view_post/post_detail.dart';
 import 'package:get/get.dart';
+import 'package:fyp/features/community/models/post_model.dart';
 
-class PostsController extends GetxController {
-  // Observable variables
-  final _posts = <PostModel>[].obs;
-  final _filteredPosts = <PostModel>[].obs;
-  final _selectedFilter = 'All'.obs;
-  final _userCache = <String, Map<String, String>>{}.obs; // userId -> {name, avatar}
+import '../../../../data/repositories/community/post_repository.dart';
+import '../../../../utils/popups/loaders.dart';
 
-  // Getters
-  List<PostModel> get posts => _posts;
-  List<PostModel> get filteredPosts => _filteredPosts;
-  RxString get selectedFilter => _selectedFilter;
+class PostsController extends GetxController with SingleGetTickerProviderMixin {
+  static PostsController get instance => Get.find();
+
+  // Repositories
+  final PostRepository _postRepository = PostRepository();
+
+  // Controllers
+  late TabController tabController;
+
+  final searchController = TextEditingController();
+
+  // Reactive variables
+  final selectedTimeFilter = 'All Time'.obs;
+  final selectedFilter = 'All'.obs;
+  final searchQuery = ''.obs;
+  final isLoading = false.obs;
+
+  // Posts streams for different tabs
+  final allPosts = <PostModel>[].obs;
+  final tipPosts = <PostModel>[].obs;
+  final questionPosts = <PostModel>[].obs;
+  final discussionPosts = <PostModel>[].obs;
+
+  // Combined filtered posts for current tab
+  final filteredPosts = <PostModel>[].obs;
 
   @override
   void onInit() {
     super.onInit();
-    loadPosts();
-    ever(_posts, (_) => _applyFilter());
-    ever(_selectedFilter, (_) => _applyFilter());
+
+    // 初始化 TabController，使用 SingleGetTickerProviderMixin
+    tabController = TabController(length: 4, vsync: this);
+
+    _initializePosts();
+    _setupTabListener();
+    _setupSearchListener();
+    _setupFilterListener();
   }
 
-  // Load posts from Firestore
-  Future<void> loadPosts() async {
+  @override
+  void onClose() {
+    tabController.dispose();
+    searchController.dispose();
+    super.onClose();
+  }
+
+  // Initialize posts streams
+  void _initializePosts() {
     try {
-      // TODO: Implement Firestore query
-      // For now, using mock data
-      _posts.assignAll(_getMockPosts());
-      _applyFilter();
+      // Listen to all posts stream
+      ever(allPosts, (_) => _filterPosts());
+
+      // Start listening to Firestore streams
+      _postRepository.getAllPostsStream().listen((posts) {
+        allPosts.assignAll(posts);
+        _categorizePosts(posts);
+      }, onError: (error) {
+        FLoaders.errorSnackBar(title: 'Error', message: error.toString());
+      });
+
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load posts: $e');
+      FLoaders.errorSnackBar(title: 'Error', message: e.toString());
     }
   }
 
-  // Apply filter to posts
-  void _applyFilter() {
-    if (_selectedFilter.value == 'All') {
-      _filteredPosts.assignAll(_posts);
-    } else {
-      _filteredPosts.assignAll(_posts.where((post) =>
-      post.postType.toLowerCase() == _selectedFilter.value.toLowerCase()
-      ));
+  // Categorize posts by type
+  void _categorizePosts(List<PostModel> posts) {
+    tipPosts.assignAll(posts.where((post) => post.postType == 'tip').toList());
+    questionPosts.assignAll(posts.where((post) => post.postType == 'question').toList());
+    discussionPosts.assignAll(posts.where((post) => post.postType == 'discussion').toList());
+  }
+
+  // Setup tab listener
+  void _setupTabListener() {
+    tabController.addListener(() {
+      _filterPosts();
+    });
+  }
+
+  // Setup search listener
+  void _setupSearchListener() {
+    ever(searchQuery, (_) => _filterPosts());
+    ever(selectedTimeFilter, (_) => _filterPosts());
+  }
+
+  // 设置过滤监听器
+  void _setupFilterListener() {
+    ever(selectedFilter, (_) => _applyHeaderFilter());
+  }
+
+  // 应用头部过滤
+  void _applyHeaderFilter() {
+    if (isLoading.value) return;
+
+    isLoading.value = true;
+
+    try {
+      List<PostModel> sourcePosts;
+
+      // Get posts based on selected filter
+      switch (selectedFilter.value) {
+        case 'Tips':
+          sourcePosts = List.from(tipPosts);
+          break;
+        case 'Question':
+          sourcePosts = List.from(questionPosts);
+          break;
+        case 'Discussion':
+          sourcePosts = List.from(discussionPosts);
+          break;
+        default: // 'All'
+          sourcePosts = List.from(allPosts);
+      }
+
+      // Apply search filter
+      if (searchQuery.value.isNotEmpty) {
+        sourcePosts = sourcePosts.where((post) =>
+            post.content.toLowerCase().contains(searchQuery.value.toLowerCase())
+        ).toList();
+      }
+
+      // Apply time filter
+      sourcePosts = _applyTimeFilter(sourcePosts);
+
+      // Update filtered posts
+      filteredPosts.assignAll(sourcePosts);
+
+    } catch (e) {
+      FLoaders.errorSnackBar(title: 'Error', message: e.toString());
+    } finally {
+      isLoading.value = false;
     }
   }
 
-  // Set filter
+  // Filter posts based on current tab, search query and time filter
+  void _filterPosts() {
+    if (isLoading.value) return;
+
+    isLoading.value = true;
+
+    try {
+      List<PostModel> sourcePosts;
+
+      // Get posts based on current tab
+      switch (tabController.index) {
+        case 0: // All
+          sourcePosts = List.from(allPosts);
+          break;
+        case 1: // Tips
+          sourcePosts = List.from(tipPosts);
+          break;
+        case 2: // Questions
+          sourcePosts = List.from(questionPosts);
+          break;
+        case 3: // Discussion
+          sourcePosts = List.from(discussionPosts);
+          break;
+        default:
+          sourcePosts = List.from(allPosts);
+      }
+
+      // Apply search filter
+      if (searchQuery.value.isNotEmpty) {
+        sourcePosts = sourcePosts.where((post) =>
+            post.content.toLowerCase().contains(searchQuery.value.toLowerCase())
+        ).toList();
+      }
+
+      // Apply time filter
+      sourcePosts = _applyTimeFilter(sourcePosts);
+
+      // Update filtered posts
+      filteredPosts.assignAll(sourcePosts);
+
+    } catch (e) {
+      FLoaders.errorSnackBar(title: 'Error', message: e.toString());
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // Apply time filter to posts
+  List<PostModel> _applyTimeFilter(List<PostModel> posts) {
+    final now = DateTime.now();
+
+    switch (selectedTimeFilter.value) {
+      case 'Today':
+        return posts.where((post) =>
+            post.createdAt.isAfter(now.subtract(const Duration(days: 1)))
+        ).toList();
+      case 'This Week':
+        return posts.where((post) =>
+            post.createdAt.isAfter(now.subtract(const Duration(days: 7)))
+        ).toList();
+      case 'This Month':
+        return posts.where((post) =>
+            post.createdAt.isAfter(now.subtract(const Duration(days: 30)))
+        ).toList();
+      case 'This Year':
+        return posts.where((post) =>
+            post.createdAt.isAfter(now.subtract(const Duration(days: 365)))
+        ).toList();
+      default: // All Time
+        return posts;
+    }
+  }
+
+  // 设置头部过滤
   void setFilter(String filter) {
-    _selectedFilter.value = filter;
+    selectedFilter.value = filter;
   }
 
-  // Toggle like on post
+  // Set search query
+  void setSearchQuery(String query) {
+    searchQuery.value = query;
+  }
+
+  // Set time filter
+  void setTimeFilter(String filter) {
+    selectedTimeFilter.value = filter;
+  }
+
+  // Get current user ID (replace with your auth logic)
+  String getCurrentUserId() {
+    // TODO: Replace with actual user ID from your authentication
+    return 'current_user_id'; // This should come from your auth service
+  }
+
+  // Check if post belongs to current user
+  bool isUserPost(PostModel post) {
+    return post.userId == getCurrentUserId();
+  }
+
+  // 在 PostsController 中修改 toggleLike 方法
   Future<void> toggleLike(String postId) async {
     try {
-      final postIndex = _posts.indexWhere((p) => p.postId == postId);
-      if (postIndex != -1) {
-        final post = _posts[postIndex];
-        final currentUserId = getCurrentUserId();
+      final post = allPosts.firstWhere((p) => p.postId == postId);
+      final currentUserId = getCurrentUserId();
+      final newLikes = List<String>.from(post.likes);
 
-        if (post.likes.contains(currentUserId)) {
-          post.likes.remove(currentUserId);
-        } else {
-          post.likes.add(currentUserId);
-        }
-
-        _posts[postIndex] = post;
-        _posts.refresh();
-
-        // TODO: Update Firestore
+      if (newLikes.contains(currentUserId)) {
+        newLikes.remove(currentUserId);
+      } else {
+        newLikes.add(currentUserId);
       }
+
+      await _postRepository.updatePostLikes(postId, newLikes);
+
+      // 更新本地状态
+      final index = allPosts.indexWhere((p) => p.postId == postId);
+      if (index != -1) {
+        allPosts[index] = allPosts[index].copyWith(likes: newLikes);
+        update(); // 通知 GetBuilder 更新
+      }
+
     } catch (e) {
-      Get.snackbar('Error', 'Failed to update like: $e');
+      FLoaders.errorSnackBar(title: 'Error', message: e.toString());
     }
+  }
+
+  void navigateToMyPosts() {
+    // TODO: Implement post details navigation
+    Get.to(MyPostsScreen());
+  }
+
+  // Navigate to post details
+  void navigateToPostDetails(String postId) {
+    // TODO: Implement post details navigation
+    Get.to(PostDetailsScreen(postId: postId));
+  }
+
+  // Navigate to edit post
+  void navigateToEditPost(PostModel post) {
+    // TODO: Implement edit post navigation
+    Get.to(EditPostScreen(post: post));
   }
 
   // Delete post
   Future<void> deletePost(String postId) async {
     try {
-      _posts.removeWhere((post) => post.postId == postId);
-      // TODO: Delete from Firestore
-      Get.snackbar('Success', 'Post deleted successfully');
+      FLoaders.showLoading('Deleting post...');
+      await _postRepository.deletePost(postId);
+      FLoaders.successSnackBar(title: 'Success', message: 'Post deleted successfully');
+
+      // Remove from local state immediately
+      allPosts.removeWhere((post) => post.postId == postId);
+
     } catch (e) {
-      Get.snackbar('Error', 'Failed to delete post: $e');
+      FLoaders.errorSnackBar(title: 'Error', message: e.toString());
+    } finally {
+      FLoaders.stopLoading();
     }
   }
 
-  // Get current user ID
-  String getCurrentUserId() {
-    // TODO: Get from authentication service
-    return 'current_user_id';
-  }
-
-  // Get user name by ID
-  String getUserName(String userId) {
-    // TODO: Implement user lookup
-    return _userCache[userId]?['name'] ?? 'Unknown User';
-  }
-
-  // Get user avatar by ID
-  String getUserAvatar(String userId) {
-    // TODO: Implement user lookup
-    return _userCache[userId]?['avatar'] ?? 'https://via.placeholder.com/150';
-  }
-
-  // Mock data for testing
-  List<PostModel> _getMockPosts() {
-    return [
-      PostModel(
-        postId: '1',
-        userId: 'user1',
-        postType: 'Tips',
-        content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin velit felis, venenatis tempus metus a, tristique tempus metus.',
-        media: [
-          "https://picsum.photos/200",
-          "https://picsum.photos/200",
-          "https://picsum.photos/200",
-        ],
-        likes: ['user2', 'user3'],
-        commentCount: 35,
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      PostModel(
-        postId: '2',
-        userId: 'current_user_id',
-        postType: 'Question',
-        content: 'How do you handle state management in Flutter? Looking for best practices.',
-        likes: ['user1'],
-        commentCount: 12,
-        createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-      ),
-    ];
+  // Refresh posts
+  Future<void> refreshPosts() async {
+    try {
+      isLoading.value = true;
+      // The stream will automatically update the posts
+      await Future.delayed(const Duration(seconds: 1));
+    } catch (e) {
+      FLoaders.errorSnackBar(title: 'Error', message: e.toString());
+    } finally {
+      isLoading.value = false;
+    }
   }
 }

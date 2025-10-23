@@ -1,6 +1,41 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- ==================== PERMISSIONS ==================== -->
 
-    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Required for accessing camera hardware -->
+    <!-- Used for: profile pictures, event photos, document scanning -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Required for writing files to external storage (Android 10 and below) -->
+    <!-- Used for: saving images, exporting files, caching data -->
+    <!-- Note: For Android 11+, use Scoped Storage instead -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+    <!-- Required for reading files from external storage -->
+    <!-- Used for: uploading images, accessing documents, reading cached files -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <!-- Required for network operations and FCM -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Required to keep the device awake to receive FCM messages -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Required for posting notifications (Android 13/Tiramisu and above) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Required for vibration with notifications -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Required to restart scheduled notifications after device reboot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <!-- 相机特性 -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false" />
 
     <queries>
         <provider android:authorities="com.facebook.katana.provider.PlatformProvider" />
@@ -38,7 +73,7 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- FACEBOOK CONFIGURATIONS -->
+        <!-- ==================== FACEBOOK CONFIGURATIONS ==================== -->
         <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="@string/facebook_app_id"/>
         <meta-data android:name="com.facebook.sdk.ClientToken" android:value="@string/facebook_client_token"/>
 
@@ -57,7 +92,17 @@
             </intent-filter>
         </activity>
 
-        <!-- FACEBOOK CONFIGURATIONS ENDS HERE -->
+        <!-- ==================== FCM SERVICE ==================== -->
+
+        <!-- Firebase Cloud Messaging Service for handling background messages -->
+        <service
+            android:name=".java.MyFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <!-- Listens for incoming FCM messages -->
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
     </application>
     <!-- Required to query activities that can process text, see:

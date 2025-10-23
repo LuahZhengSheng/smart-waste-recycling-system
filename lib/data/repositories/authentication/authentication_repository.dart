@@ -1,17 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:fyp/data/repositories/user/user_repository.dart';
-import 'package:fyp/features/admin/screens/user_management/user_management.dart';
 import 'package:fyp/features/authentication/screens/admin/login/login.dart';
 import 'package:fyp/features/authentication/screens/login/login.dart';
 import 'package:fyp/features/authentication/screens/onboarding/onboarding.dart';
 import 'package:fyp/features/authentication/screens/signup/verify_email.dart';
 import 'package:fyp/navigation_menu.dart';
-import 'package:fyp/sidebar_menu.dart';
 import 'package:fyp/utils/exceptions/firebase_auth_exceptions.dart';
 import 'package:fyp/utils/exceptions/firebase_exceptions.dart';
 import 'package:fyp/utils/exceptions/format_exceptions.dart';
@@ -29,6 +28,8 @@ class AuthenticationRepository extends GetxController {
   /// Variables
   final deviceStorage = GetStorage();
   final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
+  final _firebaseMessaging = FirebaseMessaging.instance;
 
   /// Get Authenticated User Data
   User? get authUser => _auth.currentUser;
@@ -120,14 +121,52 @@ class AuthenticationRepository extends GetxController {
   //   }
   // }
 
+  /// 更新用户 FCM Token
+  Future<void> _updateUserFCMToken(String userId) async {
+    try {
+      // 获取当前设备的 FCM token
+      String? fcmToken = await _firebaseMessaging.getToken();
+
+      print('fcmToken: $fcmToken');
+      print('userID#: $userId');
+
+      if (fcmToken != null && userId.isNotEmpty) {
+        // 更新用户文档中的 FCM token
+        await _firestore.collection('Users').doc(userId).update({
+          'fcmToken': fcmToken,
+        });
+
+        if (kDebugMode) {
+          print('FCM Token updated for user: $userId');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating FCM token: $e');
+      }
+      // 不抛出异常，因为 FCM token 更新失败不应该影响登录流程
+    }
+  }
+
 /* --------------------------- Email & Password sign-in --------------------------- */
 
   /// [EmailAuthentication] - Login
   Future<UserCredential> loginWithEmailAndPassword(
       String email, String password) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
+      final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
           email: email, password: password);
+
+      print('Test##');
+
+      // 登录成功后更新 FCM token
+      if (userCredential.user != null) {
+        print('Test##2');
+        await _updateUserFCMToken(userCredential.user!.uid);
+        print('Test##3');
+      }
+
+      return userCredential;
     } on FirebaseAuthException catch (e) {
       throw FFirebaseAuthException(e.code).message;
     } on FirebaseException catch (e) {
@@ -145,8 +184,10 @@ class AuthenticationRepository extends GetxController {
   Future<UserCredential> registerWithEmailAndPassword(
       String email, String password) async {
     try {
-      return await _auth.createUserWithEmailAndPassword(
+      final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
           email: email, password: password);
+
+      return userCredential;
     } on FirebaseAuthException catch (e) {
       throw FFirebaseAuthException(e.code).message;
     } on FirebaseException catch (e) {
@@ -183,7 +224,7 @@ class AuthenticationRepository extends GetxController {
     try {
       // Create a credential
       AuthCredential credential =
-          EmailAuthProvider.credential(email: email, password: password);
+      EmailAuthProvider.credential(email: email, password: password);
 
       // ReAuthenticate
       await _auth.currentUser!.reauthenticateWithCredential(credential);
@@ -227,7 +268,7 @@ class AuthenticationRepository extends GetxController {
 
       // Obtain the auth details from the request
       final GoogleSignInAuthentication? googleAuth =
-          await userAccount?.authentication;
+      await userAccount?.authentication;
 
       // Create a new credential
       final credentials = GoogleAuthProvider.credential(
@@ -236,7 +277,14 @@ class AuthenticationRepository extends GetxController {
       );
 
       // Once signed in, return the UserCredential
-      return await _auth.signInWithCredential(credentials);
+      final UserCredential? userCredential = await _auth.signInWithCredential(credentials);
+
+      // 登录成功后更新 FCM token
+      if (userCredential?.user != null) {
+        await _updateUserFCMToken(userCredential!.user!.uid);
+      }
+
+      return userCredential;
     } on FirebaseAuthException catch (e) {
       throw FFirebaseAuthException(e.code).message;
     } on FirebaseException catch (e) {
@@ -248,7 +296,6 @@ class AuthenticationRepository extends GetxController {
     } catch (e) {
       if (kDebugMode) print('Something went wrong: $e');
       return null;
-      // throw 'Something went wrong. Please try again.';
     }
   }
 
@@ -260,29 +307,19 @@ class AuthenticationRepository extends GetxController {
 
       // Create a credential from the access token
       final OAuthCredential facebookAuthCredential =
-          FacebookAuthProvider.credential(
-              '${loginResult.accessToken?.tokenString}');
-
-      // return await currentUser?.linkWithCredential(facebookAuthCredential);
-      //
-      // // Check if the user exists in Firebase Authentication
-      // final List<UserInfo> providerData =
-      //     (await FirebaseAuth.instance.signInWithCredential(facebookAuthCredential))
-      //         .user!
-      //         .providerData;
-      // bool hasEmailProvider = providerData.any((element) => element.providerId == 'password');
-      //
-      // // If user already exists with email/password, link accounts
-      // final currentUser = FirebaseAuth.instance.currentUser;
-      // if (hasEmailProvider) {
-      //   return await currentUser?.linkWithCredential(facebookAuthCredential);
-      // } else {
-      //   // Otherwise, sign in normally
-      //   return await _auth.signInWithCredential(facebookAuthCredential);
-      // }
+      FacebookAuthProvider.credential(
+          '${loginResult.accessToken?.tokenString}');
 
       // Once signed in, return the UserCredential
-      return FirebaseAuth.instance.signInWithCredential(facebookAuthCredential);
+      final UserCredential userCredential =
+      await FirebaseAuth.instance.signInWithCredential(facebookAuthCredential);
+
+      // 登录成功后更新 FCM token
+      if (userCredential.user != null) {
+        await _updateUserFCMToken(userCredential.user!.uid);
+      }
+
+      return userCredential;
     } on FirebaseAuthException catch (e) {
       throw FFirebaseAuthException(e.code).message;
     } on FirebaseException catch (e) {
@@ -294,7 +331,6 @@ class AuthenticationRepository extends GetxController {
     } catch (e) {
       if (kDebugMode) print('Something went wrong: $e');
       return null;
-      // throw 'Something went wrong. Please try again.';
     }
   }
 
@@ -315,7 +351,7 @@ class AuthenticationRepository extends GetxController {
 
       // 获取 Google 登录凭证
       final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      await googleUser.authentication;
       final OAuthCredential googleCredential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -323,7 +359,10 @@ class AuthenticationRepository extends GetxController {
 
       // 将 Google 登录凭证链接到当前用户
       final UserCredential userCredential =
-          await currentUser.linkWithCredential(googleCredential);
+      await currentUser.linkWithCredential(googleCredential);
+
+      // 链接成功后更新 FCM token
+      await _updateUserFCMToken(currentUser.uid);
 
       // 返回合并后的用户凭证
       return userCredential;

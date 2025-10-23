@@ -1,240 +1,370 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:fyp/data/repositories/authentication/authentication_repository.dart';
+import 'package:fyp/data/repositories/user/user_repository.dart';
+import 'package:fyp/utils/popups/loaders.dart';
 import 'package:get/get.dart';
 
-class RewardPointsController extends GetxController with GetSingleTickerProviderStateMixin {
+import '../../../data/repositories/personalization/recycling_activity_repository.dart';
+import '../../../data/repositories/recycling_center/recycling_center_repository.dart';
+import '../../../data/repositories/reward_redemption/redemption_repository.dart';
+import '../../../data/repositories/reward_redemption/reward_repository.dart';
+import '../../../utils/constants/colors.dart';
+import '../../personalization/models/recycle_activity_model.dart';
+import '../../recycling_center/models/partner_recycling_center_model.dart';
+import '../models/reward_redemption_enums.dart';
+import '../../reward_redemption/models/redemption_model.dart';
+import '../../reward_redemption/models/reward_model.dart';
+
+class RewardPointsController extends GetxController
+    with GetSingleTickerProviderStateMixin {
+  static RewardPointsController get instance => Get.find();
+
+  // Repositories
+  final userRepository = Get.put(UserRepository());
+  final activityRepository = Get.put(RecyclingActivityRepository());
+  final centerRepository = Get.put(RecyclingCenterRepository());
+  final redemptionRepository = Get.put(RedemptionRepository());
+  final rewardRepository = Get.put(RewardRepository());
+
   // Tab Controller
   late TabController tabController;
 
   // Observable variables
   final currentPoints = 0.obs;
   final isLoading = false.obs;
-  final selectedDateRange = DateTimeRange(
-    start: DateTime.now().subtract(const Duration(days: 30)),
-    end: DateTime.now(),
-  ).obs;
+  final selectedFilterType = DateFilterType.last30Days.obs;
+  final selectedDateRange = Rx<DateTimeRange?>(null);
 
-  // Transaction lists
-  final allTransactions = <RewardTransaction>[].obs;
-  final earningTransactions = <RewardTransaction>[].obs;
-  final spendingTransactions = <RewardTransaction>[].obs;
+  // Transaction lists - using actual models
+  final allEarningActivities = <RecyclingActivity>[].obs;
+  final allSpendingRedemptions = <RedemptionModel>[].obs;
 
-  // Filtered transactions
-  final filteredAllTransactions = <RewardTransaction>[].obs;
-  final filteredEarningTransactions = <RewardTransaction>[].obs;
-  final filteredSpendingTransactions = <RewardTransaction>[].obs;
+  // Filtered lists
+  final filteredEarningActivities = <RecyclingActivity>[].obs;
+  final filteredSpendingRedemptions = <RedemptionModel>[].obs;
+
+  // Streams subscriptions
+  StreamSubscription? _pointsSubscription;
+  StreamSubscription? _activitiesSubscription;
+  StreamSubscription? _redemptionsSubscription;
 
   @override
   void onInit() {
     super.onInit();
     tabController = TabController(length: 3, vsync: this);
+
+    // Initialize with default date range
+    selectedDateRange.value = selectedFilterType.value.getDateRange();
+
     loadRewardPointsData();
+
+    // Listen to tab changes to update filtered lists
+    tabController.addListener(() {
+      _updateFilteredLists();
+    });
   }
 
   @override
   void onClose() {
     tabController.dispose();
+    _pointsSubscription?.cancel();
+    _activitiesSubscription?.cancel();
+    _redemptionsSubscription?.cancel();
     super.onClose();
   }
 
-  /// Load all reward points data
+  /// Load all reward points data with real-time updates
   Future<void> loadRewardPointsData() async {
     try {
       isLoading(true);
 
-      // Load current points
-      await loadCurrentPoints();
+      final userId = AuthenticationRepository.instance.authUser?.uid;
+      if (userId == null) {
+        throw 'User not authenticated';
+      }
 
-      // Load transactions
-      await loadTransactions();
+      // Load current points stream
+      _subscribeToPoints(userId);
 
-      // Apply initial filter
-      applyDateFilter();
-
+      // Load transactions streams
+      await _subscribeToTransactions(userId);
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load reward points data: $e');
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to load reward points data: $e',
+      );
     } finally {
       isLoading(false);
     }
   }
 
-  /// Load current user's points
-  Future<void> loadCurrentPoints() async {
-    // TODO: Implement actual API call to get current user's points
-    // For now, using mock data
-    await Future.delayed(const Duration(milliseconds: 500));
-    currentPoints.value = 1250; // Mock current points
-  }
-
-  /// Load all transactions
-  Future<void> loadTransactions() async {
-    // TODO: Implement actual API calls to load transactions
-    // For now, using mock data
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    // Mock earning transactions from recycling activities
-    final mockEarnings = [
-      RewardTransaction(
-        id: '1',
-        type: TransactionType.earning,
-        points: 50,
-        description: 'Plastic Bottles Recycling',
-        date: DateTime.now().subtract(const Duration(days: 1)),
-        relatedActivityId: 'activity_1',
-        weight: 2.5,
-        wasteType: 'Plastic',
-      ),
-      RewardTransaction(
-        id: '2',
-        type: TransactionType.earning,
-        points: 75,
-        description: 'Electronics Recycling',
-        date: DateTime.now().subtract(const Duration(days: 3)),
-        relatedActivityId: 'activity_2',
-        weight: 1.2,
-        wasteType: 'Electronics',
-      ),
-      RewardTransaction(
-        id: '3',
-        type: TransactionType.earning,
-        points: 30,
-        description: 'Paper Recycling',
-        date: DateTime.now().subtract(const Duration(days: 5)),
-        relatedActivityId: 'activity_3',
-        weight: 3.0,
-        wasteType: 'Paper',
-      ),
-    ];
-
-    // Mock spending transactions from redemptions
-    final mockSpendings = [
-      RewardTransaction(
-        id: '4',
-        type: TransactionType.spending,
-        points: -100,
-        description: 'Starbucks Voucher',
-        date: DateTime.now().subtract(const Duration(days: 2)),
-        relatedRedemptionId: 'redemption_1',
-        pinCode: '123456',
-      ),
-      RewardTransaction(
-        id: '5',
-        type: TransactionType.spending,
-        points: -200,
-        description: 'Eco-Friendly Tote Bag',
-        date: DateTime.now().subtract(const Duration(days: 7)),
-        relatedRedemptionId: 'redemption_2',
-        pinCode: '789012',
-      ),
-    ];
-
-    // Combine all transactions
-    allTransactions.assignAll([...mockEarnings, ...mockSpendings]);
-    earningTransactions.assignAll(mockEarnings);
-    spendingTransactions.assignAll(mockSpendings);
-
-    // Sort by date (newest first)
-    allTransactions.sort((a, b) => b.date.compareTo(a.date));
-    earningTransactions.sort((a, b) => b.date.compareTo(a.date));
-    spendingTransactions.sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  /// Apply date filter to transactions
-  void applyDateFilter() {
-    final startDate = selectedDateRange.value.start;
-    final endDate = selectedDateRange.value.end.add(const Duration(days: 1)); // Include end date
-
-    filteredAllTransactions.assignAll(
-      allTransactions.where((transaction) =>
-      transaction.date.isAfter(startDate) && transaction.date.isBefore(endDate)
-      ).toList(),
-    );
-
-    filteredEarningTransactions.assignAll(
-      earningTransactions.where((transaction) =>
-      transaction.date.isAfter(startDate) && transaction.date.isBefore(endDate)
-      ).toList(),
-    );
-
-    filteredSpendingTransactions.assignAll(
-      spendingTransactions.where((transaction) =>
-      transaction.date.isAfter(startDate) && transaction.date.isBefore(endDate)
-      ).toList(),
+  /// Subscribe to user points stream
+  void _subscribeToPoints(String userId) {
+    _pointsSubscription?.cancel();
+    _pointsSubscription = userRepository.getUserPointsStream(userId).listen(
+      (points) => currentPoints.value = points,
+      onError: (error) {
+        FLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Failed to load points: $error',
+        );
+      },
     );
   }
 
-  /// Show date range picker
-  Future<void> showCustomDateRangePicker(BuildContext context) async {
-    final DateTimeRange? picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now(),
-      initialDateRange: selectedDateRange.value,
+  /// Subscribe to transactions streams
+  Future<void> _subscribeToTransactions(String userId) async {
+    // Get earning transactions from approved recycling activities
+    _activitiesSubscription?.cancel();
+    _activitiesSubscription =
+        activityRepository.getUserApprovedActivitiesStream(userId).listen(
+      (activities) {
+        allEarningActivities.assignAll(activities);
+        _updateFilteredLists();
+      },
+      onError: (error) {
+        FLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Failed to load activities: $error',
+        );
+      },
     );
 
-    if (picked != null && picked != selectedDateRange.value) {
-      selectedDateRange.value = picked;
-      applyDateFilter();
+    // Get spending transactions from redemptions
+    _redemptionsSubscription?.cancel();
+    _redemptionsSubscription =
+        redemptionRepository.getUserRedemptionsStream(userId).listen(
+      (redemptions) {
+        allSpendingRedemptions.assignAll(redemptions);
+        _updateFilteredLists();
+      },
+      onError: (error) {
+        FLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Failed to load redemptions: $error',
+        );
+      },
+    );
+  }
+
+  /// Update filtered lists based on date range
+  void _updateFilteredLists() {
+    if (selectedDateRange.value == null) return;
+
+    final startDate = selectedDateRange.value!.start;
+    final endDate = selectedDateRange.value!.end.add(const Duration(days: 1));
+
+    // Filter earning activities
+    filteredEarningActivities.assignAll(
+      allEarningActivities
+          .where((activity) =>
+              activity.createdAt.isAfter(startDate) &&
+              activity.createdAt.isBefore(endDate))
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+    );
+
+    // Filter spending redemptions
+    filteredSpendingRedemptions.assignAll(
+      allSpendingRedemptions
+          .where((redemption) =>
+              redemption.createdAt.isAfter(startDate) &&
+              redemption.createdAt.isBefore(endDate))
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+    );
+  }
+
+  /// Apply date filter
+  void applyDateFilter(DateFilterType filterType,
+      {DateTimeRange? customRange}) {
+    selectedFilterType.value = filterType;
+
+    if (filterType == DateFilterType.custom && customRange != null) {
+      selectedDateRange.value = customRange;
+    } else {
+      selectedDateRange.value = filterType.getDateRange();
     }
+
+    _updateFilteredLists();
+  }
+
+  /// Get current tab items
+  List<dynamic> get currentTabItems {
+    switch (tabController.index) {
+      case 0: // All
+        final combined = <Map<String, dynamic>>[];
+
+        for (var activity in filteredEarningActivities) {
+          combined.add({
+            'type': 'earning',
+            'data': activity,
+            'date': activity.createdAt,
+          });
+        }
+
+        for (var redemption in filteredSpendingRedemptions) {
+          combined.add({
+            'type': 'spending',
+            'data': redemption,
+            'date': redemption.createdAt,
+          });
+        }
+
+        combined.sort(
+            (a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
+        return combined;
+
+      case 1: // Earning
+        return filteredEarningActivities;
+
+      case 2: // Spending
+        return filteredSpendingRedemptions;
+
+      default:
+        return [];
+    }
+  }
+
+  /// Get total earning points in selected date range
+  int get totalEarningPoints {
+    return filteredEarningActivities.fold(
+        0, (sum, activity) => sum + activity.pointsEarned);
+  }
+
+  /// Get total spending points in selected date range
+  int get totalSpendingPoints {
+    // Need to fetch reward points for each redemption
+    // This is calculated dynamically when needed
+    return 0; // Will be calculated in UI or separate method
+  }
+
+  /// Get activity details by ID
+  Stream<RecyclingActivity> getActivityStream(String activityId) {
+    return activityRepository.getActivityStream(activityId);
+  }
+
+  /// Get redemption details by ID
+  Stream<RedemptionModel> getRedemptionStream(String redemptionId) {
+    return redemptionRepository.getRedemptionStream(redemptionId);
+  }
+
+  /// Get reward details by ID
+  Stream<RewardModel> getRewardStream(String rewardId) {
+    return rewardRepository.getRewardStream(rewardId);
+  }
+
+  /// Get center by staff ID
+  Future<PartnerRecyclingCenter?> getCenterByStaffId(String staffId) {
+    return centerRepository.getCenterByStaffId(staffId);
+  }
+
+  /// Get center stream
+  Stream<PartnerRecyclingCenter?> getCenterByStaffIdStream(String staffId) {
+    return centerRepository.getCenterByStaffIdStream(staffId);
+  }
+
+  /// Get reward by ID
+  Future<RewardModel> getRewardById(String rewardId) {
+    return rewardRepository.getRewardById(rewardId);
+  }
+
+  /// Show date filter bottom sheet
+  void showDateFilterBottomSheet(BuildContext context) {
+    Get.bottomSheet(
+      _DateFilterBottomSheet(controller: this),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+    );
   }
 
   /// Refresh data
   Future<void> refreshData() async {
     await loadRewardPointsData();
   }
-
-  /// Get total earning points in selected date range
-  int get totalEarningPoints {
-    return filteredEarningTransactions.fold(0, (sum, transaction) => sum + transaction.points);
-  }
-
-  /// Get total spending points in selected date range
-  int get totalSpendingPoints {
-    return filteredSpendingTransactions.fold(0, (sum, transaction) => sum + transaction.points.abs());
-  }
-
-  /// Get transactions for current tab
-  List<RewardTransaction> get currentTabTransactions {
-    switch (tabController.index) {
-      case 0:
-        return filteredAllTransactions;
-      case 1:
-        return filteredEarningTransactions;
-      case 2:
-        return filteredSpendingTransactions;
-      default:
-        return filteredAllTransactions;
-    }
-  }
 }
 
-/// Reward Transaction Model
-class RewardTransaction {
-  final String id;
-  final TransactionType type;
-  final int points;
-  final String description;
-  final DateTime date;
-  final String? relatedActivityId;
-  final String? relatedRedemptionId;
-  final double? weight;
-  final String? wasteType;
-  final String? pinCode;
+/// Date Filter Bottom Sheet Widget
+class _DateFilterBottomSheet extends StatelessWidget {
+  final RewardPointsController controller;
 
-  RewardTransaction({
-    required this.id,
-    required this.type,
-    required this.points,
-    required this.description,
-    required this.date,
-    this.relatedActivityId,
-    this.relatedRedemptionId,
-    this.weight,
-    this.wasteType,
-    this.pinCode,
-  });
+  const _DateFilterBottomSheet({required this.controller});
 
-  bool get isEarning => type == TransactionType.earning;
-  bool get isSpending => type == TransactionType.spending;
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFF1A1F36) : Colors.white,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              'Select Date Range',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Filter options
+          ...DateFilterType.values.map((filterType) {
+            return Obx(() => ListTile(
+                  leading: Icon(
+                    filterType == controller.selectedFilterType.value
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: filterType == controller.selectedFilterType.value
+                        ? FColors.primary
+                        : Colors.grey,
+                  ),
+                  title: Text(filterType.displayName),
+                  onTap: () async {
+                    if (filterType == DateFilterType.custom) {
+                      Get.back();
+                      final picked = await showDateRangePicker(
+                        context: context,
+                        firstDate:
+                            DateTime.now().subtract(const Duration(days: 365)),
+                        lastDate: DateTime.now(),
+                        initialDateRange: controller.selectedDateRange.value,
+                      );
+                      if (picked != null) {
+                        controller.applyDateFilter(filterType,
+                            customRange: picked);
+                      }
+                    } else {
+                      controller.applyDateFilter(filterType);
+                      Get.back();
+                    }
+                  },
+                ));
+          }).toList(),
+        ],
+      ),
+    );
+  }
 }
-
-enum TransactionType { earning, spending }

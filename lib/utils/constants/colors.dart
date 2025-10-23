@@ -9,6 +9,13 @@ class FColors {
   static const Color accent = Color(0xFF80C7AF);
   static const Color darkGreen = Color(0xFF1B5E20);
   static const Color lightGreen = Color(0xFF66BB6A);
+  static const Color transparent = Color(0x00000000);
+
+  // Event Status Colors
+  static const Color upcoming = Color(0xFF2196F3); // Blue for upcoming events
+  static const Color ongoing = Color(0xFFFF9800); // Orange for ongoing events
+  static const Color completed = Color(0xFF4CAF50); // Green for completed events
+  static const Color cancelled = Color(0xFFF44336); // Red for cancelled events
 
   // Gradient Colors
   static const Gradient linearGradient = LinearGradient(
@@ -59,6 +66,31 @@ class FColors {
   static const Color softGrey = Color(0xFFF4F4F4);
   static const Color lightGrey = Color(0xFFF9F9F9);
   static const Color white = Color(0xFFFFFFFF);
+
+  // Leaderboard Colors
+  static const Color leaderboardGold = Color(0xFFFFD700);
+  static const Color leaderboardSilver = Color(0xFFC0C0C0);
+  static const Color leaderboardBronze = Color(0xFFCD7F32);
+  static const Color leaderboardAccent = Color(0xFF4DD4AC);
+
+  // Leaderboard Gradients
+  static const LinearGradient goldGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+  );
+
+  static const LinearGradient silverGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFE8E8E8), Color(0xFFC0C0C0)],
+  );
+
+  static const LinearGradient bronzeGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFE6A57E), Color(0xFFCD7F32)],
+  );
 
   // -------------------- Admin Side Colors --------------------
 

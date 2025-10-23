@@ -5,6 +5,7 @@ import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../controllers/waste_category_guide_controller.dart';
 import '../guideline_detail/waste_category_guide_detail.dart';
 
@@ -18,40 +19,14 @@ class WasteCategoryGuideScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: dark ? FColors.dark : FColors.light,
+      appBar: FAppBar(
+        showBackArrow: true,
+        title: Text(
+          "Waste Guide",
+        ),
+      ),
       body: CustomScrollView(
         slivers: [
-          // Custom App Bar
-          SliverAppBar(
-            expandedHeight: 120,
-            floating: true,
-            pinned: true,
-            backgroundColor: dark ? FColors.dark : FColors.light,
-            elevation: 0,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: EdgeInsets.only(left: 16, bottom: 16),
-              title: Text(
-                'Waste Guide',
-                style: TextStyle(
-                  color: dark ? FColors.white : FColors.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      dark ? FColors.dark : FColors.light,
-                      dark ? FColors.darkGrey : FColors.primaryBackground,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
           // Search Bar
           SliverToBoxAdapter(
             child: Padding(

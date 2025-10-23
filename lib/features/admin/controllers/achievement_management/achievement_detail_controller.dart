@@ -67,7 +67,7 @@ class AchievementDetailsController extends GetxController {
           currentLevel: level,
           progress: _calculateProgressForLevel(level, achievementModel),
           updatedAt: now.subtract(Duration(days: i + (level * 5))),
-          achievement: achievementModel,
+          achievement: achievementModel, userId: '',
         ));
       }
     }

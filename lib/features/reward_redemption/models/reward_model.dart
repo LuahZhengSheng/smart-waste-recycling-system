@@ -62,25 +62,24 @@ class RewardModel {
       'redemptionCount': redemptionCount,
       'createdAt': createdAt.toIso8601String(),
       'status': status,
-      'redemptions': redemptions.map((redemption) => redemption.toJson()).toList(),
     };
   }
 
   /// Factory method to create a RewardModel from a Firebase document snapshot
-  factory RewardModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
-    if (document.data() != null) {
-      final data = document.data()!;
+  factory RewardModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
+    if (doc.data() != null) {
+      final data = doc.data()!;
       return RewardModel(
-        rewardId: document.id,
+        rewardId: doc.id,
         title: data['title'] ?? '',
         description: data['description'] ?? '',
         termsConditions: data['termsConditions'] ?? '',
         rewardImage: data['rewardImage'] ?? '',
         pointsNeeded: data['pointsNeeded'] ?? 0,
         quantity: data['quantity'] ?? 0,
-        validUntil: DateTime.parse(data['validUntil'] ?? DateTime.now().toIso8601String()),
+        validUntil: (data['validUntil'] as Timestamp?)?.toDate() ?? DateTime.now(),
         redemptionCount: data['redemptionCount'] ?? 0,
-        createdAt: DateTime.parse(data['createdAt'] ?? DateTime.now().toIso8601String()),
+        createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         status: data['status'] ?? 'active',
         redemptions: (data['redemptions'] as List<dynamic>?)
             ?.map((redemptionData) => RedemptionModel.fromJson(redemptionData))

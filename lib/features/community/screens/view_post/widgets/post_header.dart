@@ -5,6 +5,9 @@ import 'package:fyp/utils/constants/sizes.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 
+import '../../create_post/create_post.dart';
+import '../../my_post/my_post.dart';
+
 class FPostsHeader extends StatelessWidget {
   const FPostsHeader({super.key});
 
@@ -16,18 +19,38 @@ class FPostsHeader extends StatelessWidget {
       padding: const EdgeInsets.all(FSizes.md),
       child: Column(
         children: [
+          FCustomButton(
+            text: 'My Post',
+            backgroundColor: const Color(0xFF4CAF50),
+            textColor: Colors.white,
+            onPressed: () {
+              Get.to(() => const MyPostsScreen());
+            },
+          ),
+          const SizedBox(height: FSizes.spaceBtwItems),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              FCustomButton(
-                text: 'My Post',
-                backgroundColor: const Color(0xFF4CAF50),
-                textColor: Colors.white,
-                onPressed: () {
-                  Get.to(() => const MyPostsScreen());
-                },
+              Container(
+                padding: const EdgeInsets.all(FSizes.md),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    Get.to(() => const CreatePostScreen());
+                  },
+                  child: Text(
+                    "What's on your mind?",
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ),
               ),
+
               const SizedBox(width: FSizes.spaceBtwItems),
+
               // Filter icon button
               IconButton(
                 onPressed: () => _showFilterBottomSheet(context),
@@ -39,26 +62,6 @@ class FPostsHeader extends StatelessWidget {
                 )),
               ),
             ],
-          ),
-          const SizedBox(height: FSizes.spaceBtwItems),
-          Container(
-            width: double.infinity, // Take full width
-            padding: const EdgeInsets.all(FSizes.md),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
-            ),
-            child: GestureDetector(
-              onTap: () {
-                Get.to(() => const CreatePostScreen());
-              },
-              child: Text(
-                "What's on your mind?",
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-            ),
           ),
         ],
       ),

@@ -48,7 +48,7 @@
 //             child: ListView.builder(
 //               itemCount: posts.length,
 //               itemBuilder: (context, index) {
-//                 return PostCard(post: posts[index]);
+//                 return PostCard(community: posts[index]);
 //               },
 //             ),
 //           ),
@@ -66,7 +66,7 @@
 //   Widget build(BuildContext context) {
 //     return TextField(
 //       decoration: InputDecoration(
-//         hintText: 'Search or create a post...',
+//         hintText: 'Search or create a community...',
 //         hintStyle: const TextStyle(color: Colors.white70),
 //         prefixIcon: const Icon(Icons.search, color: Colors.white70),
 //         filled: true,

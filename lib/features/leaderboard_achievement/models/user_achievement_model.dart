@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fyp/features/leaderboard_achievement/models/achievement_model.dart';
+import 'achievement_model.dart';
 
 class UserAchievementModel {
   final String userAchievementId;
+  final String userId;
   final int currentLevel;
   final int progress;
   final DateTime updatedAt;
@@ -10,45 +11,71 @@ class UserAchievementModel {
 
   UserAchievementModel({
     required this.userAchievementId,
+    required this.userId,
     required this.currentLevel,
     required this.progress,
     required this.updatedAt,
     required this.achievement,
   });
 
-  /// Create from Firestore / JSON Map
-  factory UserAchievementModel.fromMap(Map<String, dynamic> map) {
+  /// Empty UserAchievement
+  static UserAchievementModel empty() {
     return UserAchievementModel(
-      userAchievementId: map['userAchievementId'] ?? '',
-      currentLevel: map['currentLevel'] ?? 0,
-      progress: map['progress'] ?? 0,
-      updatedAt: (map['updatedAt'] is Timestamp)
-          ? (map['updatedAt'] as Timestamp).toDate()
-          : DateTime.tryParse(map['updatedAt']?.toString() ?? '') ?? DateTime.now(),
-      achievement: AchievementModel.fromMap(
-          Map<String, dynamic>.from(map['achievement'] ?? {})),
+      userAchievementId: '',
+      userId: '',
+      currentLevel: 0,
+      progress: 0,
+      updatedAt: DateTime(0),
+      achievement: AchievementModel.empty(),
     );
   }
 
-  /// Convert to Map for Firestore / JSON
-  Map<String, dynamic> toMap() {
+  /// To JSON
+  Map<String, dynamic> toJson() {
     return {
       'userAchievementId': userAchievementId,
+      'userId': userId,
       'currentLevel': currentLevel,
       'progress': progress,
       'updatedAt': Timestamp.fromDate(updatedAt),
-      'achievement': achievement.toMap(),
+      'achievement': achievement.toJson(),
     };
   }
 
+  /// From Snapshot
+  factory UserAchievementModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
+    final data = document.data();
+    if (data == null) return UserAchievementModel.empty();
+
+    // 将 Timestamp 转换为 DateTime
+    Timestamp getTimestamp(String fieldName) => data[fieldName] ?? Timestamp.fromDate(DateTime(0));
+
+    // 处理 achievement 对象
+    Map<String, dynamic> achievementData = data['achievement'] ?? {};
+    AchievementModel achievementModel = AchievementModel.fromMap(achievementData);
+
+    return UserAchievementModel(
+      userAchievementId: document.id, // 从文档ID获取
+      userId: data['userId'] ?? '',
+      currentLevel: data['currentLevel'] ?? 0,
+      progress: data['progress'] ?? 0,
+      updatedAt: getTimestamp('updatedAt').toDate(),
+      achievement: achievementModel,
+    );
+  }
+
+  /// CopyWith method for easy updates
   UserAchievementModel copyWith({
+    String? userAchievementId,
+    String? userId,
     int? currentLevel,
     int? progress,
     DateTime? updatedAt,
     AchievementModel? achievement,
   }) {
     return UserAchievementModel(
-      userAchievementId: userAchievementId,
+      userAchievementId: userAchievementId ?? this.userAchievementId,
+      userId: userId ?? this.userId,
       currentLevel: currentLevel ?? this.currentLevel,
       progress: progress ?? this.progress,
       updatedAt: updatedAt ?? this.updatedAt,

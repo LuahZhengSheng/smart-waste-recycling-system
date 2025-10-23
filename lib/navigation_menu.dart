@@ -9,6 +9,9 @@ import 'package:fyp/utils/helpers/helper_functions.dart';
 
 import 'data/repositories/authentication/authentication_repository.dart';
 import 'features/event/screens/event/event.dart';
+import 'features/event/screens/test_reminder.dart';
+import 'features/personalization/screens/profile/profile.dart';
+import 'features/waste_classification/screens/scan_sort_camera/scan_sort_camera.dart';
 import 'features/waste_classification/screens/waste_category_guideline/waste_category_guide.dart';
 
 class NavigationMenu extends StatelessWidget {
@@ -25,31 +28,77 @@ class NavigationMenu extends StatelessWidget {
     return Scaffold(
       bottomNavigationBar: Obx(
         // Reactive widgets that rebuilds when selectedIndex changes
-        () => NavigationBar(
+            () => NavigationBar(
           height: 70, // Navigation bar height
           elevation: 0, // No shadow
           selectedIndex: controller.selectedIndex.value, // Current active tab
           onDestinationSelected: (index) =>
-              controller.selectedIndex.value = index, // Change active tab
+          controller.selectedIndex.value = index, // Change active tab
           backgroundColor:
-              dark ? FColors.black : FColors.white, // Background color
+          dark ? FColors.black : FColors.white, // Background color
           indicatorColor:
-              Colors.transparent, // No highlight background on selection
+          Colors.transparent, // No highlight background on selection
+          // 添加选中状态的颜色配置
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow, // 始终显示标签
+          // 设置标签文字样式
+          labelTextStyle: MaterialStateProperty.resolveWith((states) {
+            if (states.contains(MaterialState.selected)) {
+              return TextStyle(
+                color: FColors.primary, // 选中时青色
+                fontWeight: FontWeight.w600,
+              );
+            }
+            return TextStyle(
+              color: FColors.darkGrey, // 未选中时灰色
+              fontWeight: FontWeight.normal,
+            );
+          }),
           destinations: [
-            const NavigationDestination(icon: Icon(Iconsax.home), label: 'Home'),
-            const NavigationDestination(icon: Icon(Iconsax.calendar), label: 'Event'),
-            const NavigationDestination(
-                icon: Icon(Iconsax.repeat), label: 'Scan & Sort'),
-            const NavigationDestination(
-                icon: Icon(Iconsax.people), label: 'Community'),
-            const NavigationDestination(icon: Icon(Iconsax.user), label: 'Profile'),
-            // NavigationDestination(
-            //   icon: IconButton(
-            //     onPressed: () => AuthenticationRepository.instance.logout(),
-            //     icon: const Icon(Iconsax.logout),
-            //   ),
-            //   label: 'Logout',
-            // ),
+            NavigationDestination(
+              icon: Icon(Iconsax.home,
+                color: controller.selectedIndex.value == 0
+                    ? FColors.primary // 选中时青色
+                    : FColors.darkGrey, // 未选中时灰色
+              ),
+              label: 'Home',
+              selectedIcon: Icon(Iconsax.home, color: FColors.primary), // 选中时的图标
+            ),
+            NavigationDestination(
+              icon: Icon(Iconsax.calendar,
+                color: controller.selectedIndex.value == 1
+                    ? FColors.primary // 选中时青色
+                    : FColors.darkGrey, // 未选中时灰色
+              ),
+              label: 'Event',
+              selectedIcon: Icon(Iconsax.calendar, color: FColors.primary), // 选中时的图标
+            ),
+            NavigationDestination(
+              icon: Icon(Iconsax.repeat,
+                color: controller.selectedIndex.value == 2
+                    ? FColors.primary // 选中时青色
+                    : FColors.darkGrey, // 未选中时灰色
+              ),
+              label: 'Scan & Sort',
+              selectedIcon: Icon(Iconsax.repeat, color: FColors.primary), // 选中时的图标
+            ),
+            NavigationDestination(
+              icon: Icon(Iconsax.people,
+                color: controller.selectedIndex.value == 3
+                    ? FColors.primary // 选中时青色
+                    : FColors.darkGrey, // 未选中时灰色
+              ),
+              label: 'Community',
+              selectedIcon: Icon(Iconsax.people, color: FColors.primary), // 选中时的图标
+            ),
+            NavigationDestination(
+              icon: Icon(Iconsax.user,
+                color: controller.selectedIndex.value == 4
+                    ? FColors.primary // 选中时青色
+                    : FColors.darkGrey, // 未选中时灰色
+              ),
+              label: 'Profile',
+              selectedIcon: Icon(Iconsax.user, color: FColors.primary), // 选中时的图标
+            ),
           ],
         ),
       ),
@@ -67,20 +116,10 @@ class NavigationController extends GetxController {
   final screens = [
     const HomeScreen(),
     const EventsScreen(),
-    const WasteCategoryGuideScreen(),
+    ScanSortCameraScreen(),
+    // NotificationTestScreen(),
+    // const WasteCategoryGuideScreen(),
     const PostsScreen(),
-    const RecycleHistoryScreen(),
-    // const EventsScreen(),       // Events page
-    // const ScanSortScreen(),     // Scan & Sort page
-    // const PostListScreen(),     // Community page
-    // const ProfileScreen(),      // Profile page
+    const ProfileScreen(),
   ];
 }
-
-// NavigationDestination(
-// icon: IconButton(
-// onPressed: () => AuthenticationRepository.instance.logout(),
-// icon: const Icon(Iconsax.logout),
-// ),
-// label: 'Logout',
-// ),

@@ -35,6 +35,7 @@ class Comment {
   /// Convert to Firestore JSON (without replies)
   Map<String, dynamic> toJson() {
     return {
+      'commentId': commentId,
       'userId': userId,
       'content': content,
       'likes': likes,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fyp/features/event/screens/event/widgets/event_card.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
 import '../../../../utils/helpers/helper_functions.dart';
@@ -19,487 +20,421 @@ class EventsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: dark ? FColors.dark : FColors.light,
-      appBar: AppBar(
-        backgroundColor: dark ? FColors.dark : FColors.light,
-        elevation: 0,
-        title: Text(
-          'Events',
-          style: Theme
-              .of(context)
-              .textTheme
-              .headlineMedium
-              ?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: dark ? FColors.white : FColors.textPrimary,
-          ),
-        ),
-        actions: [
-          // My Events Button
-          TextButton.icon(
-            onPressed: () => Get.to(() => const MyEventsScreen()),
-            icon: Icon(
-              Iconsax.calendar_1,
-              size: FSizes.iconSm,
-              color: FColors.primary,
-            ),
-            label: Text(
-              'My Events',
-              style: TextStyle(
-                color: FColors.primary,
-                fontWeight: FontWeight.w600,
+      appBar: FAppBar(
+        title: Text('Events'),
+        centerTitle: false,
+        showBackArrow: false,
+        titleIcon: Iconsax.calendar_2,
+        actionButtonText: 'My Events',
+        actionButtonIcon: Iconsax.calendar_1,
+        onActionButtonPressed: () => Get.to(() => const MyEventsScreen()),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Tab Bar with Pills Design
+            Container(
+              color: dark ? FColors.dark : FColors.white,
+              padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace, vertical: 12),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TabBar(
+                  controller: controller.tabController,
+                  labelColor: FColors.white,
+                  unselectedLabelColor: dark ? FColors.darkGrey : FColors.textSecondary,
+                  indicator: BoxDecoration(
+                    color: FColors.primary,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: FColors.primary.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                  tabs: const [
+                    Tab(text: 'All'),
+                    Tab(text: 'Open'),
+                    Tab(text: 'Full'),
+                    Tab(text: 'Closed'),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: FSizes.sm),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Search and Filter Section
-          Container(
-            padding: const EdgeInsets.all(FSizes.defaultSpace),
-            child: Column(
-              children: [
-                // Search Bar
-                Container(
-                  decoration: BoxDecoration(
-                    color: dark ? FColors.darkContainer : FColors.white,
-                    borderRadius: BorderRadius.circular(
-                        FSizes.inputFieldRadius),
-                    border: Border.all(
-                      color: dark ? FColors.darkGrey : FColors.borderPrimary,
-                    ),
-                  ),
-                  child: TextField(
-                    controller: controller.searchController,
-                    onChanged: controller.updateSearchQuery,
-                    decoration: InputDecoration(
-                      hintText: 'Search events...',
-                      prefixIcon: Icon(
-                        Iconsax.search_normal,
-                        color: dark ? FColors.darkGrey : FColors.textSecondary,
+
+            // Search Bar and Time Filter
+            Container(
+              padding: const EdgeInsets.fromLTRB(FSizes.defaultSpace, 8, FSizes.defaultSpace, 8),
+              color: dark ? FColors.dark : FColors.white,
+              child: Row(
+                children: [
+                  // Search Bar
+                  Expanded(
+                    child: Container(
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      suffixIcon: Obx(() =>
-                      controller.searchQuery.value.isNotEmpty
-                          ? IconButton(
-                        icon: Icon(
-                          Iconsax.close_circle,
-                          color: dark ? FColors.darkGrey : FColors
-                              .textSecondary,
+                      child: TextField(
+                        controller: controller.searchController,
+                        onChanged: controller.updateSearchQuery,
+                        decoration: InputDecoration(
+                          hintText: "Search events...",
+                          hintStyle: TextStyle(
+                            color: dark ? FColors.darkGrey : FColors.textSecondary,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: Icon(
+                            Iconsax.search_normal_1,
+                            color: dark ? FColors.darkGrey : FColors.textSecondary,
+                            size: 20,
+                          ),
+                          suffixIcon: Obx(() => controller.searchQuery.value.isNotEmpty
+                              ? IconButton(
+                            icon: Icon(
+                              Iconsax.close_circle,
+                              color: dark ? FColors.darkGrey : FColors.textSecondary,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              controller.searchController.clear();
+                              controller.updateSearchQuery('');
+                            },
+                          )
+                              : const SizedBox()),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: FSizes.md,
+                            vertical: FSizes.md,
+                          ),
                         ),
-                        onPressed: () {
-                          controller.searchController.clear();
-                          controller.updateSearchQuery('');
-                        },
-                      )
-                          : const SizedBox()),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: FSizes.md,
-                        vertical: FSizes.md,
+                        style: TextStyle(
+                          color: dark ? FColors.white : FColors.black,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
 
-                const SizedBox(height: FSizes.md),
-
-                // Filter Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      // Status Filter
-                      Obx(() =>
-                          _buildFilterChip(
-                            context,
-                            'All',
-                            controller.selectedStatus.value == 'All',
-                                () => controller.updateStatusFilter('All'),
-                          )),
-                      const SizedBox(width: FSizes.sm),
-                      Obx(() =>
-                          _buildFilterChip(
-                            context,
-                            'Open',
-                            controller.selectedStatus.value == 'Open',
-                                () => controller.updateStatusFilter('Open'),
-                          )),
-                      const SizedBox(width: FSizes.sm),
-                      Obx(() =>
-                          _buildFilterChip(
-                            context,
-                            'Full',
-                            controller.selectedStatus.value == 'Full',
-                                () => controller.updateStatusFilter('Full'),
-                          )),
-                      const SizedBox(width: FSizes.sm),
-                      Obx(() =>
-                          _buildFilterChip(
-                            context,
-                            'Closed',
-                            controller.selectedStatus.value == 'Closed',
-                                () => controller.updateStatusFilter('Closed'),
-                          )),
-                      const SizedBox(width: FSizes.sm),
-
-                      // Date Filter
-                      GestureDetector(
-                        onTap: () => _showDatePicker(context, controller),
-                        child: Obx(() =>
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: FSizes.md,
-                                vertical: FSizes.sm,
-                              ),
-                              decoration: BoxDecoration(
-                                color: controller.selectedDate.value != null
+                  // Time Filter Dropdown
+                  Obx(() {
+                    final isFiltered = controller.selectedTimeFilter.value != 'All Time';
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _showTimeFilterBottomSheet(context, controller, dark),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          height: 50,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: isFiltered
+                                ? FColors.primary.withOpacity(0.1)
+                                : (dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1)),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isFiltered
+                                  ? FColors.primary
+                                  : (dark ? FColors.darkGrey.withOpacity(0.3) : FColors.grey.withOpacity(0.2)),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _getTimeFilterIcon(controller.selectedTimeFilter.value),
+                                color: isFiltered
                                     ? FColors.primary
-                                    : (dark ? FColors.darkContainer : FColors
-                                    .white),
-                                borderRadius: BorderRadius.circular(
-                                    FSizes.borderRadiusLg),
-                                border: Border.all(
-                                  color: controller.selectedDate.value != null
+                                    : (dark ? FColors.darkGrey : FColors.textSecondary),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                controller.selectedTimeFilter.value,
+                                style: TextStyle(
+                                  color: isFiltered
                                       ? FColors.primary
-                                      : (dark ? FColors.darkGrey : FColors
-                                      .borderPrimary),
+                                      : (dark ? FColors.white : FColors.black),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Iconsax.calendar,
-                                    size: FSizes.iconSm,
-                                    color: controller.selectedDate.value != null
-                                        ? FColors.white
-                                        : (dark ? FColors.darkGrey : FColors
-                                        .textSecondary),
-                                  ),
-                                  const SizedBox(width: FSizes.xs),
-                                  Text(
-                                    controller.selectedDate.value != null
-                                        ? '${controller.selectedDate.value!
-                                        .day}/${controller.selectedDate.value!
-                                        .month}'
-                                        : 'Date',
-                                    style: TextStyle(
-                                      color: controller.selectedDate.value !=
-                                          null
-                                          ? FColors.white
-                                          : (dark ? FColors.darkGrey : FColors
-                                          .textSecondary),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 4),
+                              Icon(
+                                Iconsax.arrow_down_1,
+                                color: isFiltered
+                                    ? FColors.primary
+                                    : (dark ? FColors.darkGrey : FColors.textSecondary),
+                                size: 16,
                               ),
-                            )),
-                      ),
-
-                      const SizedBox(width: FSizes.sm),
-
-                      // Clear Filters
-                      Obx(() =>
-                      (controller.searchQuery.value.isNotEmpty ||
-                          controller.selectedStatus.value != 'All' ||
-                          controller.selectedDate.value != null)
-                          ? GestureDetector(
-                        onTap: controller.clearFilters,
-                        child: Container(
-                          padding: const EdgeInsets.all(FSizes.sm),
-                          decoration: BoxDecoration(
-                            color: FColors.error.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(
-                                FSizes.borderRadiusLg),
-                          ),
-                          child: Icon(
-                            Iconsax.refresh,
-                            size: FSizes.iconSm,
-                            color: FColors.error,
+                            ],
                           ),
                         ),
-                      )
-                          : const SizedBox()),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Events List
-          Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value) {
-                return const Center(
-                  child: CircularProgressIndicator(color: FColors.primary),
-                );
-              }
-
-              if (controller.filteredEvents.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Iconsax.calendar_remove,
-                        size: 64,
-                        color: dark ? FColors.darkGrey : FColors.textSecondary,
                       ),
-                      const SizedBox(height: FSizes.md),
-                      Text(
-                        'No events found',
-                        style: Theme
-                            .of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                          color: dark ? FColors.darkGrey : FColors
-                              .textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: FSizes.sm),
-                      Text(
-                        'Try adjusting your search or filters',
-                        style: Theme
-                            .of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                          color: dark ? FColors.darkGrey : FColors
-                              .textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return RefreshIndicator(
-                color: FColors.primary,
-                onRefresh: controller.loadEvents,
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(FSizes.defaultSpace),
-                  itemCount: controller.filteredEvents.length,
-                  itemBuilder: (context, index) {
-                    final event = controller.filteredEvents[index];
-                    return EventCard(
-                      event: event,
-                      onTap: () =>
-                          Get.to(() => EventDetailsScreen(event: event)),
                     );
-                  },
-                ),
-              );
-            }),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Build filter chip widget
-  Widget _buildFilterChip(BuildContext context,
-      String label,
-      bool isSelected,
-      VoidCallback onTap,) {
-    final dark = FHelperFunctions.isDarkMode(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: FSizes.md,
-          vertical: FSizes.sm,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? FColors.primary
-              : (dark ? FColors.darkContainer : FColors.white),
-          borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
-          border: Border.all(
-            color: isSelected
-                ? FColors.primary
-                : (dark ? FColors.darkGrey : FColors.borderPrimary),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected
-                ? FColors.white
-                : (dark ? FColors.darkGrey : FColors.textSecondary),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Show date picker
-  Future<void> _showDatePicker(BuildContext context,
-      EventController controller) async {
-    final selectedDate = await showDatePicker(
-      context: context,
-      initialDate: controller.selectedDate.value ?? DateTime.now(),
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        final dark = FHelperFunctions.isDarkMode(context);
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: FColors.primary,
-              onPrimary: FColors.white,
-              surface: dark ? FColors.darkContainer : FColors.white,
-              onSurface: dark ? FColors.white : FColors.textPrimary,
+                  }),
+                ],
+              ),
             ),
-          ),
-          child: child!,
-        );
-      },
-    );
 
-    if (selectedDate != null) {
-      controller.updateDateFilter(selectedDate);
+            // Divider
+            Container(
+              height: 8,
+              color: dark ? FColors.black : FColors.grey.withOpacity(0.05),
+            ),
+
+            // Events List
+            Expanded(
+              child: TabBarView(
+                controller: controller.tabController,
+                children: List.generate(4, (index) {
+                  return RefreshIndicator(
+                    color: FColors.primary,
+                    onRefresh: controller.refreshEvents,
+                    child: Obx(() {
+                      if (controller.isLoading.value) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: FColors.primary),
+                        );
+                      }
+
+                      if (controller.filteredEvents.isEmpty) {
+                        return _buildEmptyState(context, dark);
+                      }
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: FSizes.defaultSpace,
+                          vertical: 12,
+                        ),
+                        itemCount: controller.filteredEvents.length,
+                        itemBuilder: (context, index) {
+                          final event = controller.filteredEvents[index];
+                          return EventCard(
+                            event: event,
+                            onTap: () => Get.to(() => EventDetailsScreen(event: event)),
+                          );
+                        },
+                      );
+                    }),
+                  );
+                }),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _getTimeFilterIcon(String filter) {
+    switch (filter) {
+      case 'Today':
+        return Iconsax.sun_1;
+      case 'This Week':
+        return Iconsax.calendar_1;
+      case 'This Month':
+        return Iconsax.calendar;
+      case 'This Year':
+        return Iconsax.calendar_2;
+      default:
+        return Iconsax.clock;
     }
   }
 
-  /// Show My Events bottom sheet
-  void _showMyEventsBottomSheet(BuildContext context,
-      EventController controller) {
-    final dark = FHelperFunctions.isDarkMode(context);
-    final userEvents = controller.getUserEvents();
-
+  void _showTimeFilterBottomSheet(BuildContext context, EventController controller, bool dark) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) =>
-          Container(
-            height: MediaQuery
-                .of(context)
-                .size
-                .height * 0.7,
-            decoration: BoxDecoration(
-              color: dark ? FColors.dark : FColors.white,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(FSizes.cardRadiusLg),
-                topRight: Radius.circular(FSizes.cardRadiusLg),
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: dark ? FColors.darkerGrey : FColors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: dark ? FColors.darkGrey : FColors.grey,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Title
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Iconsax.filter,
+                      color: FColors.primary,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Filter by Time',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: dark ? FColors.white : FColors.black,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Filter Options
+              Obx(() => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTimeFilterOption('All Time', controller, dark, context),
+                  _buildTimeFilterOption('Today', controller, dark, context),
+                  _buildTimeFilterOption('This Week', controller, dark, context),
+                  _buildTimeFilterOption('This Month', controller, dark, context),
+                  _buildTimeFilterOption('This Year', controller, dark, context),
+                ],
+              )),
+
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimeFilterOption(String filter, EventController controller, bool dark, BuildContext context) {
+    final isSelected = controller.selectedTimeFilter.value == filter;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          controller.setTimeFilter(filter);
+          Navigator.pop(context);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: FSizes.defaultSpace,
+            vertical: 16,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? FColors.primary.withOpacity(0.1)
+                : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? FColors.primary.withOpacity(0.2)
+                      : (dark ? FColors.darkGrey.withOpacity(0.2) : FColors.grey.withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  _getTimeFilterIcon(filter),
+                  color: isSelected
+                      ? FColors.primary
+                      : (dark ? FColors.darkGrey : FColors.textSecondary),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  filter,
+                  style: TextStyle(
+                    color: isSelected
+                        ? FColors.primary
+                        : (dark ? FColors.white : FColors.black),
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                const Icon(
+                  Iconsax.tick_circle5,
+                  color: FColors.primary,
+                  size: 24,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context, bool dark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(FSizes.defaultSpace * 2),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: FColors.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Iconsax.calendar_remove,
+                size: 64,
+                color: FColors.primary.withOpacity(0.5),
               ),
             ),
-            child: Column(
-              children: [
-                // Handle
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.symmetric(vertical: FSizes.md),
-                  decoration: BoxDecoration(
-                    color: dark ? FColors.darkGrey : FColors.grey,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-
-                // Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () => Get.to(() => const MyEventsScreen()),
-                        icon: Icon(
-                          Iconsax.calendar_1,
-                          size: FSizes.iconSm,
-                          color: FColors.primary,
-                        ),
-                        label: Text(
-                          'My Events',
-                          style: Theme
-                              .of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: dark ? FColors.white : FColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: Icon(
-                          Iconsax.close_circle,
-                          color: dark ? FColors.darkGrey : FColors
-                              .textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const Divider(),
-
-                // Events List
-                Expanded(
-                  child: userEvents.isEmpty
-                      ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Iconsax.calendar_remove,
-                          size: 64,
-                          color: dark ? FColors.darkGrey : FColors
-                              .textSecondary,
-                        ),
-                        const SizedBox(height: FSizes.md),
-                        Text(
-                          'No registered events',
-                          style: Theme
-                              .of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                            color: dark ? FColors.darkGrey : FColors
-                                .textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: FSizes.sm),
-                        Text(
-                          'Register for events to see them here',
-                          style: Theme
-                              .of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(
-                            color: dark ? FColors.darkGrey : FColors
-                                .textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                      : ListView.builder(
-                    padding: const EdgeInsets.all(FSizes.defaultSpace),
-                    itemCount: userEvents.length,
-                    itemBuilder: (context, index) {
-                      final event = userEvents[index];
-                      return EventCard(
-                        event: event,
-                        onTap: () {
-                          Navigator.pop(context);
-                          Get.to(() => EventDetailsScreen(event: event));
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
+            const SizedBox(height: FSizes.spaceBtwItems),
+            Text(
+              'No events found',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: dark ? FColors.white : FColors.black,
+              ),
             ),
-          ),
+            const SizedBox(height: FSizes.sm),
+            Text(
+              'Try adjusting your filters or check back later!',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: dark ? FColors.darkGrey : FColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

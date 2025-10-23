@@ -61,7 +61,6 @@ class UserController extends GetxController {
           joinDate: DateTime.now(),
           loginAttemptCount: 0,
           notifications: [],
-          userAchievements: [],
           rewardPoint: 0,
           role: 'user',
         );

@@ -7,6 +7,8 @@ import 'package:fyp/firebase_options.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
+import 'data/services/notification/fcm_service.dart';
+
 void mainApp() async {
   /// Widgets Binding
   final WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +23,9 @@ void mainApp() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform).then(
         (FirebaseApp value) => Get.put(AuthenticationRepository()),
   );
+
+  /// -- Initialize FCM Service for push notifications
+  await FCMService().initialize();
 
   // Load all the Material Design / Themes / Localizations / Bindings
   runApp(const App());

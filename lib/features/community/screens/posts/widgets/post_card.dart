@@ -4,13 +4,13 @@
 // import 'package:get/get.dart';
 //
 // class PostCard extends StatelessWidget {
-//   final Post post;
-//   const PostCard({super.key, required this.post});
+//   final Post community;
+//   const PostCard({super.key, required this.community});
 //
 //   @override
 //   Widget build(BuildContext context) {
 //     return GestureDetector(
-//       onTap: () => Get.to(PostDetailScreen(post: post)),
+//       onTap: () => Get.to(PostDetailScreen(community: community)),
 //       child: Card(
 //         color: Colors.grey[900],
 //         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -24,10 +24,10 @@
 //                 crossAxisAlignment: CrossAxisAlignment.start,
 //                 children: [
 //                   /// **如果有图片，显示缩略图**
-//                   // if (post.imageUrl!.isNotEmpty)
+//                   // if (community.imageUrl!.isNotEmpty)
 //                   //   ClipRRect(
 //                   //     borderRadius: BorderRadius.circular(8),
-//                   //     child: Image.network(post.imageUrl!, width: 50, height: 50, fit: BoxFit.cover),
+//                   //     child: Image.network(community.imageUrl!, width: 50, height: 50, fit: BoxFit.cover),
 //                   //   ),
 //                   const SizedBox(width: 10),
 //                   Expanded(
@@ -36,14 +36,14 @@
 //                       children: [
 //                         /// **标题自动换行**
 //                         Text(
-//                           post.title,
+//                           community.title,
 //                           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
 //                           softWrap: true,
 //                         ),
 //                         const SizedBox(height: 4),
 //                         /// **描述（最多 2 行）**
 //                         Text(
-//                           post.caption,
+//                           community.caption,
 //                           style: const TextStyle(color: Colors.white70, fontSize: 14),
 //                           maxLines: 2,
 //                           overflow: TextOverflow.ellipsis,
@@ -62,15 +62,15 @@
 //                     children: [
 //                       const Icon(Icons.star, color: Colors.yellow, size: 16),
 //                       const SizedBox(width: 5),
-//                       Text('${post.likes}', style: const TextStyle(color: Colors.white70)),
+//                       Text('${community.likes}', style: const TextStyle(color: Colors.white70)),
 //                       const SizedBox(width: 10),
 //                       const Icon(Icons.comment, color: Colors.white70, size: 16),
 //                       const SizedBox(width: 5),
-//                       Text('${post.comments}', style: const TextStyle(color: Colors.white70)),
+//                       Text('${community.comments}', style: const TextStyle(color: Colors.white70)),
 //                     ],
 //                   ),
 //                   /// **时间**
-//                   Text(post.timeAgo, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+//                   Text(community.timeAgo, style: const TextStyle(color: Colors.white70, fontSize: 12)),
 //                 ],
 //               ),
 //             ],

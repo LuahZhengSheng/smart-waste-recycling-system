@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../models/event_model.dart';
 import '../../../../../utils/constants/colors.dart';
-import '../../../../../utils/constants/sizes.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
-import '../../../../../utils/formatters/formatter.dart';
 
 class EventCard extends StatelessWidget {
   const EventCard({
@@ -24,94 +21,212 @@ class EventCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: FSizes.spaceBtwItems),
-        padding: const EdgeInsets.all(FSizes.md),
+        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: dark ? FColors.darkContainer : FColors.white,
-          borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: dark ? FColors.darkGrey : FColors.borderPrimary,
+            color: dark ? FColors.darkGrey.withOpacity(0.3) : FColors.grey.withOpacity(0.2),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
               color: dark
-                  ? Colors.black.withOpacity(0.1)
-                  : Colors.grey.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+                  ? Colors.black.withOpacity(0.2)
+                  : Colors.grey.withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Event Image
+            // Event Header with Image/Icon
             Container(
-              width: 80,
-              height: 80,
+              height: 140,
+              width: double.infinity,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
                 color: _getEventColor(event.title),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    _getEventColor(event.title),
+                    _getEventColor(event.title).withOpacity(0.7),
+                  ],
+                ),
               ),
-              child: _buildEventIcon(event.title),
-            ),
-
-            const SizedBox(width: FSizes.md),
-
-            // Event Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  // Date and Time
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: FSizes.sm,
-                      vertical: 2,
+                  // Event Icon
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: Opacity(
+                      opacity: 0.4,
+                      child: _buildEventIcon(event.title, size: 64),
                     ),
-                    decoration: BoxDecoration(
-                      color: FColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(FSizes.borderRadiusSm),
-                    ),
-                    child: Text(
-                      _formatEventDateTime(),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: FColors.primary,
-                        fontWeight: FontWeight.w600,
+                  ),
+
+                  // Status Badge
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor().withOpacity(0.95),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _getStatusColor().withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _getStatusIcon(),
+                            size: 12,
+                            color: FColors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _getStatusText(),
+                            style: const TextStyle(
+                              color: FColors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: FSizes.xs),
+                  // Date Badge
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.95),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Iconsax.calendar_1,
+                            size: 12,
+                            color: _getEventIconColor(event.title),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _formatEventDate(),
+                            style: TextStyle(
+                              color: _getEventIconColor(event.title),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
+            // Event Details
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   // Event Title
                   Text(
                     event.title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.bold,
                       color: dark ? FColors.white : FColors.textPrimary,
+                      height: 1.3,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
 
-                  const SizedBox(height: FSizes.xs / 2),
+                  const SizedBox(height: 12),
+
+                  // Time
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: FColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Iconsax.clock,
+                          size: 14,
+                          color: FColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${_formatTime(event.startDateTime)} - ${_formatTime(event.endDateTime)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: dark ? FColors.darkGrey : FColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 8),
 
                   // Location
                   Row(
                     children: [
-                      Icon(
-                        Iconsax.location,
-                        size: FSizes.iconSm,
-                        color: dark ? FColors.darkGrey : FColors.textSecondary,
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: FColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Iconsax.location,
+                          size: 14,
+                          color: FColors.primary,
+                        ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          event.location.shortAddress,
+                          event.location.shortAddress.isNotEmpty
+                              ? event.location.shortAddress
+                              : 'Event Location',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: dark ? FColors.darkGrey : FColors.textSecondary,
+                            fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -120,48 +235,59 @@ class EventCard extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: FSizes.xs),
+                  const SizedBox(height: 12),
 
-                  // Status and Participants
+                  // Participants Progress
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Status Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: FSizes.sm,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor().withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(FSizes.borderRadiusSm),
-                        ),
-                        child: Text(
-                          _getStatusText(),
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: _getStatusColor(),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-
-                      // Participants Count
-                      Row(
-                        children: [
-                          Icon(
-                            Iconsax.people,
-                            size: FSizes.iconSm,
-                            color: dark ? FColors.darkGrey : FColors.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${event.registeredCount}/${event.maxParticipants}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: dark ? FColors.darkGrey : FColors.textSecondary,
-                              fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Iconsax.people,
+                                      size: 14,
+                                      color: dark ? FColors.darkGrey : FColors.textSecondary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Participants',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: dark ? FColors.darkGrey : FColors.textSecondary,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '${event.registeredCount}/${event.maxParticipants}',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: dark ? FColors.white : FColors.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 6),
+                            LinearProgressIndicator(
+                              value: event.registrationProgress,
+                              backgroundColor: dark
+                                  ? FColors.darkGrey.withOpacity(0.3)
+                                  : FColors.grey.withOpacity(0.3),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                event.isFullyBooked ? FColors.error : FColors.primary,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                              minHeight: 6,
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -174,27 +300,23 @@ class EventCard extends StatelessWidget {
     );
   }
 
-  /// Format event date and time
-  String _formatEventDateTime() {
+  String _formatEventDate() {
     final now = DateTime.now();
     final eventDate = event.startDateTime;
 
-    // Check if it's today, tomorrow, or this week
     if (eventDate.year == now.year &&
         eventDate.month == now.month &&
         eventDate.day == now.day) {
-      return 'Today • ${FFormatter.formatDate(eventDate)} • ${_formatTime(eventDate)}';
+      return 'Today';
     } else if (eventDate.year == now.year &&
         eventDate.month == now.month &&
         eventDate.day == now.day + 1) {
-      return 'Tomorrow • ${_formatTime(eventDate)}';
+      return 'Tomorrow';
     } else {
-      final dayName = _getDayName(eventDate.weekday);
-      return '$dayName, ${_getMonthAbbr(eventDate.month)} ${eventDate.day} • ${_formatTime(eventDate)}';
+      return '${_getMonthAbbr(eventDate.month)} ${eventDate.day}';
     }
   }
 
-  /// Format time to 12-hour format
   String _formatTime(DateTime dateTime) {
     final hour = dateTime.hour;
     final minute = dateTime.minute;
@@ -203,37 +325,43 @@ class EventCard extends StatelessWidget {
     return '${displayHour.toString()}:${minute.toString().padLeft(2, '0')} $period';
   }
 
-  /// Get day name from weekday number
-  String _getDayName(int weekday) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days[weekday - 1];
-  }
-
-  /// Get month abbreviation
   String _getMonthAbbr(int month) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[month - 1];
   }
 
-  /// Get event color based on title keywords
   Color _getEventColor(String title) {
     final lowerTitle = title.toLowerCase();
     if (lowerTitle.contains('waste') || lowerTitle.contains('pollution')) {
-      return const Color(0xFFFFE5E5); // Light red/pink
+      return const Color(0xFFFFE5E5);
     } else if (lowerTitle.contains('conference') || lowerTitle.contains('international')) {
-      return const Color(0xFFE5E5FF); // Light purple/blue
+      return const Color(0xFFE5E5FF);
     } else if (lowerTitle.contains('leadership') || lowerTitle.contains('women')) {
-      return const Color(0xFFE5F5FF); // Light purple
+      return const Color(0xFFE5F5FF);
     } else if (lowerTitle.contains('kids') || lowerTitle.contains('parents')) {
-      return const Color(0xFFE5F0FF); // Light blue
+      return const Color(0xFFE5F0FF);
     } else {
       return FColors.primaryBackground;
     }
   }
 
-  /// Build event icon based on title keywords
-  Widget _buildEventIcon(String title) {
+  Color _getEventIconColor(String title) {
+    final lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('waste') || lowerTitle.contains('pollution')) {
+      return const Color(0xFFFF6B6B);
+    } else if (lowerTitle.contains('conference') || lowerTitle.contains('international')) {
+      return const Color(0xFF6B6BFF);
+    } else if (lowerTitle.contains('leadership') || lowerTitle.contains('women')) {
+      return const Color(0xFF9B6BFF);
+    } else if (lowerTitle.contains('kids') || lowerTitle.contains('parents')) {
+      return const Color(0xFF6B9BFF);
+    } else {
+      return FColors.primary;
+    }
+  }
+
+  Widget _buildEventIcon(String title, {double size = 48}) {
     final lowerTitle = title.toLowerCase();
     IconData iconData;
     Color iconColor;
@@ -257,12 +385,11 @@ class EventCard extends StatelessWidget {
 
     return Icon(
       iconData,
-      size: FSizes.iconLg,
+      size: size,
       color: iconColor,
     );
   }
 
-  /// Get status color
   Color _getStatusColor() {
     if (event.hasEnded) return FColors.darkGrey;
     if (event.isRegistrationClosed) return FColors.warning;
@@ -271,7 +398,14 @@ class EventCard extends StatelessWidget {
     return FColors.darkGrey;
   }
 
-  /// Get status text
+  IconData _getStatusIcon() {
+    if (event.hasEnded) return Iconsax.close_circle;
+    if (event.isRegistrationClosed) return Iconsax.lock;
+    if (event.isFullyBooked) return Iconsax.user_remove;
+    if (event.isRegistrationOpen) return Iconsax.tick_circle;
+    return Iconsax.info_circle;
+  }
+
   String _getStatusText() {
     if (event.hasEnded) return 'Ended';
     if (event.isRegistrationClosed) return 'Closed';

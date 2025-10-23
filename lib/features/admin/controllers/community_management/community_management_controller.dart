@@ -315,7 +315,7 @@ class CommunityManagementController extends GetxController {
   void togglePostStatus(PostModel post) {
     final postIndex = allPosts.indexWhere((p) => p.postId == post.postId);
     if (postIndex != -1) {
-      // Create a new post with updated status
+      // Create a new community with updated status
       final updatedPost = PostModel(
         postId: post.postId,
         userId: post.userId,
@@ -345,18 +345,18 @@ class CommunityManagementController extends GetxController {
   }
 
   void viewPost(PostModel post) {
-    // Navigate to post detail screen
+    // Navigate to community detail screen
     // This would typically navigate to a detailed view where admins can see comments and replies
     Get.snackbar(
       'View Post',
-      'Opening detailed view for post: ${post.postId}',
+      'Opening detailed view for community: ${post.postId}',
       snackPosition: SnackPosition.BOTTOM,
       backgroundColor: FColors.info.withOpacity(0.1),
       colorText: FColors.info,
     );
 
-    // TODO: Implement navigation to post detail screen
-    // Get.to(() => PostDetailScreen(post: post));
+    // TODO: Implement navigation to community detail screen
+    // Get.to(() => PostDetailScreen(community: community));
   }
 
   // Pagination functionality

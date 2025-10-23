@@ -32,7 +32,7 @@
 //               },
 //               maxLength: 50, // 限制最大字符数
 //               style: const TextStyle(color: Colors.white),
-//               decoration: inputDecoration("Enter post title..."),
+//               decoration: inputDecoration("Enter community title..."),
 //             ),
 //             const SizedBox(height: 10),
 //
@@ -46,7 +46,7 @@
 //               maxLength: 300, // 限制最大字符数
 //               maxLines: 5,
 //               style: const TextStyle(color: Colors.white),
-//               decoration: inputDecoration("Enter post content..."),
+//               decoration: inputDecoration("Enter community content..."),
 //             ),
 //             const SizedBox(height: 10),
 //

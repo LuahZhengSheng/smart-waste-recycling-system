@@ -22,7 +22,7 @@ class PostDetailsController extends GetxController {
     loadComments();
   }
 
-  /// Load comments and replies for the post
+  /// Load comments and replies for the community
   void loadComments() {
     isLoading.value = true;
 
@@ -55,7 +55,7 @@ class PostDetailsController extends GetxController {
     final now = DateTime.now();
 
     switch (currentPost.value.postId) {
-      case '1': // Tip post about plastic waste
+      case '1': // Tip community about plastic waste
         return [
           Comment(
             commentId: 'comment_1_1',
@@ -78,7 +78,7 @@ class PostDetailsController extends GetxController {
           Comment(
             commentId: 'comment_1_3',
             userId: 'sustainability_student',
-            content: 'Great post! I\'m writing a paper on plastic pollution and this is exactly the kind of practical advice people need.',
+            content: 'Great community! I\'m writing a paper on plastic pollution and this is exactly the kind of practical advice people need.',
             likes: ['user123', 'user456'],
             replyCount: 0,
             createdAt: now.subtract(const Duration(minutes: 30)),
@@ -139,7 +139,7 @@ class PostDetailsController extends GetxController {
           ),
         ];
 
-      case '4': // Achievement post
+      case '4': // Achievement community
         return [
           Comment(
             commentId: 'comment_4_1',
@@ -459,10 +459,10 @@ class PostDetailsController extends GetxController {
     }
   }
 
-  /// Toggle post enabled/disabled status
+  /// Toggle community enabled/disabled status
   void togglePostStatus() {
     try {
-      // Create updated post with new status
+      // Create updated community with new status
       final updatedPost = PostModel(
         postId: currentPost.value.postId,
         userId: currentPost.value.userId,
@@ -493,13 +493,13 @@ class PostDetailsController extends GetxController {
         duration: const Duration(seconds: 3),
       );
 
-      // TODO: Make API call to update post status in backend
+      // TODO: Make API call to update community status in backend
       // await PostRepository.updatePostStatus(updatedPost.postId, updatedPost.isDisabled);
 
     } catch (e) {
       Get.snackbar(
         'Error',
-        'Failed to update post status: ${e.toString()}',
+        'Failed to update community status: ${e.toString()}',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: FColors.error.withOpacity(0.1),
         colorText: FColors.error,
@@ -512,12 +512,12 @@ class PostDetailsController extends GetxController {
     isCommentsExpanded.value = !isCommentsExpanded.value;
   }
 
-  /// Refresh post and comments data
+  /// Refresh community and comments data
   Future<void> refreshData() async {
     isLoading.value = true;
 
     try {
-      // TODO: Reload post data from API
+      // TODO: Reload community data from API
       // final updatedPost = await PostRepository.getPost(currentPost.value.postId);
       // currentPost.value = updatedPost;
 
@@ -546,7 +546,7 @@ class PostDetailsController extends GetxController {
     }
   }
 
-  /// Get post engagement statistics
+  /// Get community engagement statistics
   Map<String, dynamic> get postStats {
     return {
       'likes': currentPost.value.likes.length,
@@ -589,7 +589,7 @@ class PostDetailsController extends GetxController {
         .key;
   }
 
-  /// Check if post has media content
+  /// Check if community has media content
   bool get hasMediaContent => currentPost.value.media.isNotEmpty;
 
   /// Get media count by type

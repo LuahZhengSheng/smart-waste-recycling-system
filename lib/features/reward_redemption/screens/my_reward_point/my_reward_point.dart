@@ -3,11 +3,18 @@ import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 import 'package:fyp/utils/formatters/formatter.dart';
+import 'package:fyp/utils/popups/loaders.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:intl/intl.dart';
 
+import '../../../../common/widgets/appbar/appbar.dart';
+import '../../../personalization/models/recycle_activity_model.dart';
 import '../../controllers/reward_point_controller.dart';
+import '../../models/reward_redemption_enums.dart';
 import '../transaction_detail/transaction_detail.dart';
+import '../../../../data/repositories/personalization/recycling_activity_repository.dart';
+import '../../../reward_redemption/models/redemption_model.dart';
 
 class MyRewardPointsScreen extends StatelessWidget {
   const MyRewardPointsScreen({super.key});
@@ -19,303 +26,150 @@ class MyRewardPointsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0A0E21) : const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('My Reward Points'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [const Color(0xFF1A1F36), const Color(0xFF0A0E21)]
-                  : [FColors.primary.withOpacity(0.1), Colors.white.withOpacity(0.8)],
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: FSizes.md),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withOpacity(0.1)
-                  : FColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: FColors.primary.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+      appBar: FAppBar(
+        showBackArrow: true,
+        title: Text("My Reward Points"),
+      ),
+      body: Obx(() {
+        if (controller.isLoading.value &&
+            controller.allEarningActivities.isEmpty &&
+            controller.allSpendingRedemptions.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: FColors.primary),
+                const SizedBox(height: FSizes.md),
+                Text(
+                  'Loading...',
+                  style: TextStyle(
+                    color: isDark ? FColors.white : FColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
-            child: IconButton(
-              onPressed: () => controller.showCustomDateRangePicker(context),
-              icon: Icon(
-                Iconsax.calendar,
-                color: FColors.primary,
-                size: FSizes.iconMd,
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: controller.refreshData,
+          color: FColors.primary,
+          backgroundColor: isDark ? const Color(0xFF1A1F36) : Colors.white,
+          child: Column(
+            children: [
+              // Compact Points Summary Card
+              _buildCompactPointsCard(controller, isDark),
+
+              // Modern Tab Bar
+              _buildModernTabBar(controller, isDark),
+
+              // Date Filter Row
+              _buildDateFilterRow(controller, isDark, context),
+
+              // Tab Bar View
+              Expanded(
+                child: _buildTabBarView(controller, isDark),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: controller.refreshData,
-        color: FColors.primary,
-        backgroundColor: isDark ? const Color(0xFF1A1F36) : Colors.white,
-        child: Column(
-          children: [
-            // Points Summary Card with Glass Effect
-            _buildPointsSummaryCard(controller, isDark),
-
-            // Date Filter Info with Modern Design
-            _buildDateFilterInfo(controller, isDark),
-
-            // Modern Tab Bar
-            _buildModernTabBar(controller, isDark),
-
-            // Tab Bar View
-            Expanded(
-              child: _buildTabBarView(controller, isDark),
-            ),
-          ],
-        ),
-      ),
+        );
+      }),
     );
   }
 
-  Widget _buildPointsSummaryCard(RewardPointsController controller, bool isDark) {
+  Widget _buildCompactPointsCard(RewardPointsController controller, bool isDark) {
     return Obx(() => Container(
       margin: const EdgeInsets.all(FSizes.defaultSpace),
-      padding: const EdgeInsets.all(FSizes.xl),
+      padding: const EdgeInsets.symmetric(horizontal: FSizes.xl, vertical: FSizes.lg),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF667EEA),
-            const Color(0xFF764BA2),
-            const Color(0xFF667EEA).withOpacity(0.8),
+            FColors.primary,
+            FColors.primary.withOpacity(0.8),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF667EEA).withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Background Pattern
-          Positioned(
-            right: -20,
-            top: -20,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -40,
-            bottom: -40,
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.05),
-              ),
-            ),
-          ),
-          Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Iconsax.award5,
-                      color: FColors.white,
-                      size: FSizes.iconMd,
-                    ),
-                  ),
-                  const SizedBox(width: FSizes.sm),
-                  Text(
-                    'Current Balance',
-                    style: TextStyle(
-                      color: FColors.white.withOpacity(0.9),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: FSizes.lg),
-              // Points with animated counter effect
-              Text(
-                '${controller.currentPoints.value}',
-                style: const TextStyle(
-                  color: FColors.white,
-                  fontSize: 48,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black26,
-                      offset: Offset(0, 2),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                'Points',
-                style: TextStyle(
-                  color: FColors.white.withOpacity(0.9),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 2,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    ));
-  }
-
-  Widget _buildDateFilterInfo(RewardPointsController controller, bool isDark) {
-    return Obx(() => Container(
-      margin: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
-      padding: const EdgeInsets.all(FSizes.lg),
-      decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF1A1F36).withOpacity(0.8)
-            : Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: isDark
-                ? Colors.black.withOpacity(0.3)
-                : Colors.grey.withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
+            color: FColors.primary.withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
             spreadRadius: -2,
           ),
         ],
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  FColors.primary.withOpacity(0.2),
-                  FColors.primary.withOpacity(0.1),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Current Balance',
+                style: TextStyle(
+                  color: FColors.white.withOpacity(0.9),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: FSizes.xs),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${controller.currentPoints.value}',
+                    style: const TextStyle(
+                      color: FColors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1,
+                    ),
+                  ),
+                  const SizedBox(width: FSizes.xs),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      'Pts',
+                      style: TextStyle(
+                        color: FColors.white.withOpacity(0.9),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
               ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              Iconsax.calendar_1,
-              size: FSizes.iconSm,
-              color: FColors.primary,
+              Iconsax.award5,
+              color: FColors.white,
+              size: 28,
             ),
-          ),
-          const SizedBox(width: FSizes.md),
-          Expanded(
-            child: Text(
-              '${FFormatter.formatDate(controller.selectedDateRange.value.start)} - ${FFormatter.formatDate(controller.selectedDateRange.value.end)}',
-              style: TextStyle(
-                color: isDark ? FColors.white : const Color(0xFF2D3748),
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          _buildStatChip(
-            '+${controller.totalEarningPoints}',
-            'Earned',
-            FColors.success,
-            isDark,
-          ),
-          const SizedBox(width: FSizes.sm),
-          _buildStatChip(
-            '-${controller.totalSpendingPoints}',
-            'Spent',
-            FColors.error,
-            isDark,
           ),
         ],
       ),
     ));
   }
 
-  Widget _buildStatChip(String value, String label, Color color, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              color: isDark ? FColors.white.withOpacity(0.7) : const Color(0xFF718096),
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildModernTabBar(RewardPointsController controller, bool isDark) {
     return Container(
-      margin: const EdgeInsets.all(FSizes.defaultSpace),
+      margin: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: isDark
             ? const Color(0xFF1A1F36).withOpacity(0.6)
             : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withOpacity(0.2)
-                : Colors.grey.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
       ),
       child: TabBar(
         controller: controller.tabController,
@@ -323,11 +177,11 @@ class MyRewardPointsScreen extends StatelessWidget {
           gradient: LinearGradient(
             colors: [FColors.primary, FColors.primary.withOpacity(0.8)],
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
               color: FColors.primary.withOpacity(0.3),
-              blurRadius: 8,
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
@@ -339,13 +193,12 @@ class MyRewardPointsScreen extends StatelessWidget {
             ? FColors.white.withOpacity(0.6)
             : const Color(0xFF718096),
         labelStyle: const TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-          letterSpacing: 0.5,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
         ),
         unselectedLabelStyle: const TextStyle(
           fontWeight: FontWeight.w500,
-          fontSize: 14,
+          fontSize: 13,
         ),
         tabs: const [
           Tab(text: 'All'),
@@ -356,261 +209,389 @@ class MyRewardPointsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTabBarView(RewardPointsController controller, bool isDark) {
-    return TabBarView(
-      controller: controller.tabController,
-      children: [
-        _buildTransactionsList(controller.filteredAllTransactions, controller, isDark),
-        _buildTransactionsList(controller.filteredEarningTransactions, controller, isDark),
-        _buildTransactionsList(controller.filteredSpendingTransactions, controller, isDark),
-      ],
-    );
-  }
-
-  Widget _buildTransactionsList(
-      RxList<RewardTransaction> transactions,
+  Widget _buildDateFilterRow(
       RewardPointsController controller,
       bool isDark,
+      BuildContext context,
       ) {
     return Obx(() {
-      if (controller.isLoading.value) {
-        return _buildLoadingSkeleton(isDark);
+      final filterType = controller.selectedFilterType.value;
+      final dateRange = controller.selectedDateRange.value;
+
+      String displayText = '';
+      if (dateRange != null) {
+        if (filterType == DateFilterType.today) {
+          displayText = DateFormat('dd MMM yyyy').format(dateRange.start);
+        } else {
+          displayText =
+          '${DateFormat('dd MMM yy').format(dateRange.start)} - ${DateFormat('dd MMM yy').format(dateRange.end)}';
+        }
       }
 
-      if (transactions.isEmpty) {
-        return _buildEmptyState(isDark);
-      }
-
-      return ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
-        itemCount: transactions.length,
-        itemBuilder: (context, index) {
-          final transaction = transactions[index];
-          return _buildModernTransactionCard(transaction, controller, isDark, index);
-        },
-      );
-    });
-  }
-
-  Widget _buildModernTransactionCard(
-      RewardTransaction transaction,
-      RewardPointsController controller,
-      bool isDark,
-      int index,
-      ) {
-    final isEarning = transaction.isEarning;
-    final pointsColor = isEarning ? FColors.success : FColors.error;
-    final pointsPrefix = isEarning ? '+' : '';
-
-    return Container(
-      margin: EdgeInsets.only(
-        bottom: FSizes.md,
-        top: index == 0 ? FSizes.sm : 0,
-      ),
-      child: Material(
-        color: Colors.transparent,
+      return Container(
+        margin: const EdgeInsets.all(FSizes.defaultSpace),
         child: InkWell(
-          onTap: () => Get.to(() => TransactionDetailsScreen(transaction: transaction)),
-          borderRadius: BorderRadius.circular(20),
+          onTap: () => controller.showDateFilterBottomSheet(context),
+          borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.all(FSizes.lg),
+            padding: const EdgeInsets.symmetric(
+              horizontal: FSizes.md,
+              vertical: FSizes.sm,
+            ),
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF1A1F36).withOpacity(0.8)
-                  : Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: isDark
-                      ? Colors.black.withOpacity(0.2)
-                      : Colors.grey.withOpacity(0.08),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                  spreadRadius: -2,
-                ),
-              ],
+                  ? const Color(0xFF1A1F36).withOpacity(0.6)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark
+                    ? FColors.darkGrey.withOpacity(0.3)
+                    : FColors.grey.withOpacity(0.2),
+              ),
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Modern Icon Container
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        pointsColor.withOpacity(0.2),
-                        pointsColor.withOpacity(0.1),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: pointsColor.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    isEarning ? Iconsax.arrow_up_3 : Iconsax.arrow_down_1,
-                    color: pointsColor,
-                    size: FSizes.iconMd,
+                Icon(
+                  Iconsax.calendar,
+                  color: FColors.primary,
+                  size: 18,
+                ),
+                const SizedBox(width: FSizes.sm),
+                Text(
+                  displayText,
+                  style: TextStyle(
+                    color: isDark ? FColors.white : FColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-
-                const SizedBox(width: FSizes.lg),
-
-                // Transaction Info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        transaction.description,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? FColors.white : const Color(0xFF2D3748),
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      const SizedBox(height: FSizes.xs),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.1)
-                                  : Colors.grey.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              FFormatter.formatDate(transaction.date),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark
-                                    ? FColors.white.withOpacity(0.7)
-                                    : const Color(0xFF718096),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (transaction.wasteType != null) ...[
-                        const SizedBox(height: FSizes.xs),
-                        Row(
-                          children: [
-                            Icon(
-                              Iconsax.weight,
-                              size: 12,
-                              color: isDark
-                                  ? FColors.white.withOpacity(0.5)
-                                  : const Color(0xFF9CA3AF),
-                            ),
-                            const SizedBox(width: FSizes.xs),
-                            Text(
-                              '${transaction.weight?.toStringAsFixed(1)} kg • ${transaction.wasteType}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark
-                                    ? FColors.white.withOpacity(0.6)
-                                    : const Color(0xFF9CA3AF),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                // Points Display
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        pointsColor.withOpacity(0.1),
-                        pointsColor.withOpacity(0.05),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '$pointsPrefix${transaction.points}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: pointsColor,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      Text(
-                        'Points',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isDark
-                              ? FColors.white.withOpacity(0.6)
-                              : const Color(0xFF9CA3AF),
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
+                const SizedBox(width: FSizes.xs),
+                Icon(
+                  Iconsax.arrow_down_1,
+                  color: isDark ? FColors.darkGrey : FColors.textSecondary,
+                  size: 16,
                 ),
               ],
             ),
           ),
         ),
-      ),
+      );
+    });
+  }
+
+  Widget _buildTabBarView(RewardPointsController controller, bool isDark) {
+    return TabBarView(
+      controller: controller.tabController,
+      children: [
+        _buildTransactionsList(controller, isDark),
+        _buildTransactionsList(controller, isDark),
+        _buildTransactionsList(controller, isDark),
+      ],
     );
   }
 
-  Widget _buildLoadingSkeleton(bool isDark) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
-      itemCount: 6,
-      itemBuilder: (context, index) {
+  Widget _buildTransactionsList(
+      RewardPointsController controller,
+      bool isDark,
+      ) {
+    return Obx(() {
+      final items = controller.currentTabItems;
+
+      if (items.isEmpty) {
+        return _buildEmptyState(isDark);
+      }
+
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+
+          // Handle different tab views
+          if (controller.tabController.index == 0) {
+            // All tab - mixed items
+            final type = item['type'] as String;
+            if (type == 'earning') {
+              return _buildEarningCard(
+                item['data'] as RecyclingActivity,
+                isDark,
+                index,
+                controller,
+              );
+            } else {
+              return _buildSpendingCard(
+                item['data'] as RedemptionModel,
+                isDark,
+                index,
+                controller,
+              );
+            }
+          } else if (controller.tabController.index == 1) {
+            // Earning tab
+            return _buildEarningCard(
+              item as RecyclingActivity,
+              isDark,
+              index,
+              controller,
+            );
+          } else {
+            // Spending tab
+            return _buildSpendingCard(
+              item as RedemptionModel,
+              isDark,
+              index,
+              controller,
+            );
+          }
+        },
+      );
+    });
+  }
+
+  Widget _buildEarningCard(
+      RecyclingActivity activity,
+      bool isDark,
+      int index,
+      RewardPointsController controller,
+      ) {
+    return FutureBuilder(
+      future: controller.getCenterByStaffId(activity.centerStaffId),
+      builder: (context, centerSnapshot) {
+        final centerName = centerSnapshot.hasData && centerSnapshot.data != null
+            ? centerSnapshot.data!.name
+            : 'Recycling Center';
+
         return Container(
-          margin: const EdgeInsets.only(bottom: FSizes.md),
-          height: 80,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: isDark
-                  ? [
-                const Color(0xFF1A1F36).withOpacity(0.3),
-                const Color(0xFF1A1F36).withOpacity(0.1),
-              ]
-                  : [
-                Colors.grey.withOpacity(0.1),
-                Colors.grey.withOpacity(0.05),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
+          margin: EdgeInsets.only(
+            bottom: FSizes.md,
+            top: index == 0 ? FSizes.sm : 0,
           ),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  Colors.transparent,
-                  isDark
-                      ? Colors.white.withOpacity(0.02)
-                      : Colors.white.withOpacity(0.5),
-                  Colors.transparent,
-                ],
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => Get.to(() => TransactionDetailsScreen(
+                transactionId: activity.activityId,
+                transactionType: 'earning',
+              )),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.all(FSizes.md),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF1A1F36).withOpacity(0.8)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark
+                        ? FColors.darkGrey.withOpacity(0.3)
+                        : FColors.grey.withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            centerName,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? FColors.white : FColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: FSizes.xs),
+                          Row(
+                            children: [
+                              Icon(
+                                Iconsax.calendar,
+                                size: 12,
+                                color: isDark
+                                    ? FColors.white.withOpacity(0.5)
+                                    : FColors.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${FFormatter.formatDate(activity.createdAt)} • ${_formatTime(activity.createdAt)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? FColors.white.withOpacity(0.6)
+                                      : FColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: FSizes.xs),
+                          Row(
+                            children: [
+                              Icon(
+                                Iconsax.weight,
+                                size: 12,
+                                color: isDark
+                                    ? FColors.white.withOpacity(0.5)
+                                    : FColors.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${activity.weight.toStringAsFixed(1)} kg • ${activity.wasteObject}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark
+                                      ? FColors.white.withOpacity(0.6)
+                                      : FColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: FSizes.md),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '+${activity.pointsEarned}',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: FColors.success,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        Text(
+                          'Pts',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark
+                                ? FColors.white.withOpacity(0.6)
+                                : FColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSpendingCard(
+      RedemptionModel redemption,
+      bool isDark,
+      int index,
+      RewardPointsController controller,
+      ) {
+    return FutureBuilder(
+      future: controller.getRewardById(redemption.rewardId),
+      builder: (context, rewardSnapshot) {
+        final rewardTitle = rewardSnapshot.hasData
+            ? rewardSnapshot.data!.title
+            : 'Reward Redemption';
+        final points = rewardSnapshot.hasData
+            ? rewardSnapshot.data!.pointsNeeded
+            : 0;
+
+        return Container(
+          margin: EdgeInsets.only(
+            bottom: FSizes.md,
+            top: index == 0 ? FSizes.sm : 0,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => Get.to(() => TransactionDetailsScreen(
+                transactionId: redemption.redemptionId,
+                transactionType: 'spending',
+              )),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.all(FSizes.md),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF1A1F36).withOpacity(0.8)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark
+                        ? FColors.darkGrey.withOpacity(0.3)
+                        : FColors.grey.withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            rewardTitle,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? FColors.white : FColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: FSizes.xs),
+                          Row(
+                            children: [
+                              Icon(
+                                Iconsax.calendar,
+                                size: 12,
+                                color: isDark
+                                    ? FColors.white.withOpacity(0.5)
+                                    : FColors.textSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${FFormatter.formatDate(redemption.createdAt)} • ${_formatTime(redemption.createdAt)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? FColors.white.withOpacity(0.6)
+                                      : FColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: FSizes.md),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '-$points',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: FColors.error,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        Text(
+                          'Pts',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark
+                                ? FColors.white.withOpacity(0.6)
+                                : FColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -625,8 +606,8 @@ class MyRewardPointsScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 120,
-            height: 120,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -634,11 +615,11 @@ class MyRewardPointsScreen extends StatelessWidget {
                   FColors.primary.withOpacity(0.05),
                 ],
               ),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
               Iconsax.empty_wallet,
-              size: 48,
+              size: 40,
               color: FColors.primary.withOpacity(0.6),
             ),
           ),
@@ -646,25 +627,29 @@ class MyRewardPointsScreen extends StatelessWidget {
           Text(
             'No transactions found',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: isDark ? FColors.white : const Color(0xFF2D3748),
-              letterSpacing: 0.3,
+              color: isDark ? FColors.white : FColors.textPrimary,
             ),
           ),
           const SizedBox(height: FSizes.sm),
           Text(
             'Your transaction history will appear here',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: isDark
                   ? FColors.white.withOpacity(0.6)
-                  : const Color(0xFF9CA3AF),
-              fontWeight: FontWeight.w500,
+                  : FColors.textSecondary,
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }

@@ -5,9 +5,9 @@
 // import 'package:fyp/features/community/screens/posts/widgets/post_header.dart';
 //
 // class PostDetailScreen extends StatelessWidget {
-//   final Post post;
+//   final Post community;
 //
-//   const PostDetailScreen({super.key, required this.post});
+//   const PostDetailScreen({super.key, required this.community});
 //
 //   @override
 //   Widget build(BuildContext context) {
@@ -22,11 +22,11 @@
 //         child: Column(
 //           crossAxisAlignment: CrossAxisAlignment.start,
 //           children: [
-//             PostHeader(post: post),
+//             PostHeader(community: community),
 //             const SizedBox(height: 16),
-//             PostContent(post: post),
+//             PostContent(community: community),
 //             const SizedBox(height: 16),
-//             PostActions(post: post),
+//             PostActions(community: community),
 //             const SizedBox(height: 16),
 //             const Divider(color: Colors.grey),
 //             const SizedBox(height: 10),
@@ -52,19 +52,19 @@
 // }
 //
 // class PostActions extends StatelessWidget {
-//   final Post post;
+//   final Post community;
 //
-//   const PostActions({super.key, required this.post});
+//   const PostActions({super.key, required this.community});
 //
 //   @override
 //   Widget build(BuildContext context) {
 //     return Row(
 //       children: [
-//         _iconWithText(Icons.favorite, Colors.pinkAccent, '${post.likes}'),
+//         _iconWithText(Icons.favorite, Colors.pinkAccent, '${community.likes}'),
 //         const SizedBox(width: 15),
-//         _iconWithText(Icons.comment, Colors.white70, '${post.comments}'),
+//         _iconWithText(Icons.comment, Colors.white70, '${community.comments}'),
 //         const SizedBox(width: 15),
-//         _iconWithText(Icons.share, Colors.white70, '${post.shares}'),
+//         _iconWithText(Icons.share, Colors.white70, '${community.shares}'),
 //         const Spacer(),
 //       ],
 //     );

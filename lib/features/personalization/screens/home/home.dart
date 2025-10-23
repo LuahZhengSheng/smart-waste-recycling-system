@@ -171,8 +171,7 @@ class HomeScreen extends StatelessWidget {
 
   Widget _buildRewardPointsCard(HomeController controller, bool isDark) {
     return Obx(() => GestureDetector(
-      // onTap: () => Get.to(() => const MyRewardPointsScreen()),
-      onTap: () => Get.to(() => const RewardRedemptionScreen()),
+      onTap: () => Get.to(() => const MyRewardPointsScreen()),
       child: Container(
         padding: const EdgeInsets.all(FSizes.lg),
         decoration: BoxDecoration(
@@ -232,14 +231,17 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: FSizes.md,
-                    vertical: FSizes.sm,
-                  ),
-                  decoration: BoxDecoration(
-                    color: FColors.primary,
-                    borderRadius: BorderRadius.circular(FSizes.buttonRadius),
+                ElevatedButton(
+                  onPressed: () => Get.to(() => const RewardRedemptionScreen()),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: FColors.primary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: FSizes.md,
+                      vertical: FSizes.sm,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(FSizes.buttonRadius),
+                    ),
                   ),
                   child: Text(
                     'Redeem',

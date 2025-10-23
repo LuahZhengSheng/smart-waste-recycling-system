@@ -1,120 +1,107 @@
-import 'package:fyp/utils/popups/loaders.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fyp/features/reward_redemption/models/reward_model.dart';
 import 'package:fyp/features/reward_redemption/models/redemption_model.dart';
+import 'package:fyp/utils/popups/loaders.dart';
+import 'package:iconsax/iconsax.dart';
+
+import '../../../data/repositories/reward_redemption/redemption_repository.dart';
+import '../../../data/repositories/reward_redemption/reward_repository.dart';
+import '../../../data/repositories/user/user_repository.dart';
+import '../../../utils/constants/colors.dart';
+import '../../../utils/constants/sizes.dart';
 
 class RewardController extends GetxController {
   static RewardController get instance => Get.find();
 
+  final rewardRepository = Get.put(RewardRepository());
+  final redemptionRepository = Get.put(RedemptionRepository());
+  final userRepository = Get.put(UserRepository());
+
   // Observable variables
   final RxList<RewardModel> rewards = <RewardModel>[].obs;
   final RxBool isLoading = false.obs;
-  final RxInt userPoints = 1200.obs; // Current user points
-  final RxString currentUserId = ''.obs; // Current user ID
+  final RxInt userPoints = 0.obs;
+  final RxString currentUserId = ''.obs;
 
   @override
   void onInit() {
     super.onInit();
-    loadRewards();
-    // In real app, get current user ID from auth service
-    currentUserId.value = 'current_user_id';
+    _initializeUser();
+    _subscribeToRewardsStream();
   }
 
-  /// Load all available rewards
-  Future<void> loadRewards() async {
-    try {
-      isLoading.value = true;
-
-      // Mock data - In real app, fetch from Firebase
-      final mockRewards = [
-        RewardModel(
-          rewardId: '1',
-          title: 'Shopee RM 30 Voucher',
-          description: 'Get RM 30 off your next Shopee purchase. Valid for 30 days from redemption.',
-          termsConditions: '1. Valid for 30 days from redemption\n2. Cannot be combined with other offers\n3. Minimum purchase of RM 50 required\n4. Valid for selected categories only',
-          rewardImage: 'https://via.placeholder.com/300x200/FF6B6B/FFFFFF?text=Shopee+Voucher',
-          pointsNeeded: 1000,
-          quantity: 100,
-          validUntil: DateTime.now().add(const Duration(days: 90)),
-          redemptionCount: 0,
-          createdAt: DateTime.now().subtract(const Duration(days: 10)),
-          status: 'active',
-        ),
-        RewardModel(
-          rewardId: '2',
-          title: 'Lazada RM 60 Voucher',
-          description: 'Enjoy RM 60 discount on Lazada shopping. Perfect for electronics and fashion.',
-          termsConditions: '1. Valid for 45 days from redemption\n2. Minimum spend RM 100\n3. Applicable to all categories\n4. One-time use only',
-          rewardImage: 'https://via.placeholder.com/300x200/4ECDC4/FFFFFF?text=Lazada+Voucher',
-          pointsNeeded: 2000,
-          quantity: 50,
-          validUntil: DateTime.now().add(const Duration(days: 120)),
-          redemptionCount: 5,
-          createdAt: DateTime.now().subtract(const Duration(days: 5)),
-          status: 'active',
-        ),
-        RewardModel(
-          rewardId: '3',
-          title: 'Grab Food RM 15 Voucher',
-          description: 'Free delivery and RM 15 off on your favorite meals through Grab Food.',
-          termsConditions: '1. Valid for 14 days from redemption\n2. Free delivery included\n3. Minimum order RM 25\n4. Available in selected areas only',
-          rewardImage: 'https://via.placeholder.com/300x200/45B7D1/FFFFFF?text=Grab+Food',
-          pointsNeeded: 500,
-          quantity: 200,
-          validUntil: DateTime.now().add(const Duration(days: 60)),
-          redemptionCount: 0,
-          createdAt: DateTime.now().subtract(const Duration(days: 3)),
-          status: 'active',
-        ),
-        RewardModel(
-          rewardId: '4',
-          title: 'Cinema Discount 50%',
-          description: 'Enjoy 50% discount on movie tickets at participating cinemas nationwide.',
-          termsConditions: '1. Valid for 60 days from redemption\n2. Maximum 2 tickets per redemption\n3. Not valid on public holidays\n4. Subject to seat availability',
-          rewardImage: 'https://via.placeholder.com/300x200/F7931E/FFFFFF?text=Cinema+Ticket',
-          pointsNeeded: 1500,
-          quantity: 30,
-          validUntil: DateTime.now().add(const Duration(days: 180)),
-          redemptionCount: 0,
-          createdAt: DateTime.now().subtract(const Duration(days: 15)),
-          status: 'active',
-        ),
-      ];
-
-      rewards.assignAll(mockRewards);
-    } catch (e) {
-      FLoaders.errorSnackBar(title: 'Error', message: 'Failed to load rewards: $e');
-    } finally {
-      isLoading.value = false;
+  /// Initialize user data
+  void _initializeUser() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      currentUserId.value = user.uid;
+      print('UserID: ${currentUserId.value}');
+      _subscribeToUserPoints();
     }
+  }
+
+  /// Subscribe to user points stream
+  void _subscribeToUserPoints() {
+    userRepository.getUserPointsStream(currentUserId.value).listen(
+          (points) => userPoints.value = points,
+      onError: (error) => FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to sync points: $error',
+      ),
+    );
+  }
+
+  /// Subscribe to rewards stream for real-time updates
+  void _subscribeToRewardsStream() {
+    isLoading.value = true;
+    rewardRepository.getAvailableRewardsStream().listen(
+          (fetchedRewards) async {
+        try {
+          // Fetch image URLs for each reward
+          for (var reward in fetchedRewards) {
+            if (reward.rewardImage.isNotEmpty) {
+              reward.rewardImage = await rewardRepository.getRewardImageUrl(reward.rewardImage);
+            }
+          }
+          rewards.assignAll(fetchedRewards);
+        } catch (e) {
+          print('❌ Error processing rewards stream: $e');
+          FLoaders.errorSnackBar(
+            title: 'Error',
+            message: 'Failed to process rewards: $e',
+          );
+        } finally {
+          isLoading.value = false;
+        }
+      },
+      onError: (error) {
+        isLoading.value = false;
+        print('❌ Error in rewards stream: $error');
+        FLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Failed to load rewards: $error',
+        );
+      },
+    );
   }
 
   /// Check if user can redeem a reward
   bool canRedeemReward(RewardModel reward) {
     return userPoints.value >= reward.pointsNeeded &&
-        reward.isAvailable &&
-        !reward.hasUserRedeemed(currentUserId.value);
-  }
-
-  /// Get insufficient points message
-  String getInsufficientPointsMessage(RewardModel reward) {
-    final pointsNeeded = reward.pointsNeeded - userPoints.value;
-    return 'You need $pointsNeeded more points to redeem this reward';
+        reward.isAvailable;
   }
 
   /// Redeem a reward
   Future<bool> redeemReward(RewardModel reward) async {
     try {
+      // Validation
       if (!canRedeemReward(reward)) {
         if (userPoints.value < reward.pointsNeeded) {
           FLoaders.errorSnackBar(
             title: 'Insufficient Points',
-            message: getInsufficientPointsMessage(reward),
-          );
-        } else if (reward.hasUserRedeemed(currentUserId.value)) {
-          FLoaders.errorSnackBar(
-            title: 'Already Redeemed',
-            message: 'You have already redeemed this reward',
+            message: 'You need ${reward.pointsNeeded - userPoints.value} more points',
           );
         } else {
           FLoaders.errorSnackBar(
@@ -125,7 +112,17 @@ class RewardController extends GetxController {
         return false;
       }
 
-      isLoading.value = true;
+      // Check if reward is still available
+      final isAvailable = await rewardRepository.isRewardAvailable(reward.rewardId);
+      if (!isAvailable) {
+        FLoaders.errorSnackBar(
+          title: 'Unavailable',
+          message: 'This reward is no longer available',
+        );
+        return false;
+      }
+
+      FLoaders.showLoading('Redeeming reward...');
 
       // Create redemption
       final redemption = RedemptionModel.createNew(
@@ -133,41 +130,154 @@ class RewardController extends GetxController {
         rewardId: reward.rewardId,
       );
 
-      // In real app, save to Firebase and deduct points
-      await Future.delayed(const Duration(seconds: 2)); // Simulate API call
+      // Save redemption to Firebase
+      final createdRedemption = await redemptionRepository.createRedemption(redemption);
 
-      // Add redemption to reward
-      reward.addRedemption(redemption);
+      // Deduct points from user
+      await userRepository.deductPoints(currentUserId.value, reward.pointsNeeded);
 
-      // Deduct points
-      userPoints.value -= reward.pointsNeeded;
-
-      // Update rewards list
-      final index = rewards.indexWhere((r) => r.rewardId == reward.rewardId);
-      if (index != -1) {
-        rewards[index] = reward;
-      }
-
-      FLoaders.successSnackBar(
-        title: 'Success!',
-        message: 'Reward redeemed successfully! PIN: ${redemption.formattedPinCode}',
+      // Update reward quantity
+      await rewardRepository.updateRewardQuantity(
+        reward.rewardId,
+        reward.quantity - 1,
       );
+
+      FLoaders.stopLoading();
+
+      // Show success dialog with PIN
+      _showRedemptionSuccessDialog(createdRedemption, reward);
 
       return true;
     } catch (e) {
+      FLoaders.stopLoading();
       FLoaders.errorSnackBar(
         title: 'Error',
         message: 'Failed to redeem reward: $e',
       );
       return false;
-    } finally {
-      isLoading.value = false;
     }
   }
 
-  /// Get user's redemption for a specific reward
-  RedemptionModel? getUserRedemption(RewardModel reward) {
-    return reward.getUserRedemption(currentUserId.value);
+  /// Show redemption success dialog
+  void _showRedemptionSuccessDialog(RedemptionModel redemption, RewardModel reward) {
+    Get.dialog(
+      WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          backgroundColor: Get.isDarkMode ? FColors.dark : FColors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          contentPadding: const EdgeInsets.all(FSizes.defaultSpace),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(FSizes.md),
+                decoration: BoxDecoration(
+                  color: FColors.success.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Iconsax.tick_circle,
+                  color: FColors.success,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: FSizes.spaceBtwItems),
+              Text(
+                'Redemption Successful!',
+                style: Get.textTheme.titleLarge?.copyWith(
+                  color: Get.isDarkMode ? FColors.white : FColors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: FSizes.sm),
+              Text(
+                'Your reward has been redeemed successfully',
+                style: Get.textTheme.bodyMedium?.copyWith(
+                  color: Get.isDarkMode ? FColors.darkGrey : FColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: FSizes.spaceBtwItems),
+              Container(
+                padding: const EdgeInsets.all(FSizes.lg),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      FColors.primary.withOpacity(0.1),
+                      FColors.accent.withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
+                  border: Border.all(
+                    color: FColors.primary.withOpacity(0.3),
+                    width: 2,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Your PIN Code',
+                      style: Get.textTheme.titleSmall?.copyWith(
+                        color: Get.isDarkMode ? FColors.darkGrey : FColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: FSizes.sm),
+                    Text(
+                      redemption.formattedPinCode,
+                      style: Get.textTheme.headlineMedium?.copyWith(
+                        color: FColors.primary,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: FSizes.md),
+              Text(
+                'Present this PIN to redeem your reward.\nValid for 30 days.',
+                style: Get.textTheme.bodySmall?.copyWith(
+                  color: Get.isDarkMode ? FColors.darkGrey : FColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: FSizes.spaceBtwItems),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Get.back(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: FColors.primary,
+                    foregroundColor: FColors.white,
+                    padding: const EdgeInsets.symmetric(vertical: FSizes.md),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Got It!',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  /// Refresh rewards (now handled automatically by stream)
+  Future<void> refreshRewards() async {
+    // No need to manually refresh as stream handles real-time updates
+    isLoading.value = true;
+    await Future.delayed(const Duration(milliseconds: 500)); // Simulate brief loading
+    isLoading.value = false;
   }
 
   /// Get reward by ID
@@ -177,29 +287,5 @@ class RewardController extends GetxController {
     } catch (e) {
       return null;
     }
-  }
-
-  /// Refresh rewards list
-  Future<void> refreshRewards() async {
-    await loadRewards();
-  }
-
-  /// Filter available rewards
-  List<RewardModel> get availableRewards {
-    return rewards.where((reward) => reward.isAvailable).toList();
-  }
-
-  /// Filter rewards by points requirement
-  List<RewardModel> getRewardsByPointsRange(int minPoints, int maxPoints) {
-    return rewards.where((reward) =>
-    reward.pointsNeeded >= minPoints && reward.pointsNeeded <= maxPoints
-    ).toList();
-  }
-
-  /// Get affordable rewards for current user
-  List<RewardModel> get affordableRewards {
-    return rewards.where((reward) =>
-    reward.pointsNeeded <= userPoints.value && reward.isAvailable
-    ).toList();
   }
 }

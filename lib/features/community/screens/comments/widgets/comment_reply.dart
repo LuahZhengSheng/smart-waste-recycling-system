@@ -11,11 +11,13 @@ import 'package:fyp/common/widgets/appbar/appbar.dart';
 
 // Comment Replies Screen
 class CommentRepliesScreen extends StatelessWidget {
+  final String postId;
   final Comment comment;
   final bool autoFocusReply;
 
   const CommentRepliesScreen({
     super.key,
+    required this.postId,
     required this.comment,
     this.autoFocusReply = false,
   });
@@ -27,12 +29,12 @@ class CommentRepliesScreen extends StatelessWidget {
 
     // Initialize with comment data and auto focus if needed
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      commentController.initialize(comment);
-      repliesController.initialize(comment.commentId, autoFocus: autoFocusReply);
+      commentController.initialize(comment, postId: postId);
+      repliesController.initialize(postId, comment.commentId, autoFocus: autoFocusReply);
     });
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.white, // 改为白色
       appBar: const FAppBar(
         title: Text('Replies'),
         showBackArrow: true,
@@ -46,12 +48,13 @@ class CommentRepliesScreen extends StatelessWidget {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Container(
-                  color: Colors.white,
+                  color: Colors.white, // 改为白色
                   child: Column(
                     children: [
                       // Original comment using unified FCommentCard
                       FCommentCard(
                         comment: comment,
+                        postId: postId,
                         isInRepliesScreen: true,
                         isOriginalComment: true,
                       ),
@@ -149,48 +152,53 @@ class FWriteReplyInput extends StatelessWidget {
 
           const SizedBox(width: FSizes.sm),
 
-          // Send button
-          Obx(() => GestureDetector(
-            onTap: repliesController.isSubmitting.value
-                ? null
-                : () => _handleSubmit(repliesController),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _getSendButtonColor(repliesController),
-                borderRadius: BorderRadius.circular(20),
+          // Send button - FIXED: 使用 isReplyValid 来更新颜色
+          Obx(() {
+            final isValid = repliesController.isReplyValid.value;
+            final isSubmitting = repliesController.isSubmitting.value;
+
+            return GestureDetector(
+              onTap: isValid && !isSubmitting
+                  ? () => _handleSubmit(repliesController)
+                  : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _getSendButtonColor(isValid, isSubmitting),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  _getSendButtonIcon(isSubmitting),
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
-              child: Icon(
-                _getSendButtonIcon(repliesController),
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          )),
+            );
+          }),
         ],
       ),
     );
   }
 
   void _handleSubmit(ReplyController controller) {
-    if (controller.isReplyValid && !controller.isSubmitting.value) {
+    if (controller.isReplyValid.value && !controller.isSubmitting.value) {
       controller.submitReply();
     }
   }
 
-  Color _getSendButtonColor(ReplyController controller) {
-    if (controller.isSubmitting.value) {
+  Color _getSendButtonColor(bool isValid, bool isSubmitting) {
+    if (isSubmitting) {
       return Colors.grey[400]!;
-    } else if (controller.isReplyValid) {
-      return const Color(0xFF4CAF50);
+    } else if (isValid) {
+      return const Color(0xFF4CAF50); // 青色
     } else {
       return Colors.grey[300]!;
     }
   }
 
-  IconData _getSendButtonIcon(ReplyController controller) {
-    if (controller.isSubmitting.value) {
+  IconData _getSendButtonIcon(bool isSubmitting) {
+    if (isSubmitting) {
       return Icons.hourglass_empty;
     } else {
       return Icons.send;
@@ -226,6 +234,7 @@ class FRepliesList extends StatelessWidget {
       if (replies.isEmpty && !repliesController.isLoading.value) {
         return Container(
           padding: const EdgeInsets.all(FSizes.defaultSpace),
+          color: Colors.white, // 改为白色
           child: const Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -258,30 +267,11 @@ class FRepliesList extends StatelessWidget {
       }
 
       // Show replies list
-      return Column(
-        children: [
-          // Replies list
-          ...replies.map((reply) => FReplyCard(reply: reply)),
-
-          // Load more indicator
-          if (repliesController.isLoadingMore.value)
-            const Padding(
-              padding: EdgeInsets.all(FSizes.md),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-
-          // Load more button if there are more replies
-          if (repliesController.hasMoreReplies &&
-              !repliesController.isLoadingMore.value &&
-              replies.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(FSizes.md),
-              child: TextButton(
-                onPressed: () => repliesController.loadMoreReplies(),
-                child: const Text('Load more replies'),
-              ),
-            ),
-        ],
+      return Container(
+        color: Colors.white, // 改为白色
+        child: Column(
+          children: replies.map((reply) => FReplyCard(reply: reply)).toList(),
+        ),
       );
     });
   }
@@ -301,6 +291,7 @@ class FReplyCard extends StatelessWidget {
     return GestureDetector(
       onLongPress: () => _showReplyContextMenu(context, commentController, repliesController),
       child: Container(
+        color: Colors.white, // 改为白色
         margin: const EdgeInsets.only(left: FSizes.lg), // Indent for replies
         padding: const EdgeInsets.symmetric(
           horizontal: FSizes.md,
@@ -317,7 +308,7 @@ class FReplyCard extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(width: FSizes.sm),
+            const SizedBox(width: FSizes.md),
 
             // Reply content
             Expanded(
@@ -333,7 +324,7 @@ class FReplyCard extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(width: FSizes.xs),
+                      const SizedBox(width: FSizes.md),
                       Text(
                         commentController.formatTimeAgo(reply.createdAt),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -354,7 +345,7 @@ class FReplyCard extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: FSizes.xs / 2),
+                  const SizedBox(height: FSizes.md),
 
                   // Reply content
                   Text(
@@ -364,7 +355,7 @@ class FReplyCard extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: FSizes.xs),
+                  const SizedBox(height: FSizes.md),
 
                   // Action buttons
                   Row(
@@ -428,11 +419,13 @@ class FReplyCard extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white, // 改为白色
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => Container(
         padding: const EdgeInsets.all(FSizes.defaultSpace),
+        color: Colors.white, // 改为白色
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -487,6 +480,7 @@ class FReplyCard extends StatelessWidget {
 
     Get.dialog(
       AlertDialog(
+        backgroundColor: Colors.white, // 改为白色
         title: const Text('Edit Reply'),
         content: TextField(
           controller: editController,

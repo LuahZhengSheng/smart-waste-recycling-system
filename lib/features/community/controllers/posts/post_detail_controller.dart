@@ -1,19 +1,38 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:fyp/features/community/models/comment_model.dart';
 import 'package:fyp/features/community/models/post_model.dart';
 import 'package:get/get.dart';
 
+import '../../../../data/repositories/community/comment_repository.dart';
+import '../../../../data/repositories/community/post_repository.dart';
+import '../../../../utils/popups/loaders.dart';
+import '../../screens/edit_post/edit_post.dart';
+
 class PostDetailsController extends GetxController {
-  final _post = PostModel.empty().obs;
+  // Repositories
+  final PostRepository postRepository = Get.put(PostRepository());
+  final CommentRepository commentRepository = Get.put(CommentRepository());
+
+  // Observable variables
+  final _post = Rx<PostModel?>(null);
   final _comments = <Comment>[].obs;
-  final _commentSortType = 'Top comments'.obs;
   final _isLoading = false.obs;
+  final _commentSortType = 'Top comments'.obs;
   final _userCache = <String, Map<String, String>>{}.obs;
 
-  final commentController = TextEditingController();
+  // Stream subscriptions
+  StreamSubscription<PostModel?>? _postSubscription;
+  StreamSubscription<List<Comment>>? _commentsSubscription;
+
+  // Current post ID
+  String _currentPostId = '';
 
   // Getters
-  Rx<PostModel> get post => _post;
+  Rx<PostModel> get post => _post.value != null
+      ? Rx<PostModel>(_post.value!)
+      : Rx<PostModel>(PostModel.empty());
   List<Comment> get comments => _comments;
   RxString get commentSortType => _commentSortType;
   RxBool get isLoading => _isLoading;
@@ -30,16 +49,48 @@ class PostDetailsController extends GetxController {
     return commentsList;
   }
 
+  @override
+  void onInit() {
+    super.onInit();
+    _initializeUserCache();
+  }
+
+  @override
+  void onClose() {
+    _postSubscription?.cancel();
+    _commentsSubscription?.cancel();
+    super.onClose();
+  }
+
   // Load post details and comments
   Future<void> loadPostDetails(String postId) async {
     _isLoading.value = true;
+    _currentPostId = postId;
 
     try {
-      // Load post
-      _post.value = _getMockPost(postId);
+      // Subscribe to post stream for real-time updates
+      _postSubscription?.cancel();
+      _postSubscription = postRepository.getPostByIdStream(postId).listen(
+            (post) {
+          if (post != null) {
+            _post.value = post;
+          }
+        },
+        onError: (error) {
+          Get.snackbar('Error', 'Failed to load post: $error');
+        },
+      );
 
-      // Load comments
-      _comments.assignAll(_getMockComments(postId));
+      // Subscribe to comments stream for real-time updates
+      _commentsSubscription?.cancel();
+      _commentsSubscription = commentRepository.getCommentsStream(postId).listen(
+            (commentsList) {
+          _comments.assignAll(commentsList);
+        },
+        onError: (error) {
+          Get.snackbar('Error', 'Failed to load comments: $error');
+        },
+      );
 
     } catch (e) {
       Get.snackbar('Error', 'Failed to load post details: $e');
@@ -55,130 +106,60 @@ class PostDetailsController extends GetxController {
 
   // Toggle post like
   Future<void> togglePostLike() async {
+    if (_post.value == null) return;
+
     try {
       final currentUserId = getCurrentUserId();
+      final currentPost = _post.value!;
 
-      if (_post.value.likes.contains(currentUserId)) {
-        _post.value.likes.remove(currentUserId);
+      List<String> updatedLikes = List.from(currentPost.likes);
+      if (updatedLikes.contains(currentUserId)) {
+        updatedLikes.remove(currentUserId);
       } else {
-        _post.value.likes.add(currentUserId);
+        updatedLikes.add(currentUserId);
       }
 
-      _post.refresh();
+      // Optimistic update
+      _post.value = currentPost.copyWith(likes: updatedLikes);
+
+      // Update in Firestore
+      await postRepository.updatePostLikes(currentPost.postId, updatedLikes);
 
     } catch (e) {
       Get.snackbar('Error', 'Failed to update like: $e');
-    }
-  }
-
-  // Toggle comment like
-  Future<void> toggleCommentLike(String commentId) async {
-    try {
-      final currentUserId = getCurrentUserId();
-      final commentIndex = _comments.indexWhere((c) => c.commentId == commentId);
-
-      if (commentIndex != -1) {
-        if (_comments[commentIndex].likes.contains(currentUserId)) {
-          _comments[commentIndex].likes.remove(currentUserId);
-        } else {
-          _comments[commentIndex].likes.add(currentUserId);
-        }
-        _comments.refresh();
-      }
-
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to update comment like: $e');
-    }
-  }
-
-  // Add comment
-  Future<void> addComment() async {
-    final content = commentController.text.trim();
-    if (content.isEmpty) return;
-
-    try {
-      final newComment = Comment(
-        commentId: 'comment_${DateTime.now().millisecondsSinceEpoch}',
-        userId: getCurrentUserId(),
-        content: content,
-        createdAt: DateTime.now(),
-      );
-
-      _comments.insert(0, newComment);
-      commentController.clear();
-
-      Get.snackbar('Success', 'Comment added successfully');
-
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to add comment: $e');
+      // Revert on error by reloading from stream
     }
   }
 
   // Get current user ID
   String getCurrentUserId() {
+    // TODO: Get from authentication service
+    // return AuthenticationRepository.instance.authUser?.uid ?? '';
     return 'current_user_id';
   }
 
   // Get user name by ID
   String getUserName(String userId) {
+    // TODO: Implement user lookup from UserRepository
     return _userCache[userId]?['name'] ?? 'User ${userId.substring(0, 4)}';
   }
 
   // Get user avatar by ID
   String getUserAvatar(String userId) {
+    // TODO: Implement user lookup from UserRepository
     return _userCache[userId]?['avatar'] ?? 'https://picsum.photos/100?random=$userId';
   }
 
-  // Mock data
-  PostModel _getMockPost(String postId) {
-    return PostModel(
-      postId: postId,
-      userId: 'anna_mary',
-      postType: 'Tips',
-      content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin velit felis, venenatis tempus metus a, tristique tempus metus. Integer accumsan ipsum a metus lacinia, sed auctor felis dapibus.',
-      media: [
-        "https://picsum.photos/300/200?random=1",
-        "https://picsum.photos/300/200?random=2",
-        "https://picsum.photos/300/200?random=3",
-      ],
-      likes: ['user1', 'user2'],
-      commentCount: 35,
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-    );
+  // Initialize user cache (temporary until user repository is implemented)
+  void _initializeUserCache() {
+    _userCache.addAll({
+      'current_user_id': {
+        'name': 'You',
+        'avatar': 'https://picsum.photos/100?random=0',
+      },
+    });
   }
 
-  List<Comment> _getMockComments(String postId) {
-    return [
-      Comment(
-        commentId: 'comment1',
-        userId: 'mark_ramos',
-        content: 'Great work! Well done girl. 👍',
-        likes: ['user1', 'user2', 'user3'],
-        replyCount: 8,
-        createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
-      ),
-      Comment(
-        commentId: 'comment2',
-        userId: 'sarah_johnson',
-        content: 'This is so helpful, thanks for sharing!',
-        likes: ['user1'],
-        replyCount: 2,
-        createdAt: DateTime.now().subtract(const Duration(minutes: 45)),
-      ),
-      Comment(
-        commentId: 'comment3',
-        userId: 'mike_chen',
-        content: 'Amazing tips! I\'ve been looking for something like this.',
-        likes: ['user2', 'user4', 'user5', 'user6'],
-        replyCount: 0,
-        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-      ),
-    ];
-  }
-
-  @override
-  void onClose() {
-    commentController.dispose();
-    super.onClose();
-  }
+  // Reference to Firestore for ID generation
+  final _db = FirebaseFirestore.instance;
 }

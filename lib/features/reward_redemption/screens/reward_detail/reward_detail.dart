@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:fyp/features/reward_redemption/controllers/reward_controller.dart';
@@ -12,534 +13,431 @@ import 'package:fyp/utils/popups/loaders.dart';
 
 class RewardDetailScreen extends StatelessWidget {
   final RewardModel reward;
-  final RedemptionModel?
-      redemption; // Optional redemption data if coming from My Rewards
+  final RedemptionModel? redemption;
+  final bool isFromMyRewards;
 
   const RewardDetailScreen({
     super.key,
     required this.reward,
     this.redemption,
+    this.isFromMyRewards = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<RewardController>();
     final dark = FHelperFunctions.isDarkMode(context);
-
-    // Check if reward is redeemed (either passed redemption or found in controller)
-    final userRedemption = redemption ?? controller.getUserRedemption(reward);
-    final isRedeemed = userRedemption != null;
+    final daysUntilExpiry = reward.validUntil.difference(DateTime.now()).inDays;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reward Details'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Get.back(),
-          icon: Icon(
-            Iconsax.arrow_left,
-            color: dark ? FColors.white : FColors.black,
-          ),
-        ),
-      ),
+      backgroundColor: dark ? FColors.dark : FColors.light,
       body: Column(
         children: [
+          /// Custom App Bar with Image
+          _buildHeader(dark),
+
+          /// Content
           Expanded(
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  /// Reward Image
-                  _buildRewardImage(dark),
-
-                  /// Reward Content
-                  Padding(
+                  /// Title Section
+                  Container(
+                    color: dark ? FColors.dark : FColors.white,
                     padding: const EdgeInsets.all(FSizes.defaultSpace),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        /// Title and Points
-                        _buildTitleSection(dark),
-                        const SizedBox(height: FSizes.spaceBtwItems),
-
-                        /// Status and Availability
-                        _buildStatusSection(controller, dark),
-                        const SizedBox(height: FSizes.spaceBtwItems),
-
-                        /// Description
-                        _buildDescriptionSection(dark),
-                        const SizedBox(height: FSizes.spaceBtwItems),
-
-                        /// Terms and Conditions
-                        _buildTermsSection(dark),
-                        const SizedBox(height: FSizes.spaceBtwItems),
-
-                        /// Redemption Info (if redeemed)
-                        if (isRedeemed)
-                          _buildRedemptionInfo(userRedemption!, dark),
+                        Text(
+                          reward.title,
+                          style: TextStyle(
+                            color: dark ? FColors.white : FColors.black,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: FSizes.md),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: FSizes.md,
+                                vertical: FSizes.sm,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    FColors.primary,
+                                    FColors.accent,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: FColors.primary.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Iconsax.star1,
+                                    color: FColors.white,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${reward.pointsNeeded} Points',
+                                    style: const TextStyle(
+                                      color: FColors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: FSizes.sm,
+                                vertical: FSizes.xs,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(reward, redemption)
+                                    .withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _getStatusColor(reward, redemption),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Text(
+                                _getStatusText(reward, redemption),
+                                style: TextStyle(
+                                  color: _getStatusColor(reward, redemption),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
 
-          /// Bottom Button - Only show if not redeemed
-          if (!isRedeemed) _buildBottomButton(controller, dark),
-        ],
-      ),
-    );
-  }
-
-  /// Build reward image section
-  Widget _buildRewardImage(bool dark) {
-    return Container(
-      height: 200,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            FColors.primary.withOpacity(0.3),
-            FColors.accent.withOpacity(0.4),
-            FColors.secondary.withOpacity(0.2),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Iconsax.gift,
-              size: 80,
-              color: FColors.primary,
-            ),
-            const SizedBox(height: FSizes.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: FSizes.md,
-                vertical: FSizes.sm,
-              ),
-              decoration: BoxDecoration(
-                color: FColors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
-              ),
-              child: Text(
-                reward.title,
-                style: Theme.of(Get.context!).textTheme.titleMedium?.copyWith(
-                      color: FColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build title and points section
-  Widget _buildTitleSection(bool dark) {
-    final userRedemption =
-        redemption ?? Get.find<RewardController>().getUserRedemption(reward);
-    final isRedeemed = userRedemption != null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          reward.title,
-          style: Theme.of(Get.context!).textTheme.headlineSmall?.copyWith(
-                color: dark ? FColors.white : FColors.black,
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: FSizes.sm),
-        Row(
-          children: [
-            Icon(
-              Iconsax.star1,
-              color: FColors.primary,
-              size: 20,
-            ),
-            const SizedBox(width: FSizes.xs),
-            Text(
-              '${reward.pointsNeeded} Points',
-              style: Theme.of(Get.context!).textTheme.titleLarge?.copyWith(
-                    color: FColors.primary,
-                    fontWeight: FontWeight.bold,
+                  /// Divider
+                  Container(
+                    height: 8,
+                    color: dark ? FColors.black : FColors.grey.withOpacity(0.05),
                   ),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: FSizes.sm,
-                vertical: FSizes.xs,
-              ),
-              decoration: BoxDecoration(
-                color: isRedeemed
-                    ? FColors.success.withOpacity(0.1)
-                    : reward.isAvailable
-                        ? FColors.success.withOpacity(0.1)
-                        : FColors.error.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(FSizes.borderRadiusSm),
-                border: Border.all(
-                  color: isRedeemed
-                      ? FColors.success
-                      : reward.isAvailable
-                          ? FColors.success
-                          : FColors.error,
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                isRedeemed ? 'REDEEMED' : reward.statusDisplayText,
-                style: Theme.of(Get.context!).textTheme.labelSmall?.copyWith(
-                      color: isRedeemed
-                          ? FColors.success
-                          : reward.isAvailable
-                              ? FColors.success
-                              : FColors.error,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 
-  /// Build status section
-  Widget _buildStatusSection(RewardController controller, bool dark) {
-    return Container(
-      padding: const EdgeInsets.all(FSizes.md),
-      decoration: BoxDecoration(
-        color: dark ? FColors.darkContainer : FColors.lightContainer,
-        borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(
-                Iconsax.calendar,
-                size: 16,
-                color: dark ? FColors.darkGrey : FColors.darkerGrey,
-              ),
-              const SizedBox(width: FSizes.sm),
-              Text(
-                'Valid Until',
-                style: Theme.of(Get.context!).textTheme.bodySmall?.copyWith(
-                      color: dark ? FColors.darkGrey : FColors.darkerGrey,
+                  /// Info Cards
+                  Container(
+                    color: dark ? FColors.dark : FColors.white,
+                    padding: const EdgeInsets.all(FSizes.defaultSpace),
+                    child: Column(
+                      children: [
+                        _buildInfoCard(
+                          icon: Iconsax.calendar,
+                          title: 'Valid Until',
+                          value: reward.formattedValidUntil,
+                          subtitle: daysUntilExpiry > 0
+                              ? '$daysUntilExpiry days left'
+                              : 'Expires soon',
+                          dark: dark,
+                        ),
+                        const SizedBox(height: FSizes.sm),
+                        _buildInfoCard(
+                          icon: Iconsax.box,
+                          title: 'Available Quantity',
+                          value: '${reward.remainingQuantity} left',
+                          subtitle: '${reward.quantity} total',
+                          dark: dark,
+                        ),
+                        if (!isFromMyRewards) ...[
+                          const SizedBox(height: FSizes.sm),
+                          Obx(() {
+                            final userPoints = controller.userPoints.value;
+                            final canAfford = userPoints >= reward.pointsNeeded;
+                            return _buildInfoCard(
+                              icon: Iconsax.wallet_3,
+                              title: 'Your Points',
+                              value: '$userPoints',
+                              subtitle: canAfford
+                                  ? 'Sufficient points'
+                                  : 'Need ${reward.pointsNeeded - userPoints} more',
+                              valueColor: canAfford ? FColors.success : null,
+                              dark: dark,
+                            );
+                          }),
+                        ],
+                      ],
                     ),
-              ),
-              const Spacer(),
-              Text(
-                reward.formattedValidUntil,
-                style: Theme.of(Get.context!).textTheme.bodyMedium?.copyWith(
-                      color: dark ? FColors.white : FColors.black,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: FSizes.sm),
-          Row(
-            children: [
-              Icon(
-                Iconsax.box,
-                size: 16,
-                color: dark ? FColors.darkGrey : FColors.darkerGrey,
-              ),
-              const SizedBox(width: FSizes.sm),
-              Text(
-                'Available Quantity',
-                style: Theme.of(Get.context!).textTheme.bodySmall?.copyWith(
-                      color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                    ),
-              ),
-              const Spacer(),
-              Text(
-                '${reward.remainingQuantity}',
-                style: Theme.of(Get.context!).textTheme.bodyMedium?.copyWith(
-                      color: dark ? FColors.white : FColors.black,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: FSizes.sm),
-          Obx(() {
-            final userPoints = controller.userPoints.value;
-            final canAfford = userPoints >= reward.pointsNeeded;
-
-            return Row(
-              children: [
-                Icon(
-                  Iconsax.wallet_3,
-                  size: 16,
-                  color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                ),
-                const SizedBox(width: FSizes.sm),
-                Text(
-                  'Your Points',
-                  style: Theme.of(Get.context!).textTheme.bodySmall?.copyWith(
-                        color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                      ),
-                ),
-                const Spacer(),
-                Text(
-                  '$userPoints',
-                  style: Theme.of(Get.context!).textTheme.bodyMedium?.copyWith(
-                        color: canAfford
-                            ? FColors.success
-                            : (dark ? FColors.white : FColors.black),
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                if (canAfford) ...[
-                  const SizedBox(width: FSizes.xs),
-                  Icon(
-                    Iconsax.tick_circle,
-                    size: 16,
-                    color: FColors.success,
                   ),
-                ],
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
 
-  /// Build description section
-  Widget _buildDescriptionSection(bool dark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Description',
-          style: Theme.of(Get.context!).textTheme.titleMedium?.copyWith(
-                color: dark ? FColors.white : FColors.black,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: FSizes.sm),
-        Text(
-          reward.description,
-          style: Theme.of(Get.context!).textTheme.bodyMedium?.copyWith(
-                color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                height: 1.5,
-              ),
-        ),
-      ],
-    );
-  }
+                  /// Divider
+                  Container(
+                    height: 8,
+                    color: dark ? FColors.black : FColors.grey.withOpacity(0.05),
+                  ),
 
-  /// Build terms and conditions section
-  Widget _buildTermsSection(bool dark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Terms & Conditions',
-          style: Theme.of(Get.context!).textTheme.titleMedium?.copyWith(
-                color: dark ? FColors.white : FColors.black,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: FSizes.sm),
-        Container(
-          padding: const EdgeInsets.all(FSizes.md),
-          decoration: BoxDecoration(
-            color: dark ? FColors.darkContainer : FColors.lightContainer,
-            borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
-            border: Border.all(
-              color: dark
-                  ? FColors.borderPrimary.withOpacity(0.1)
-                  : FColors.borderPrimary,
-              width: 1,
-            ),
-          ),
-          child: Text(
-            reward.termsConditions,
-            style: Theme.of(Get.context!).textTheme.bodySmall?.copyWith(
-                  color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                  height: 1.4,
-                ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Build redemption info section
-  Widget _buildRedemptionInfo(RedemptionModel userRedemption, bool dark) {
-    return Container(
-      padding: const EdgeInsets.all(FSizes.md),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            FColors.success.withOpacity(0.1),
-            FColors.primary.withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
-        border: Border.all(
-          color: FColors.success.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Iconsax.tick_circle,
-                color: FColors.success,
-                size: 20,
-              ),
-              const SizedBox(width: FSizes.sm),
-              Text(
-                'Successfully Redeemed',
-                style: Theme.of(Get.context!).textTheme.titleMedium?.copyWith(
-                      color: FColors.success,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: FSizes.md),
-          Container(
-            padding: const EdgeInsets.all(FSizes.md),
-            decoration: BoxDecoration(
-              color: dark ? FColors.darkContainer : FColors.white,
-              borderRadius: BorderRadius.circular(FSizes.cardRadiusSm),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'PIN Code:',
-                      style: Theme.of(Get.context!)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(
-                            color: dark ? FColors.darkGrey : FColors.darkerGrey,
+                  /// Description
+                  Container(
+                    color: dark ? FColors.dark : FColors.white,
+                    padding: const EdgeInsets.all(FSizes.defaultSpace),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Description',
+                          style: TextStyle(
+                            color: dark ? FColors.white : FColors.black,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: FSizes.md,
-                        vertical: FSizes.sm,
-                      ),
-                      decoration: BoxDecoration(
-                        color: FColors.primary.withOpacity(0.1),
-                        borderRadius:
-                            BorderRadius.circular(FSizes.borderRadiusSm),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            userRedemption.formattedPinCode,
-                            style: Theme.of(Get.context!)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  color: FColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 2,
-                                ),
+                        ),
+                        const SizedBox(height: FSizes.sm),
+                        Text(
+                          reward.description,
+                          style: TextStyle(
+                            color: dark
+                                ? FColors.darkGrey
+                                : FColors.textSecondary,
+                            fontSize: 14,
+                            height: 1.6,
                           ),
-                          const SizedBox(width: FSizes.sm),
-                          GestureDetector(
-                            onTap: () => _copyPinCode(userRedemption.pinCode),
-                            child: Icon(
-                              Iconsax.copy,
-                              size: 18,
-                              color: FColors.primary,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  /// Divider
+                  Container(
+                    height: 8,
+                    color: dark ? FColors.black : FColors.grey.withOpacity(0.05),
+                  ),
+
+                  /// Terms & Conditions
+                  Container(
+                    color: dark ? FColors.dark : FColors.white,
+                    padding: const EdgeInsets.all(FSizes.defaultSpace),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Terms & Conditions',
+                          style: TextStyle(
+                            color: dark ? FColors.white : FColors.black,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: FSizes.sm),
+                        Container(
+                          padding: const EdgeInsets.all(FSizes.md),
+                          decoration: BoxDecoration(
+                            color: dark
+                                ? FColors.darkerGrey
+                                : FColors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            reward.termsConditions,
+                            style: TextStyle(
+                              color: dark
+                                  ? FColors.darkGrey
+                                  : FColors.textSecondary,
+                              fontSize: 13,
+                              height: 1.5,
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  /// Redemption Info (if from My Rewards)
+                  if (redemption != null) ...[
+                    Container(
+                      height: 8,
+                      color: dark ? FColors.black : FColors.grey.withOpacity(0.05),
+                    ),
+                    _buildRedemptionInfo(redemption!, dark),
+                  ],
+
+                  const SizedBox(height: 100), // Space for bottom button
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: !isFromMyRewards
+          ? _buildBottomButton(controller, dark)
+          : null,
+    );
+  }
+
+  /// Build Header with Image
+  Widget _buildHeader(bool dark) {
+    return Stack(
+      children: [
+        /// Image
+        Container(
+          height: 280,
+          width: double.infinity,
+          color: FColors.primary.withOpacity(0.1),
+          child: reward.rewardImage.isNotEmpty
+              ? CachedNetworkImage(
+            imageUrl: reward.rewardImage,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Center(
+              child: CircularProgressIndicator(
+                color: FColors.primary,
+                strokeWidth: 3,
+              ),
+            ),
+            errorWidget: (context, url, error) => Center(
+              child: Icon(
+                Iconsax.gift,
+                size: 64,
+                color: FColors.primary.withOpacity(0.5),
+              ),
+            ),
+          )
+              : Center(
+            child: Icon(
+              Iconsax.gift,
+              size: 64,
+              color: FColors.primary.withOpacity(0.5),
+            ),
+          ),
+        ),
+
+        /// Gradient Overlay
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.3),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        /// Back Button
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(FSizes.sm),
+            child: Row(
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => Get.back(),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: dark
+                            ? FColors.darkerGrey.withOpacity(0.8)
+                            : FColors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: FSizes.sm),
-                Row(
-                  children: [
-                    Text(
-                      'Redeemed Date:',
-                      style: Theme.of(Get.context!)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(
-                            color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                          ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      userRedemption.formattedCreatedAt,
-                      style:
-                          Theme.of(Get.context!).textTheme.bodyMedium?.copyWith(
-                                color: dark ? FColors.white : FColors.black,
-                                fontWeight: FontWeight.w600,
-                              ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: FSizes.sm),
-                Row(
-                  children: [
-                    Text(
-                      'Status:',
-                      style: Theme.of(Get.context!)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(
-                            color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                          ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: FSizes.sm,
-                        vertical: FSizes.xs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(userRedemption.status)
-                            .withOpacity(0.1),
-                        borderRadius:
-                            BorderRadius.circular(FSizes.borderRadiusSm),
-                        border: Border.all(
-                          color: _getStatusColor(userRedemption.status),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        userRedemption.statusDisplayText,
-                        style: Theme.of(Get.context!)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(
-                              color: _getStatusColor(userRedemption.status),
-                              fontWeight: FontWeight.w600,
-                            ),
+                      child: Icon(
+                        Iconsax.arrow_left,
+                        color: dark ? FColors.white : FColors.black,
+                        size: 24,
                       ),
                     ),
-                  ],
+                  ),
                 ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Build Info Card
+  Widget _buildInfoCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    String? subtitle,
+    Color? valueColor,
+    required bool dark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(FSizes.md),
+      decoration: BoxDecoration(
+        color: dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: FColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: FColors.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: FSizes.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: dark ? FColors.darkGrey : FColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: valueColor ?? (dark ? FColors.white : FColors.black),
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: dark ? FColors.darkGrey : FColors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -548,7 +446,191 @@ class RewardDetailScreen extends StatelessWidget {
     );
   }
 
-  /// Build bottom redeem button
+  /// Build Redemption Info Section
+  Widget _buildRedemptionInfo(RedemptionModel redemption, bool dark) {
+    final daysRemaining = 30 - DateTime.now().difference(redemption.createdAt).inDays;
+    final isExpired = daysRemaining <= 0;
+
+    return Container(
+      color: dark ? FColors.dark : FColors.white,
+      padding: const EdgeInsets.all(FSizes.defaultSpace),
+      child: Container(
+        padding: const EdgeInsets.all(FSizes.lg),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isExpired
+                ? [
+              FColors.error.withOpacity(0.1),
+              FColors.error.withOpacity(0.05),
+            ]
+                : [
+              FColors.success.withOpacity(0.1),
+              FColors.primary.withOpacity(0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isExpired
+                ? FColors.error.withOpacity(0.3)
+                : FColors.success.withOpacity(0.3),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isExpired
+                        ? FColors.error.withOpacity(0.1)
+                        : FColors.success.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    isExpired ? Iconsax.close_circle : Iconsax.tick_circle,
+                    color: isExpired ? FColors.error : FColors.success,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: FSizes.md),
+                Expanded(
+                  child: Text(
+                    isExpired ? 'Reward Expired' : 'Redeemed Successfully',
+                    style: TextStyle(
+                      color: isExpired ? FColors.error : FColors.success,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: FSizes.md),
+
+            /// PIN Code Section
+            Container(
+              padding: const EdgeInsets.all(FSizes.md),
+              decoration: BoxDecoration(
+                color: dark ? FColors.darkerGrey : FColors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'PIN Code',
+                        style: TextStyle(
+                          color: dark ? FColors.darkGrey : FColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            Clipboard.setData(
+                              ClipboardData(text: redemption.pinCode),
+                            );
+                            FLoaders.customToast(message: 'PIN code copied!');
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: FSizes.sm,
+                              vertical: FSizes.xs,
+                            ),
+                            decoration: BoxDecoration(
+                              color: FColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Iconsax.copy,
+                                  size: 14,
+                                  color: FColors.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'Copy',
+                                  style: TextStyle(
+                                    color: FColors.primary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: FSizes.sm),
+                  Text(
+                    redemption.formattedPinCode,
+                    style: const TextStyle(
+                      color: FColors.primary,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 6,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: FSizes.md),
+
+            /// Info Rows
+            _buildInfoRow(
+              'Redeemed Date',
+              redemption.formattedCreatedAt,
+              dark,
+            ),
+            const SizedBox(height: FSizes.sm),
+            _buildInfoRow(
+              'Status',
+              isExpired ? 'Expired' : '$daysRemaining days left',
+              dark,
+              valueColor: isExpired ? FColors.error : FColors.success,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, bool dark, {Color? valueColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: dark ? FColors.darkGrey : FColors.textSecondary,
+            fontSize: 13,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: valueColor ?? (dark ? FColors.white : FColors.black),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Build Bottom Redeem Button
   Widget _buildBottomButton(RewardController controller, bool dark) {
     return Container(
       padding: const EdgeInsets.all(FSizes.defaultSpace),
@@ -557,10 +639,10 @@ class RewardDetailScreen extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: dark
-                ? Colors.white.withOpacity(0.05)
+                ? Colors.black.withOpacity(0.3)
                 : Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+            blurRadius: 12,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
@@ -568,56 +650,58 @@ class RewardDetailScreen extends StatelessWidget {
         child: Obx(() {
           final canRedeem = controller.canRedeemReward(reward);
           final isLoading = controller.isLoading.value;
+          final userPoints = controller.userPoints.value;
 
           return SizedBox(
             width: double.infinity,
-            height: FSizes.buttonHeight + 32,
+            height: 50,
             child: ElevatedButton(
               onPressed: canRedeem && !isLoading
-                  ? () => _showRedeemConfirmationDialog(controller)
+                  ? () => _handleRedeem(controller)
                   : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    canRedeem ? FColors.primary : FColors.buttonDisabled,
+                backgroundColor: canRedeem
+                    ? FColors.primary
+                    : FColors.buttonDisabled,
                 foregroundColor: FColors.white,
                 disabledBackgroundColor: FColors.buttonDisabled,
                 disabledForegroundColor: FColors.white.withOpacity(0.7),
+                elevation: canRedeem ? 4 : 0,
+                shadowColor: FColors.primary.withOpacity(0.4),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: isLoading
                   ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(FColors.white),
-                      ),
-                    )
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(FColors.white),
+                ),
+              )
                   : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          canRedeem ? Iconsax.gift : Iconsax.lock_1,
-                          size: 20,
-                        ),
-                        const SizedBox(width: FSizes.sm),
-                        Text(
-                          canRedeem
-                              ? 'Redeem Now'
-                              : controller.userPoints.value <
-                                      reward.pointsNeeded
-                                  ? 'Insufficient Points'
-                                  : 'Unavailable',
-                          style: Theme.of(Get.context!)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                color: FColors.white,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                      ],
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    canRedeem ? Iconsax.gift : Iconsax.lock_1,
+                    size: 20,
+                  ),
+                  const SizedBox(width: FSizes.sm),
+                  Text(
+                    canRedeem
+                        ? 'Redeem Now'
+                        : userPoints < reward.pointsNeeded
+                        ? 'Insufficient Points'
+                        : 'Unavailable',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                ],
+              ),
             ),
           );
         }),
@@ -625,337 +709,33 @@ class RewardDetailScreen extends StatelessWidget {
     );
   }
 
-  /// Copy PIN code to clipboard
-  void _copyPinCode(String pinCode) {
-    Clipboard.setData(ClipboardData(text: pinCode));
-    FLoaders.customToast(message: 'PIN code copied to clipboard');
-  }
-
-  /// Show redeem confirmation dialog
-  void _showRedeemConfirmationDialog(RewardController controller) {
-    final dark = FHelperFunctions.isDarkMode(Get.context!);
-
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: dark ? FColors.dark : FColors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
-        ),
-        title: Row(
-          children: [
-            Icon(
-              Iconsax.gift,
-              color: FColors.primary,
-              size: 24,
-            ),
-            const SizedBox(width: FSizes.sm),
-            Text(
-              'Confirm Redemption',
-              style: Theme.of(Get.context!).textTheme.titleLarge?.copyWith(
-                    color: dark ? FColors.white : FColors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Are you sure you want to redeem this reward?',
-              style: Theme.of(Get.context!).textTheme.bodyLarge?.copyWith(
-                    color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                  ),
-            ),
-            const SizedBox(height: FSizes.md),
-            Container(
-              padding: const EdgeInsets.all(FSizes.md),
-              decoration: BoxDecoration(
-                color: dark ? FColors.darkContainer : FColors.lightContainer,
-                borderRadius: BorderRadius.circular(FSizes.cardRadiusSm),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    reward.title,
-                    style:
-                        Theme.of(Get.context!).textTheme.titleMedium?.copyWith(
-                              color: dark ? FColors.white : FColors.black,
-                              fontWeight: FontWeight.w600,
-                            ),
-                  ),
-                  const SizedBox(height: FSizes.sm),
-                  Row(
-                    children: [
-                      Text(
-                        'Points Required:',
-                        style: Theme.of(Get.context!)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                              color:
-                                  dark ? FColors.darkGrey : FColors.darkerGrey,
-                            ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${reward.pointsNeeded}',
-                        style: Theme.of(Get.context!)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                              color: FColors.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Text(
-                        'Your Balance:',
-                        style: Theme.of(Get.context!)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                              color:
-                                  dark ? FColors.darkGrey : FColors.darkerGrey,
-                            ),
-                      ),
-                      const Spacer(),
-                      Obx(() => Text(
-                            '${controller.userPoints.value}',
-                            style: Theme.of(Get.context!)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: dark ? FColors.white : FColors.black,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          )),
-                    ],
-                  ),
-                  const Divider(),
-                  Row(
-                    children: [
-                      Text(
-                        'After Redemption:',
-                        style: Theme.of(Get.context!)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                              color:
-                                  dark ? FColors.darkGrey : FColors.darkerGrey,
-                            ),
-                      ),
-                      const Spacer(),
-                      Obx(() => Text(
-                            '${controller.userPoints.value - reward.pointsNeeded}',
-                            style: Theme.of(Get.context!)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: FColors.warning,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          )),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: dark ? FColors.darkGrey : FColors.darkerGrey,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Get.back(); // Close dialog
-              final success = await controller.redeemReward(reward);
-              if (success) {
-                // Show success message with PIN code
-                final userRedemption = controller.getUserRedemption(reward);
-                if (userRedemption != null) {
-                  _showRedemptionSuccessDialog(userRedemption);
-                }
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: FColors.primary,
-              foregroundColor: FColors.white,
-            ),
-            child: const Text(
-              'Redeem',
-              style: TextStyle(
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
-      ),
+  /// Handle Redeem Action
+  void _handleRedeem(RewardController controller) {
+    FLoaders.showRewardRedemptionDialog(
+      rewardTitle: reward.title,
+      pointsRequired: reward.pointsNeeded,
+      currentPoints: controller.userPoints.value,
+      onConfirm: () async {
+        await controller.redeemReward(reward);
+      },
     );
   }
 
-  /// Show redemption success dialog
-  void _showRedemptionSuccessDialog(RedemptionModel redemption) {
-    final dark = FHelperFunctions.isDarkMode(Get.context!);
-
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: dark ? FColors.dark : FColors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
-        ),
-        title: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(FSizes.md),
-              decoration: BoxDecoration(
-                color: FColors.success.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Iconsax.tick_circle,
-                color: FColors.success,
-                size: 48,
-              ),
-            ),
-            const SizedBox(height: FSizes.md),
-            Text(
-              'Redemption Successful!',
-              style: Theme.of(Get.context!).textTheme.titleLarge?.copyWith(
-                    color: dark ? FColors.white : FColors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Your reward has been redeemed successfully. Please save your PIN code:',
-              style: Theme.of(Get.context!).textTheme.bodyMedium?.copyWith(
-                    color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: FSizes.md),
-            Container(
-              padding: const EdgeInsets.all(FSizes.lg),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    FColors.primary.withOpacity(0.1),
-                    FColors.accent.withOpacity(0.1),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
-                border: Border.all(
-                  color: FColors.primary.withOpacity(0.3),
-                  width: 2,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'Your PIN Code',
-                    style: Theme.of(Get.context!)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(
-                          color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                        ),
-                  ),
-                  const SizedBox(height: FSizes.sm),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        redemption.formattedPinCode,
-                        style: Theme.of(Get.context!)
-                            .textTheme
-                            .headlineMedium
-                            ?.copyWith(
-                              color: FColors.primary,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 4,
-                            ),
-                      ),
-                      const SizedBox(width: FSizes.md),
-                      GestureDetector(
-                        onTap: () => _copyPinCode(redemption.pinCode),
-                        child: Container(
-                          padding: const EdgeInsets.all(FSizes.sm),
-                          decoration: BoxDecoration(
-                            color: FColors.primary.withOpacity(0.1),
-                            borderRadius:
-                                BorderRadius.circular(FSizes.borderRadiusSm),
-                          ),
-                          child: Icon(
-                            Iconsax.copy,
-                            color: FColors.primary,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: FSizes.md),
-            Text(
-              'Present this PIN code to redeem your reward at the merchant.',
-              style: Theme.of(Get.context!).textTheme.bodySmall?.copyWith(
-                    color: dark ? FColors.darkGrey : FColors.darkerGrey,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => Get.back(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FColors.primary,
-                foregroundColor: FColors.white,
-              ),
-              child: const Text('Got It!'),
-            ),
-          ),
-        ],
-      ),
-      barrierDismissible: false,
-    );
-  }
-
-  /// Get status color based on redemption status
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return FColors.warning;
-      case 'used':
-        return FColors.success;
-      case 'expired':
-        return FColors.error;
-      case 'cancelled':
-        return FColors.darkGrey;
-      default:
-        return FColors.darkGrey;
+  /// Get status color
+  Color _getStatusColor(RewardModel reward, RedemptionModel? redemption) {
+    if (redemption != null) {
+      final daysRemaining = 30 - DateTime.now().difference(redemption.createdAt).inDays;
+      return daysRemaining <= 0 ? FColors.error : FColors.success;
     }
+    return reward.isAvailable ? FColors.success : FColors.error;
+  }
+
+  /// Get status text
+  String _getStatusText(RewardModel reward, RedemptionModel? redemption) {
+    if (redemption != null) {
+      final daysRemaining = 30 - DateTime.now().difference(redemption.createdAt).inDays;
+      return daysRemaining <= 0 ? 'EXPIRED' : 'ACTIVE';
+    }
+    return reward.statusDisplayText.toUpperCase();
   }
 }

@@ -11,12 +11,14 @@ import 'package:fyp/features/community/controllers/posts/comment_controller.dart
 
 class FCommentCard extends StatelessWidget {
   final Comment comment;
-  final bool isInRepliesScreen; // 区分是否在 replies 页面
-  final bool isOriginalComment; // 区分是否是原始评论（在replies页面顶部的）
+  final String postId;
+  final bool isInRepliesScreen;
+  final bool isOriginalComment;
 
   const FCommentCard({
     super.key,
     required this.comment,
+    required this.postId,
     this.isInRepliesScreen = false,
     this.isOriginalComment = false,
   });
@@ -26,7 +28,7 @@ class FCommentCard extends StatelessWidget {
     return GestureDetector(
       onLongPress: () => _showContextMenu(context),
       child: Container(
-        padding: EdgeInsets.all(isOriginalComment ? FSizes.md : FSizes.sm),
+        padding: EdgeInsets.all(isOriginalComment ? FSizes.md * 1.4 : FSizes.md * 1.2),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -38,7 +40,7 @@ class FCommentCard extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(width: FSizes.sm),
+            const SizedBox(width: FSizes.md),
 
             // Comment content
             Expanded(
@@ -70,7 +72,7 @@ class FCommentCard extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: FSizes.xs / 2),
+                  const SizedBox(height: FSizes.spaceBtwItems),
 
                   // Comment content
                   Text(
@@ -80,14 +82,14 @@ class FCommentCard extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: FSizes.xs),
+                  const SizedBox(height: FSizes.spaceBtwItems),
 
                   // Action buttons
                   _buildActionButtons(context),
 
                   // View replies if exist (only show in post details screen)
                   if (!isInRepliesScreen && comment.replyCount > 0) ...[
-                    const SizedBox(height: FSizes.xs),
+                    const SizedBox(height: FSizes.md),
                     GestureDetector(
                       onTap: () => _navigateToReplies(context, comment, false),
                       child: Text(
@@ -119,17 +121,25 @@ class FCommentCard extends StatelessWidget {
     }
   }
 
-  // Action buttons for post details screen
+  // Action buttons for community details screen
   Widget _buildPostDetailsButtons(BuildContext context) {
-    final controller = Get.find<PostDetailsController>();
-    final currentUserId = controller.getCurrentUserId();
+    // 检查控制器是否存在，如果不存在则使用默认值
+    final bool hasCommentController = Get.isRegistered<CommentController>();
+    final currentUserId = hasCommentController
+        ? Get.find<CommentController>().getCurrentUserId()
+        : 'current_user_id';
+
     final isLiked = comment.likes.contains(currentUserId);
 
     return Row(
       children: [
         // Like button with count
         GestureDetector(
-          onTap: () => controller.toggleCommentLike(comment.commentId),
+          onTap: () {
+            if (hasCommentController) {
+              Get.find<CommentController>().toggleCommentLike(comment.commentId);
+            }
+          },
           child: Row(
             children: [
               Icon(
@@ -169,6 +179,13 @@ class FCommentCard extends StatelessWidget {
 
   // Action buttons for replies screen (original comment)
   Widget _buildRepliesScreenButtons(BuildContext context) {
+    final bool hasCommentController = Get.isRegistered<CommentController>();
+    final bool hasReplyController = Get.isRegistered<ReplyController>();
+
+    if (!hasCommentController || !hasReplyController) {
+      return const SizedBox.shrink();
+    }
+
     final commentController = Get.find<CommentController>();
     final repliesController = Get.find<ReplyController>();
     final currentUserId = commentController.getCurrentUserId();
@@ -280,7 +297,7 @@ class FCommentCard extends StatelessWidget {
   }
 
   void _copyCommentText() {
-    if (isInRepliesScreen) {
+    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
       final commentController = Get.find<CommentController>();
       commentController.copyText();
     } else {
@@ -350,20 +367,20 @@ class FCommentCard extends StatelessWidget {
   }
 
   void _editComment(String newContent) {
-    if (isInRepliesScreen) {
+    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
       final commentController = Get.find<CommentController>();
       commentController.edit(newContent);
-    } else {
+    } else if (Get.isRegistered<PostDetailsController>()) {
       final controller = Get.find<PostDetailsController>();
       // controller.editComment(comment.commentId, newContent);
     }
   }
 
   void _deleteComment() {
-    if (isInRepliesScreen) {
+    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
       final commentController = Get.find<CommentController>();
       commentController.delete();
-    } else {
+    } else if (Get.isRegistered<PostDetailsController>()) {
       final controller = Get.find<PostDetailsController>();
       // controller.deleteComment(comment.commentId);
     }
@@ -371,43 +388,47 @@ class FCommentCard extends StatelessWidget {
 
   void _navigateToReplies(BuildContext context, Comment comment, bool autoFocus) {
     Get.to(() => CommentRepliesScreen(
+      postId: postId,
       comment: comment,
       autoFocusReply: autoFocus,
     ));
   }
 
   String _getCurrentUserId() {
-    if (isInRepliesScreen) {
+    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
       final commentController = Get.find<CommentController>();
       return commentController.getCurrentUserId();
-    } else {
+    } else if (Get.isRegistered<PostDetailsController>()) {
       final controller = Get.find<PostDetailsController>();
       return controller.getCurrentUserId();
     }
+    return 'current_user_id';
   }
 
   String _getUserAvatar(String userId) {
-    if (isInRepliesScreen) {
+    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
       final commentController = Get.find<CommentController>();
       return commentController.getUserAvatar(userId);
-    } else {
+    } else if (Get.isRegistered<PostDetailsController>()) {
       final controller = Get.find<PostDetailsController>();
       return controller.getUserAvatar(userId);
     }
+    return 'https://picsum.photos/100?random=${userId.hashCode}';
   }
 
   String _getUserName(String userId) {
-    if (isInRepliesScreen) {
+    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
       final commentController = Get.find<CommentController>();
       return commentController.getUserName(userId);
-    } else {
+    } else if (Get.isRegistered<PostDetailsController>()) {
       final controller = Get.find<PostDetailsController>();
       return controller.getUserName(userId);
     }
+    return 'User ${userId.substring(0, 4)}';
   }
 
   String _formatTimeAgo(DateTime dateTime) {
-    if (isInRepliesScreen) {
+    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
       final commentController = Get.find<CommentController>();
       return commentController.formatTimeAgo(dateTime);
     } else {
