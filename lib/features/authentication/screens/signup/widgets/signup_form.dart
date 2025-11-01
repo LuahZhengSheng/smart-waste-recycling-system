@@ -20,35 +20,6 @@ class FSignupForm extends StatelessWidget {
       key: controller.signupFormKey,
       child: Column(
         children: [
-          // Row(
-          //   children: [
-          //     Expanded(
-          //       child: TextFormField(
-          //         controller: controller.firstName,
-          //         validator: (value) => FValidator.validateEmptyText('First name', value),
-          //         expands: false,
-          //         decoration: const InputDecoration(
-          //           labelText: FTexts.firstName,
-          //           prefixIcon: Icon(Iconsax.user),
-          //         ),
-          //       ),
-          //     ),
-          //     const SizedBox(width: FSizes.spaceBtwInputFields),
-          //     Expanded(
-          //       child: TextFormField(
-          //         controller: controller.lastName,
-          //         validator: (value) => FValidator.validateEmptyText('Last name', value),
-          //         expands: false,
-          //         decoration: const InputDecoration(
-          //           labelText: FTexts.lastName,
-          //           prefixIcon: Icon(Iconsax.user),
-          //         ),
-          //       ),
-          //     ),
-          //   ],
-          // ),
-          // const SizedBox(height: FSizes.spaceBtwInputFields),
-
           /// Username
           TextFormField(
             controller: controller.username,
@@ -71,20 +42,9 @@ class FSignupForm extends StatelessWidget {
           ),
           const SizedBox(height: FSizes.spaceBtwInputFields),
 
-          // /// Phone Number
-          // TextFormField(
-          //   controller: controller.phoneNumber,
-          //   validator: (value) => FValidator.validatePhoneNumber(value),
-          //   decoration: const InputDecoration(
-          //     labelText: FTexts.phoneNo,
-          //     prefixIcon: Icon(Iconsax.call),
-          //   ),
-          // ),
-          // const SizedBox(height: FSizes.spaceBtwInputFields),
-
           /// Password
           Obx(
-            () => TextFormField(
+                () => TextFormField(
               controller: controller.password,
               validator: (value) => FValidator.validatePassword(value),
               obscureText: controller.hidePassword.value,
@@ -99,13 +59,13 @@ class FSignupForm extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: FSizes.spaceBtwSections),
+          const SizedBox(height: FSizes.spaceBtwInputFields),
 
-          /// Password
+          /// Confirm Password
           Obx(
                 () => TextFormField(
-              controller: controller.password,
-              validator: (value) => FValidator.validatePassword(value),
+              controller: controller.confirmPassword,
+              validator: (value) => FValidator.validateConfirmPassword(controller.password.text, value!),
               obscureText: controller.hidePassword.value,
               expands: false,
               decoration: InputDecoration(
@@ -126,13 +86,14 @@ class FSignupForm extends StatelessWidget {
 
           /// Sign Up Button
           SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                  onPressed: () => controller.signup(),
-                  child: const Text(FTexts.createAccount))),
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => controller.signup(),
+              child: const Text(FTexts.createAccount),
+            ),
+          ),
         ],
       ),
     );
   }
 }
-

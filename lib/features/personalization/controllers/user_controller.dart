@@ -55,7 +55,7 @@ class UserController extends GetxController {
           username: userCredentials.user!.displayName ?? '',
           email: userCredentials.user!.email ?? '',
           phoneNo: userCredentials.user!.phoneNumber ?? '',
-          profileImage: userCredentials.user!.photoURL ?? '',
+          profileImg: userCredentials.user!.photoURL ?? '',
           isActive: true,
           isVerified: false,
           joinDate: DateTime.now(),

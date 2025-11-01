@@ -16,7 +16,7 @@ class EditPostScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<MyPostsController>();
+    final controller = Get.put(MyPostsController());
     final dark = FHelperFunctions.isDarkMode(context);
 
     final contentController = TextEditingController(text: post.content);

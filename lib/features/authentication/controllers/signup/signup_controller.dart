@@ -13,15 +13,13 @@ class SignupController extends GetxController {
   static SignupController get instance => Get.find();
 
   /// Variables
-  final hidePassword = true.obs; // Observable for hiding/showing password
-  final privacyPolicy = true.obs; // Observable for hiding/showing password
-  final email = TextEditingController(); // Controller for email input
-  final firstName = TextEditingController(); // Controller for first name input
-  final lastName = TextEditingController(); // Controller for last name input
-  final username = TextEditingController(); // Controller for username input
-  final password = TextEditingController(); // Controller for password input
-  final phoneNumber = TextEditingController(); // Controller for phone number input
-  GlobalKey<FormState> signupFormKey = GlobalKey<FormState>(); // Form key for form validation
+  final hidePassword = true.obs;
+  final privacyPolicy = true.obs;
+  final email = TextEditingController();
+  final username = TextEditingController();
+  final password = TextEditingController();
+  final confirmPassword = TextEditingController();
+  GlobalKey<FormState> signupFormKey = GlobalKey<FormState>();
 
   /// -- SIGNUP
   void signup() async {
@@ -42,37 +40,56 @@ class SignupController extends GetxController {
         return;
       }
 
+      // Password Confirmation
+      if (password.text != confirmPassword.text) {
+        FLoaders.warningSnackBar(
+          title: 'Passwords Do Not Match',
+          message: 'Please make sure your passwords match.',
+        );
+        FFullScreenLoader.stopLoading();
+        return;
+      }
+
       // Privacy Policy Check
       if (!privacyPolicy.value) {
         FLoaders.warningSnackBar(
           title: 'Accept Privacy Policy',
           message: 'In order to create account, you must have to read and accept the Privacy Policy & Terms of Use.',
         );
-
         FFullScreenLoader.stopLoading();
         return;
       }
 
       // Register user in the Firebase Authentication & Save user data in the Firebase
       final userCredential = await AuthenticationRepository.instance.registerWithEmailAndPassword(
-          email.text.trim(), password.text.trim());
+          email.text.trim(),
+          password.text.trim()
+      );
 
       // Save Authenticated user data in the Firebase Firestore
-      // final newUser = UserModel(
-      //   id: userCredential.user!.uid,
-      //   firstName: firstName.text.trim(),
-      //   lastName: lastName.text.trim(),
-      //   username: username.text.trim(),
-      //   email: email.text.trim(),
-      //   phoneNumber: phoneNumber.text.trim(),
-      //   profilePicture: '',
-      // );
-      //
-      // final userRepository = Get.put(UserRepository());
-      // await userRepository.saveUserRecord(newUser);
+      final newUser = UserModel(
+        userId: userCredential.user!.uid,
+        username: username.text.trim(),
+        email: email.text.trim(),
+        loginAttemptCount: 0,
+        role: 'user', // Default role for new users
+        isVerified: false,
+        isActive: true,
+        joinDate: DateTime.now(), // This will be updated with server time in Firestore
+        rewardPoint: 0,
+        monthlyRewardPoint: 0,
+        totalRewardPoint: 0,
+        notifications: [],
+      );
+
+      final userRepository = Get.put(UserRepository());
+      await userRepository.saveUserRecord(newUser);
 
       // Show Success Message
-      FLoaders.successSnackBar(title: 'Congratulations', message: 'Your account has been created! Verify email to continue.');
+      FLoaders.successSnackBar(
+          title: 'Congratulations',
+          message: 'Your account has been created! Verify email to continue.'
+      );
 
       FFullScreenLoader.stopLoading();
 

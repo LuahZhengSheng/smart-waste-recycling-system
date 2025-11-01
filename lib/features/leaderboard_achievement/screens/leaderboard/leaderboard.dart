@@ -331,9 +331,9 @@ class LeaderboardScreen extends StatelessWidget {
               ],
             ),
             child: ClipOval(
-              child: user.profileImage != null && user.profileImage!.isNotEmpty
+              child: user.profileImg != null && user.profileImg!.isNotEmpty
                   ? Image.network(
-                user.profileImage!,
+                user.profileImg!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => _buildDefaultAvatar(user.username),
               )
@@ -442,9 +442,9 @@ class LeaderboardScreen extends StatelessWidget {
               ),
             ),
             child: ClipOval(
-              child: user.profileImage != null && user.profileImage!.isNotEmpty
+              child: user.profileImg != null && user.profileImg!.isNotEmpty
                   ? Image.network(
-                user.profileImage!,
+                user.profileImg!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => _buildSmallAvatar(user.username),
               )
@@ -564,9 +564,9 @@ class LeaderboardScreen extends StatelessWidget {
                 ],
               ),
               child: ClipOval(
-                child: currentUser.profileImage != null && currentUser.profileImage!.isNotEmpty
+                child: currentUser.profileImg != null && currentUser.profileImg!.isNotEmpty
                     ? Image.network(
-                  currentUser.profileImage!,
+                  currentUser.profileImg!,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => _buildSmallAvatar(currentUser.username),
                 )

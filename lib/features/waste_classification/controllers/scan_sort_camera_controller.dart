@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../screens/dropfoff_location/dropoff_location.dart';
 import '../screens/waste_category_guideline/waste_category_guide.dart';
 
 class ScanSortCameraController extends GetxController with WidgetsBindingObserver {
@@ -62,21 +63,28 @@ class ScanSortCameraController extends GetxController with WidgetsBindingObserve
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final currentController = _cameraController.value;
-    if (currentController == null || !currentController.value.isInitialized) {
-      return;
-    }
-
-    // 当正在选择图片时，不处理生命周期变化
+    // 当正在选择图片时，完全忽略生命周期变化
     if (_isPickingImage.value) {
       return;
     }
 
-    if (state == AppLifecycleState.inactive) {
+    // 只在应用完全暂停时才释放相机
+    if (state == AppLifecycleState.paused) {
       _disposeController();
-    } else if (state == AppLifecycleState.resumed) {
+    }
+    // 对于 inactive 和 resumed 状态，我们让页面级别的生命周期来管理
+  }
+
+  // 页面进入时初始化相机
+  void initializeCameraForPage() {
+    if (!_isInitialized.value && !_isLoading.value) {
       _initializeCamera();
     }
+  }
+
+  // 页面离开时释放相机
+  void disposeCameraForPage() {
+    _disposeController();
   }
 
   void _disposeController() {
@@ -344,14 +352,26 @@ class ScanSortCameraController extends GetxController with WidgetsBindingObserve
 
   // Navigation functions
   void navigateToDropOff() {
-    Get.snackbar(
-      'Drop Off',
-      'Navigating to Drop Off page...',
-      snackPosition: SnackPosition.BOTTOM,
-    );
+    disposeCameraForPage(); // 离开页面时释放相机
+    Get.to(() => DropoffLocationsScreen())?.then((_) {
+      // 当从 Dropoff 页面返回时重新初始化相机
+      if (!_isInitialized.value && !_isLoading.value) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _initializeCamera();
+        });
+      }
+    });
   }
 
   void navigateToCategories() {
-    Get.to(() => WasteCategoryGuideScreen());
+    disposeCameraForPage(); // 离开页面时释放相机
+    Get.to(() => WasteCategoryGuideScreen())?.then((_) {
+      // 当从 Categories 页面返回时重新初始化相机
+      if (!_isInitialized.value && !_isLoading.value) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          _initializeCamera();
+        });
+      }
+    });
   }
 }

@@ -21,7 +21,7 @@ class UserModel extends RoleModel {
     required super.isVerified,
     required super.isActive,
     super.phoneNo,
-    super.profileImage,
+    super.profileImg,
     super.lastFailedLogin,
 
     // UserModel fields
@@ -39,28 +39,28 @@ class UserModel extends RoleModel {
     final data = doc.data()!;
     return UserModel(
       userId: doc.id,
-      username: data['Username'] ?? '',
-      email: data['Email'] ?? '',
-      phoneNo: data['PhoneNo'],
-      profileImage: data['ProfileImage'],
-      loginAttemptCount: data['LoginAttemptCount'] ?? 0,
-      lastFailedLogin: data['LastFailedLogin'] != null
-          ? (data['LastFailedLogin'] as Timestamp).toDate()
+      username: data['username'] ?? '',
+      email: data['email'] ?? '',
+      phoneNo: data['phoneNo'],
+      profileImg: data['profileImg'],
+      loginAttemptCount: data['loginAttemptCount'] ?? 0,
+      lastFailedLogin: data['lastFailedLogin'] != null
+          ? (data['lastFailedLogin'] as Timestamp).toDate()
           : null,
-      role: data['Role'] ?? '',
-      isVerified: data['IsVerified'] ?? false,
-      isActive: data['IsActive'] ?? false,
-      gender: data['Gender'],
-      dob: data['Dob'] != null ? (data['Dob'] as Timestamp).toDate() : null,
-      joinDate: data['JoinDate'] != null
-          ? (data['JoinDate'] as Timestamp).toDate()
+      role: data['role'] ?? '',
+      isVerified: data['isVerified'] ?? false,
+      isActive: data['isActive'] ?? false,
+      gender: data['gender'],
+      dob: data['dob'] != null ? (data['dob'] as Timestamp).toDate() : null,
+      joinDate: data['joinDate'] != null
+          ? (data['joinDate'] as Timestamp).toDate()
           : DateTime.now(),
-      rewardPoint: data['RewardPoint'] ?? 0, // 当前剩余积分
-      monthlyRewardPoint: data['MonthlyRewardPoint'] ?? 0, // 月度积分
-      totalRewardPoint: data['TotalRewardPoint'] ?? 0, // 总积分
-      notifications: data['Notifications'] != null
+      rewardPoint: data['rewardPoint'] ?? 0, // 当前剩余积分
+      monthlyRewardPoint: data['monthlyRewardPoint'] ?? 0, // 月度积分
+      totalRewardPoint: data['totalRewardPoint'] ?? 0, // 总积分
+      notifications: data['notifications'] != null
           ? List<NotificationModel>.from(
-          (data['Notifications'] as List<dynamic>)
+          (data['notifications'] as List<dynamic>)
               .map((n) => NotificationModel.fromMap(n)))
           : [],
     );
@@ -73,7 +73,7 @@ class UserModel extends RoleModel {
       username: map['username'] ?? '',
       email: map['email'] ?? '',
       phoneNo: map['phoneNo'],
-      profileImage: map['profileImage'],
+      profileImg: map['profileImg'],
       loginAttemptCount: map['loginAttemptCount'] ?? 0,
       lastFailedLogin: map['lastFailedLogin'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['lastFailedLogin'])
@@ -101,24 +101,23 @@ class UserModel extends RoleModel {
   @override
   Map<String, dynamic> toJson() {
     return {
-      'UserId': userId,
-      'Username': username,
-      'Email': email,
-      'PhoneNo': phoneNo,
-      'ProfileImage': profileImage,
-      'LoginAttemptCount': loginAttemptCount,
-      'LastFailedLogin':
-      lastFailedLogin != null ? Timestamp.fromDate(lastFailedLogin!) : null,
-      'Role': role,
-      'IsVerified': isVerified,
-      'IsActive': isActive,
-      'Gender': gender,
-      'Dob': dob != null ? Timestamp.fromDate(dob!) : null,
-      'JoinDate': Timestamp.fromDate(joinDate),
-      'RewardPoint': rewardPoint, // 当前剩余积分
-      'MonthlyRewardPoint': monthlyRewardPoint, // 月度积分
-      'TotalRewardPoint': totalRewardPoint, // 总积分
-      'Notifications': notifications.map((n) => n.toMap()).toList(),
+      'userId': userId,
+      'username': username,
+      'email': email,
+      'phoneNo': phoneNo,
+      'profileImg': profileImg,
+      'loginAttemptCount': loginAttemptCount,
+      'lastFailedLogin': lastFailedLogin != null ? Timestamp.fromDate(lastFailedLogin!) : FieldValue.serverTimestamp(),
+      'role': role,
+      'isVerified': isVerified,
+      'isActive': isActive,
+      'gender': gender,
+      'dob': dob != null ? Timestamp.fromDate(dob!) : null,
+      'joinDate': FieldValue.serverTimestamp(), // 使用服务器时间
+      'rewardPoint': rewardPoint, // 当前剩余积分
+      'monthlyRewardPoint': monthlyRewardPoint, // 月度积分
+      'totalRewardPoint': totalRewardPoint, // 总积分
+      'notifications': notifications.map((n) => n.toMap()).toList(),
     };
   }
 
@@ -137,7 +136,7 @@ class UserModel extends RoleModel {
     DateTime? lastFailedLogin,
     int? loginAttemptCount,
     String? phoneNo,
-    String? profileImage,
+    String? profileImg,
     String? role,
     String? userId,
     String? username,
@@ -147,7 +146,7 @@ class UserModel extends RoleModel {
       username: username ?? this.username,
       email: email ?? this.email,
       phoneNo: phoneNo ?? this.phoneNo,
-      profileImage: profileImage ?? this.profileImage,
+      profileImg: profileImg ?? this.profileImg,
       role: role ?? this.role,
       isActive: isActive ?? this.isActive,
       isVerified: isVerified ?? this.isVerified,

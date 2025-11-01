@@ -16,7 +16,7 @@ class RecyclingCenterStaffModel extends RoleModel {
     required super.isVerified,
     required super.isActive,
     super.phoneNo,
-    super.profileImage,
+    super.profileImg,
     super.lastFailedLogin,
 
     // RecyclingCenterStaffModel fields
@@ -33,7 +33,7 @@ class RecyclingCenterStaffModel extends RoleModel {
       username: data['Username'] ?? '',
       email: data['Email'] ?? '',
       phoneNo: data['PhoneNo'],
-      profileImage: data['ProfileImage'],
+      profileImg: data['ProfileImage'],
       loginAttemptCount: data['LoginAttemptCount'] ?? 0,
       lastFailedLogin: data['LastFailedLogin'] != null
           ? (data['LastFailedLogin'] as Timestamp).toDate()
@@ -57,7 +57,7 @@ class RecyclingCenterStaffModel extends RoleModel {
       username: map['username'] ?? '',
       email: map['email'] ?? '',
       phoneNo: map['phoneNo'],
-      profileImage: map['profileImage'],
+      profileImg: map['profileImg'],
       loginAttemptCount: map['loginAttemptCount'] ?? 0,
       lastFailedLogin: map['lastFailedLogin'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['lastFailedLogin'])
@@ -80,7 +80,7 @@ class RecyclingCenterStaffModel extends RoleModel {
       'Username': username,
       'Email': email,
       'PhoneNo': phoneNo,
-      'ProfileImage': profileImage,
+      'ProfileImage': profileImg,
       'LoginAttemptCount': loginAttemptCount,
       'LastFailedLogin':
       lastFailedLogin != null ? Timestamp.fromDate(lastFailedLogin!) : null,
@@ -104,7 +104,7 @@ class RecyclingCenterStaffModel extends RoleModel {
     DateTime? lastFailedLogin,
     int? loginAttemptCount,
     String? phoneNo,
-    String? profileImage,
+    String? profileImg,
     String? role,
     String? userId,
     String? username,
@@ -114,7 +114,7 @@ class RecyclingCenterStaffModel extends RoleModel {
       username: username ?? this.username,
       email: email ?? this.email,
       phoneNo: phoneNo ?? this.phoneNo,
-      profileImage: profileImage ?? this.profileImage,
+      profileImg: profileImg ?? this.profileImg,
       role: role ?? this.role,
       isActive: isActive ?? this.isActive,
       isVerified: isVerified ?? this.isVerified,

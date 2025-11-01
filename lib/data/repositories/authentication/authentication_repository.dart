@@ -31,6 +31,8 @@ class AuthenticationRepository extends GetxController {
   final _firestore = FirebaseFirestore.instance;
   final _firebaseMessaging = FirebaseMessaging.instance;
 
+  final String _usersCollection = "users";
+
   /// Get Authenticated User Data
   User? get authUser => _auth.currentUser;
 
@@ -132,7 +134,7 @@ class AuthenticationRepository extends GetxController {
 
       if (fcmToken != null && userId.isNotEmpty) {
         // 更新用户文档中的 FCM token
-        await _firestore.collection('Users').doc(userId).update({
+        await _firestore.collection(_usersCollection).doc(userId).update({
           'fcmToken': fcmToken,
         });
 

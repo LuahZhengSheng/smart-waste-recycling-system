@@ -29,6 +29,14 @@
     <!-- Required to restart scheduled notifications after device reboot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
+    <!-- Required for accessing precise location (GPS) -->
+    <!-- Used for: recycling center locations, user location services -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+
+    <!-- Required for accessing approximate location (network-based) -->
+    <!-- Used for: recycling center locations, user location services -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
     <!-- 相机特性 -->
     <uses-feature
         android:name="android.hardware.camera"
@@ -103,6 +111,14 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- ==================== GOOGLE MAP SERVICE ==================== -->
+        <!-- Google Maps API Key configuration -->
+        <!-- Required for displaying Google Maps in the application -->
+        <!-- Used for: recycling center locations, map navigation, location services -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyDxxkSWPJGDFFpcejtULq6hHohdYuTLQ5A"/>
 
     </application>
     <!-- Required to query activities that can process text, see:

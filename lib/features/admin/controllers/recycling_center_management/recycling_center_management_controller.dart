@@ -70,18 +70,54 @@ class PartnerCenterManagementController extends GetxController {
           geoPoint: const GeoPointModel(latitude: 3.1390, longitude: 101.6869),
         ),
         image: 'https://example.com/ecocenter-kl.jpg',
-        operatingHours: {
-          'monday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-          'tuesday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-          'wednesday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-          'thursday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-          'friday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-          'saturday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 15, 0)},
-          'sunday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 15, 0)},
+        openingHours: {
+          'periods': [
+            {
+              'open': {'day': 0, 'time': '0900'}, // Sunday
+              'close': {'day': 0, 'time': '1500'},
+            },
+            {
+              'open': {'day': 1, 'time': '0800'}, // Monday
+              'close': {'day': 1, 'time': '1800'},
+            },
+            {
+              'open': {'day': 2, 'time': '0800'}, // Tuesday
+              'close': {'day': 2, 'time': '1800'},
+            },
+            {
+              'open': {'day': 3, 'time': '0800'}, // Wednesday
+              'close': {'day': 3, 'time': '1800'},
+            },
+            {
+              'open': {'day': 4, 'time': '0800'}, // Thursday
+              'close': {'day': 4, 'time': '1800'},
+            },
+            {
+              'open': {'day': 5, 'time': '0800'}, // Friday
+              'close': {'day': 5, 'time': '1800'},
+            },
+            {
+              'open': {'day': 6, 'time': '0900'}, // Saturday
+              'close': {'day': 6, 'time': '1500'},
+            },
+          ],
+          'weekday_text': [
+            'Monday: 8:00 AM – 6:00 PM',
+            'Tuesday: 8:00 AM – 6:00 PM',
+            'Wednesday: 8:00 AM – 6:00 PM',
+            'Thursday: 8:00 AM – 6:00 PM',
+            'Friday: 8:00 AM – 6:00 PM',
+            'Saturday: 9:00 AM – 3:00 PM',
+            'Sunday: 9:00 AM – 3:00 PM',
+          ],
         },
+        acceptedMaterials: ['plastic', 'paper', 'glass', 'metal', 'electronics'],
         numberOfStaff: 15,
         createdAt: now.subtract(const Duration(days: 120)),
         status: 'active',
+        rating: 4.5,
+        userRatingsTotal: 128,
+        placeId: 'ChIJP5jIRfdizTERr2dFDD2K9No',
       ),
       PartnerRecyclingCenter(
         centerId: '2',
@@ -100,17 +136,50 @@ class PartnerCenterManagementController extends GetxController {
           geoPoint: const GeoPointModel(latitude: 1.4927, longitude: 103.7414),
         ),
         image: 'https://example.com/greenhub-johor.jpg',
-        operatingHours: {
-          'monday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 17, 0)},
-          'tuesday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 17, 0)},
-          'wednesday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 17, 0)},
-          'thursday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 17, 0)},
-          'friday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 17, 0)},
-          'saturday': {'open': DateTime(2024, 1, 1, 10, 0), 'close': DateTime(2024, 1, 1, 14, 0)},
+        openingHours: {
+          'periods': [
+            {
+              'open': {'day': 1, 'time': '0900'}, // Monday
+              'close': {'day': 1, 'time': '1700'},
+            },
+            {
+              'open': {'day': 2, 'time': '0900'}, // Tuesday
+              'close': {'day': 2, 'time': '1700'},
+            },
+            {
+              'open': {'day': 3, 'time': '0900'}, // Wednesday
+              'close': {'day': 3, 'time': '1700'},
+            },
+            {
+              'open': {'day': 4, 'time': '0900'}, // Thursday
+              'close': {'day': 4, 'time': '1700'},
+            },
+            {
+              'open': {'day': 5, 'time': '0900'}, // Friday
+              'close': {'day': 5, 'time': '1700'},
+            },
+            {
+              'open': {'day': 6, 'time': '1000'}, // Saturday
+              'close': {'day': 6, 'time': '1400'},
+            },
+          ],
+          'weekday_text': [
+            'Monday: 9:00 AM – 5:00 PM',
+            'Tuesday: 9:00 AM – 5:00 PM',
+            'Wednesday: 9:00 AM – 5:00 PM',
+            'Thursday: 9:00 AM – 5:00 PM',
+            'Friday: 9:00 AM – 5:00 PM',
+            'Saturday: 10:00 AM – 2:00 PM',
+            'Sunday: Closed',
+          ],
         },
+        acceptedMaterials: ['plastic', 'paper', 'glass'],
         numberOfStaff: 8,
         createdAt: now.subtract(const Duration(days: 90)),
         status: 'active',
+        rating: 4.2,
+        userRatingsTotal: 89,
+        placeId: 'ChIJy2W5xY5ZzDER4FpDZ6wM7YQ',
       ),
       PartnerRecyclingCenter(
         centerId: '3',
@@ -129,17 +198,50 @@ class PartnerCenterManagementController extends GetxController {
           geoPoint: const GeoPointModel(latitude: 5.4141, longitude: 100.3288),
         ),
         image: 'https://example.com/recyclepro-penang.jpg',
-        operatingHours: {
-          'monday': {'open': DateTime(2024, 1, 1, 8, 30), 'close': DateTime(2024, 1, 1, 17, 30)},
-          'tuesday': {'open': DateTime(2024, 1, 1, 8, 30), 'close': DateTime(2024, 1, 1, 17, 30)},
-          'wednesday': {'open': DateTime(2024, 1, 1, 8, 30), 'close': DateTime(2024, 1, 1, 17, 30)},
-          'thursday': {'open': DateTime(2024, 1, 1, 8, 30), 'close': DateTime(2024, 1, 1, 17, 30)},
-          'friday': {'open': DateTime(2024, 1, 1, 8, 30), 'close': DateTime(2024, 1, 1, 17, 30)},
-          'saturday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 16, 0)},
+        openingHours: {
+          'periods': [
+            {
+              'open': {'day': 1, 'time': '0830'}, // Monday
+              'close': {'day': 1, 'time': '1730'},
+            },
+            {
+              'open': {'day': 2, 'time': '0830'}, // Tuesday
+              'close': {'day': 2, 'time': '1730'},
+            },
+            {
+              'open': {'day': 3, 'time': '0830'}, // Wednesday
+              'close': {'day': 3, 'time': '1730'},
+            },
+            {
+              'open': {'day': 4, 'time': '0830'}, // Thursday
+              'close': {'day': 4, 'time': '1730'},
+            },
+            {
+              'open': {'day': 5, 'time': '0830'}, // Friday
+              'close': {'day': 5, 'time': '1730'},
+            },
+            {
+              'open': {'day': 6, 'time': '0900'}, // Saturday
+              'close': {'day': 6, 'time': '1600'},
+            },
+          ],
+          'weekday_text': [
+            'Monday: 8:30 AM – 5:30 PM',
+            'Tuesday: 8:30 AM – 5:30 PM',
+            'Wednesday: 8:30 AM – 5:30 PM',
+            'Thursday: 8:30 AM – 5:30 PM',
+            'Friday: 8:30 AM – 5:30 PM',
+            'Saturday: 9:00 AM – 4:00 PM',
+            'Sunday: Closed',
+          ],
         },
+        acceptedMaterials: ['plastic', 'paper', 'glass', 'metal', 'electronics', 'textiles'],
         numberOfStaff: 25,
         createdAt: now.subtract(const Duration(days: 200)),
         status: 'active',
+        rating: 4.7,
+        userRatingsTotal: 156,
+        placeId: 'ChIJy2W5xY5ZzDER4FpDZ6wM7YQ',
       ),
       PartnerRecyclingCenter(
         centerId: '4',
@@ -158,16 +260,46 @@ class PartnerCenterManagementController extends GetxController {
           geoPoint: const GeoPointModel(latitude: 2.2055, longitude: 102.2501),
         ),
         image: 'https://example.com/ecostation-melaka.jpg',
-        operatingHours: {
-          'monday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-          'tuesday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-          'wednesday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-          'thursday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-          'friday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
+        openingHours: {
+          'periods': [
+            {
+              'open': {'day': 1, 'time': '0900'}, // Monday
+              'close': {'day': 1, 'time': '1800'},
+            },
+            {
+              'open': {'day': 2, 'time': '0900'}, // Tuesday
+              'close': {'day': 2, 'time': '1800'},
+            },
+            {
+              'open': {'day': 3, 'time': '0900'}, // Wednesday
+              'close': {'day': 3, 'time': '1800'},
+            },
+            {
+              'open': {'day': 4, 'time': '0900'}, // Thursday
+              'close': {'day': 4, 'time': '1800'},
+            },
+            {
+              'open': {'day': 5, 'time': '0900'}, // Friday
+              'close': {'day': 5, 'time': '1800'},
+            },
+          ],
+          'weekday_text': [
+            'Monday: 9:00 AM – 6:00 PM',
+            'Tuesday: 9:00 AM – 6:00 PM',
+            'Wednesday: 9:00 AM – 6:00 PM',
+            'Thursday: 9:00 AM – 6:00 PM',
+            'Friday: 9:00 AM – 6:00 PM',
+            'Saturday: Closed',
+            'Sunday: Closed',
+          ],
         },
+        acceptedMaterials: ['plastic', 'paper'],
         numberOfStaff: 3,
         createdAt: now.subtract(const Duration(days: 45)),
         status: 'inactive',
+        rating: 3.8,
+        userRatingsTotal: 42,
+        placeId: 'ChIJy2W5xY5ZzDER4FpDZ6wM7YQ',
       ),
       PartnerRecyclingCenter(
         centerId: '5',
@@ -186,18 +318,54 @@ class PartnerCenterManagementController extends GetxController {
           geoPoint: const GeoPointModel(latitude: 3.0733, longitude: 101.5185),
         ),
         image: 'https://example.com/wastewise-selangor.jpg',
-        operatingHours: {
-          'monday': {'open': DateTime(2024, 1, 1, 7, 30), 'close': DateTime(2024, 1, 1, 19, 0)},
-          'tuesday': {'open': DateTime(2024, 1, 1, 7, 30), 'close': DateTime(2024, 1, 1, 19, 0)},
-          'wednesday': {'open': DateTime(2024, 1, 1, 7, 30), 'close': DateTime(2024, 1, 1, 19, 0)},
-          'thursday': {'open': DateTime(2024, 1, 1, 7, 30), 'close': DateTime(2024, 1, 1, 19, 0)},
-          'friday': {'open': DateTime(2024, 1, 1, 7, 30), 'close': DateTime(2024, 1, 1, 19, 0)},
-          'saturday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 17, 0)},
-          'sunday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 15, 0)},
+        openingHours: {
+          'periods': [
+            {
+              'open': {'day': 0, 'time': '0900'}, // Sunday
+              'close': {'day': 0, 'time': '1500'},
+            },
+            {
+              'open': {'day': 1, 'time': '0730'}, // Monday
+              'close': {'day': 1, 'time': '1900'},
+            },
+            {
+              'open': {'day': 2, 'time': '0730'}, // Tuesday
+              'close': {'day': 2, 'time': '1900'},
+            },
+            {
+              'open': {'day': 3, 'time': '0730'}, // Wednesday
+              'close': {'day': 3, 'time': '1900'},
+            },
+            {
+              'open': {'day': 4, 'time': '0730'}, // Thursday
+              'close': {'day': 4, 'time': '1900'},
+            },
+            {
+              'open': {'day': 5, 'time': '0730'}, // Friday
+              'close': {'day': 5, 'time': '1900'},
+            },
+            {
+              'open': {'day': 6, 'time': '0800'}, // Saturday
+              'close': {'day': 6, 'time': '1700'},
+            },
+          ],
+          'weekday_text': [
+            'Monday: 7:30 AM – 7:00 PM',
+            'Tuesday: 7:30 AM – 7:00 PM',
+            'Wednesday: 7:30 AM – 7:00 PM',
+            'Thursday: 7:30 AM – 7:00 PM',
+            'Friday: 7:30 AM – 7:00 PM',
+            'Saturday: 8:00 AM – 5:00 PM',
+            'Sunday: 9:00 AM – 3:00 PM',
+          ],
         },
+        acceptedMaterials: ['plastic', 'paper', 'glass', 'metal', 'electronics', 'textiles', 'batteries'],
         numberOfStaff: 42,
         createdAt: now.subtract(const Duration(days: 300)),
         status: 'active',
+        rating: 4.9,
+        userRatingsTotal: 234,
+        placeId: 'ChIJy2W5xY5ZzDER4FpDZ6wM7YQ',
       ),
     ];
   }

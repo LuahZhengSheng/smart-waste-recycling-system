@@ -8,7 +8,7 @@ class RoleModel {
   final String username;
   final String email;
   String? phoneNo;
-  String? profileImage;
+  String? profileImg;
   final int loginAttemptCount;
   final DateTime? lastFailedLogin;
   final String role;
@@ -20,7 +20,7 @@ class RoleModel {
     required this.username,
     required this.email,
     this.phoneNo,
-    this.profileImage,
+    this.profileImg,
     required this.loginAttemptCount,
     this.lastFailedLogin,
     required this.role,
@@ -33,7 +33,7 @@ class RoleModel {
     String? username,
     String? email,
     String? phoneNo,
-    String? profileImage,
+    String? profileImg,
     int? loginAttemptCount,
     DateTime? lastFailedLogin,
     String? role,
@@ -45,7 +45,7 @@ class RoleModel {
       username: username ?? this.username,
       email: email ?? this.email,
       phoneNo: phoneNo ?? this.phoneNo,
-      profileImage: profileImage ?? this.profileImage,
+      profileImg: profileImg ?? this.profileImg,
       loginAttemptCount: loginAttemptCount ?? this.loginAttemptCount,
       lastFailedLogin: lastFailedLogin ?? this.lastFailedLogin,
       role: role ?? this.role,
@@ -75,9 +75,9 @@ class RoleModel {
       'Username': username,
       'Email': email,
       'PhoneNo': phoneNo,
-      'ProfileImage': profileImage,
+      'ProfileImage': profileImg,
       'LoginAttemptCount': loginAttemptCount,
-      'LastFailedLogin': lastFailedLogin,
+      'LastFailedLogin': lastFailedLogin != null ? Timestamp.fromDate(lastFailedLogin!) : FieldValue.serverTimestamp(),
       'Role': role,
       'IsVerified': isVerified,
       'IsActive': isActive,
@@ -93,7 +93,7 @@ class RoleModel {
         username: data['Username'] ?? '',
         email: data['Email'] ?? '',
         phoneNo: data['PhoneNo'],
-        profileImage: data['ProfileImage'],
+        profileImg: data['ProfileImage'],
         loginAttemptCount: data['LoginAttemptCount'] ?? 0,
         lastFailedLogin: data['LastFailedLogin'] != null ? (data['LastFailedLogin'] as Timestamp).toDate() : null,
         role: data['Role'] ?? '',

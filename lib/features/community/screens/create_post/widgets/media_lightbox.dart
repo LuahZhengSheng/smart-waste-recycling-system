@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fyp/features/community/controllers/posts/create_post_controller.dart';
 import 'package:fyp/utils/constants/colors.dart';

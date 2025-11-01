@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fyp/utils/formatters/formatter.dart';
-
+import '../../../utils/constants/google_places_config.dart';
 import '../../event/models/location_model.dart';
 
 class PartnerRecyclingCenter {
@@ -11,12 +11,17 @@ class PartnerRecyclingCenter {
   final String website;
   final Location centerLocation;
   final String image;
-  final Map<String, Map<String, DateTime>> operatingHours;
+  final Map<String, dynamic>? openingHours; // Changed to match Google Places format
+  final List<String> acceptedMaterials;
   final int numberOfStaff;
   final DateTime createdAt;
   final String status;
+  final double? rating;
+  final int? userRatingsTotal;
+  final String? placeId;
 
-  /// Constructor
+  // Removed: final List<String> photoReferences;
+
   PartnerRecyclingCenter({
     required this.centerId,
     required this.name,
@@ -25,13 +30,16 @@ class PartnerRecyclingCenter {
     required this.website,
     required this.centerLocation,
     required this.image,
-    required this.operatingHours,
+    this.openingHours,
+    this.acceptedMaterials = const [],
     required this.numberOfStaff,
     required this.createdAt,
     required this.status,
+    this.rating,
+    this.userRatingsTotal,
+    this.placeId,
   });
 
-  /// Static function to create empty center model
   static PartnerRecyclingCenter empty() => PartnerRecyclingCenter(
     centerId: '',
     name: '',
@@ -40,13 +48,13 @@ class PartnerRecyclingCenter {
     website: '',
     centerLocation: Location.empty(),
     image: '',
-    operatingHours: {},
+    openingHours: null,
+    acceptedMaterials: [],
     numberOfStaff: 0,
     createdAt: DateTime.now(),
-    status: 'inactive', // 默认状态
+    status: 'inactive',
   );
 
-  /// Convert model to JSON structure for storing data in Firebase
   Map<String, dynamic> toJson() {
     return {
       'centerId': centerId,
@@ -54,28 +62,19 @@ class PartnerRecyclingCenter {
       'email': email,
       'phoneNo': phoneNo,
       'website': website,
-      'centerLocation': centerLocation,
+      'centerLocation': centerLocation.toJson(),
       'image': image,
-      'operatingHours': _operatingHoursToJson(operatingHours),
+      'openingHours': openingHours,
+      'acceptedMaterials': acceptedMaterials,
       'numberOfStaff': numberOfStaff,
       'createdAt': createdAt.toIso8601String(),
       'status': status,
+      'rating': rating,
+      'userRatingsTotal': userRatingsTotal,
+      'placeId': placeId,
     };
   }
 
-  /// Helper method to convert operating hours to JSON
-  Map<String, dynamic> _operatingHoursToJson(Map<String, Map<String, DateTime>> hours) {
-    final Map<String, dynamic> result = {};
-    hours.forEach((day, times) {
-      result[day] = {
-        'open': times['open']?.toIso8601String(),
-        'close': times['close']?.toIso8601String(),
-      };
-    });
-    return result;
-  }
-
-  /// Factory method to create from a Firebase document snapshot
   factory PartnerRecyclingCenter.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
     if (document.data() != null) {
       final data = document.data()!;
@@ -85,111 +84,49 @@ class PartnerRecyclingCenter {
         email: data['email'] ?? '',
         phoneNo: data['phoneNo'] ?? '',
         website: data['website'] ?? '',
-        centerLocation: Location.fromJson(Map<String, dynamic>.from(data['location'] ?? {})),
+        centerLocation: Location.fromJson(Map<String, dynamic>.from(data['centerLocation'] ?? {})),
         image: data['image'] ?? '',
-        operatingHours: _operatingHoursFromJson(data['operatingHours'] ?? {}),
+        openingHours: Map<String, dynamic>.from(data['openingHours'] ?? {}),
+        acceptedMaterials: List<String>.from(data['acceptedMaterials'] ?? []),
         numberOfStaff: (data['numberOfStaff'] as num?)?.toInt() ?? 0,
         createdAt: DateTime.parse(data['createdAt'] ?? DateTime.now().toIso8601String()),
         status: data['status'] ?? 'inactive',
+        rating: data['rating']?.toDouble(),
+        userRatingsTotal: data['userRatingsTotal'],
+        placeId: data['placeId'],
       );
     } else {
       return PartnerRecyclingCenter.empty();
     }
   }
 
-  /// Helper method to convert JSON to operating hours
-  static Map<String, Map<String, DateTime>> _operatingHoursFromJson(dynamic json) {
-    final Map<String, Map<String, DateTime>> result = {};
-    if (json is Map<String, dynamic>) {
-      json.forEach((day, times) {
-        if (times is Map<String, dynamic>) {
-          result[day] = {
-            'open': times['open'] != null ? DateTime.parse(times['open']) : DateTime.now(),
-            'close': times['close'] != null ? DateTime.parse(times['close']) : DateTime.now(),
-          };
-        }
-      });
-    }
-    return result;
-  }
-
-  /// Factory method to create from a JSON map
-  factory PartnerRecyclingCenter.fromJson(Map<String, dynamic> json) {
-    return PartnerRecyclingCenter(
-      centerId: json['centerId'] ?? '',
-      name: json['name'] ?? '',
-      email: json['email'] ?? '',
-      phoneNo: json['phoneNo'] ?? '',
-      website: json['website'] ?? '',
-      centerLocation: Location.fromJson(json['location'] ?? {}),
-      image: json['image'] ?? '',
-      operatingHours: _operatingHoursFromJson(json['operatingHours'] ?? {}),
-      numberOfStaff: json['numberOfStaff']?.toInt() ?? 0,
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      status: json['status'] ?? 'inactive',
-    );
-  }
-
-  /// Factory method to create a new center
-  factory PartnerRecyclingCenter.createNew({
-    required String name,
-    required String email,
-    required String phoneNo,
-    required String website,
-    required Location centerLocation, // 新增
-    required String image, // 新增
-    required Map<String, Map<String, DateTime>> operatingHours, // 新增
-    required int numberOfStaff,
-    required String status, // 新增
-  }) {
-    return PartnerRecyclingCenter(
-      centerId: '', // Will be set by Firebase
-      name: name,
-      email: email,
-      phoneNo: phoneNo,
-      website: website,
-      centerLocation: centerLocation,
-      image: image,
-      operatingHours: operatingHours,
-      numberOfStaff: numberOfStaff,
-      createdAt: DateTime.now(),
-      status: status,
-    );
-  }
-
-  /// Helper method to check if center data is valid
   bool isValid() {
     return name.isNotEmpty &&
         email.isNotEmpty &&
         phoneNo.isNotEmpty &&
         website.isNotEmpty &&
-        status.isNotEmpty; // 新增状态验证
+        status.isNotEmpty;
   }
 
-  /// Helper method to validate email format
   bool get hasValidEmail {
     final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
     return emailRegex.hasMatch(email);
   }
 
-  /// Helper method to validate phone number format
   bool get hasValidPhone {
     final phoneRegex = RegExp(r'^[0-9]{10,15}$');
     return phoneRegex.hasMatch(phoneNo.replaceAll(RegExp(r'[^0-9]'), ''));
   }
 
-  /// Helper method to validate website URL format
   bool get hasValidWebsite {
     final websiteRegex = RegExp(r'^(http|https):\/\/[^ "]+$');
     return websiteRegex.hasMatch(website);
   }
 
-  /// Helper method to get formatted creation date
   String get formattedCreatedAt {
     return FFormatter.formatDate(createdAt);
   }
 
-  /// Helper method to get formatted phone number
   String get formattedPhoneNo {
     if (phoneNo.length == 10) {
       return '${phoneNo.substring(0, 3)}-${phoneNo.substring(3, 6)}-${phoneNo.substring(6)}';
@@ -197,42 +134,77 @@ class PartnerRecyclingCenter {
     return phoneNo;
   }
 
-  /// Helper method to get display name with ID
   String get displayNameWithId {
     return '$name (ID: ${centerId.substring(0, 8)})';
   }
 
-  /// Override toString for debugging purposes
-  @override
-  String toString() {
-    return 'PartnerRecyclingCenter(centerId: $centerId, name: $name, email: $email, phoneNo: $phoneNo, website: $website, status: $status)';
+  bool get isActive {
+    return status == 'active';
   }
 
-  /// Override equality operator
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-          other is PartnerRecyclingCenter &&
-              runtimeType == other.runtimeType &&
-              centerId == other.centerId;
+  bool get isOpenNow {
+    if (openingHours == null) return false;
 
-  /// Override hashCode
-  @override
-  int get hashCode => centerId.hashCode;
+    final now = DateTime.now();
+    final weekday = now.weekday; // 1=Monday, 7=Sunday
 
-  /// Create a copy with updated fields
+    // Google Places opening hours format
+    final periods = openingHours!['periods'] as List<dynamic>?;
+    if (periods == null) return false;
+
+    for (var period in periods) {
+      final open = period['open'];
+      if (open != null && open['day'] == weekday - 1) { // Google uses 0=Sunday, 6=Saturday
+        final openTime = open['time'] as String?;
+        final closeTime = period['close']?['time'] as String?;
+
+        if (openTime != null && closeTime != null) {
+          final currentTimeStr = '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+          return currentTimeStr.compareTo(openTime) >= 0 && currentTimeStr.compareTo(closeTime) < 0;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  List<String> get weekdayText {
+    final List<String> result = [];
+    final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    if (openingHours != null && openingHours!['weekday_text'] is List) {
+      return List<String>.from(openingHours!['weekday_text']);
+    }
+
+    // Fallback if weekday_text is not available
+    for (final day in days) {
+      result.add('$day: Unknown');
+    }
+    return result;
+  }
+
+  bool get hasPhotos => image.isNotEmpty;
+
+  bool acceptsMaterial(String material) {
+    return acceptedMaterials.any((m) => m.toLowerCase().contains(material.toLowerCase()));
+  }
+
   PartnerRecyclingCenter copyWith({
     String? centerId,
     String? name,
     String? email,
     String? phoneNo,
     String? website,
-    Location? centerLocation, // 新增
-    String? image, // 新增
-    Map<String, Map<String, DateTime>>? operatingHours, // 新增
+    Location? centerLocation,
+    String? image,
+    Map<String, dynamic>? openingHours,
+    List<String>? acceptedMaterials,
     int? numberOfStaff,
     DateTime? createdAt,
-    String? status, // 新增
+    String? status,
+    double? rating,
+    int? userRatingsTotal,
+    String? placeId,
   }) {
     return PartnerRecyclingCenter(
       centerId: centerId ?? this.centerId,
@@ -242,46 +214,29 @@ class PartnerRecyclingCenter {
       website: website ?? this.website,
       centerLocation: centerLocation ?? this.centerLocation,
       image: image ?? this.image,
-      operatingHours: operatingHours ?? this.operatingHours,
+      openingHours: openingHours ?? this.openingHours,
+      acceptedMaterials: acceptedMaterials ?? this.acceptedMaterials,
       numberOfStaff: numberOfStaff ?? this.numberOfStaff,
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
+      rating: rating ?? this.rating,
+      userRatingsTotal: userRatingsTotal ?? this.userRatingsTotal,
+      placeId: placeId ?? this.placeId,
     );
   }
 
-  /// Helper method to get center age in days
-  int get ageInDays {
-    return DateTime.now().difference(createdAt).inDays;
+  @override
+  String toString() {
+    return 'PartnerRecyclingCenter(centerId: $centerId, name: $name, isPartner: ${isActive}, rating: $rating)';
   }
 
-  /// Helper method to check if center is newly created (within 7 days)
-  bool get isNewCenter {
-    return ageInDays < 7;
-  }
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is PartnerRecyclingCenter &&
+              runtimeType == other.runtimeType &&
+              centerId == other.centerId;
 
-  /// Helper method to check if center is active
-  bool get isActive {
-    return status == 'active';
-  }
-
-  /// Helper method to check if center is open now
-  bool get isOpenNow {
-    final now = DateTime.now();
-    final today = now.weekday;
-    final days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-    final todaySchedule = operatingHours[days[today - 1]];
-
-    if (todaySchedule == null) return false;
-
-    final openTime = todaySchedule['open'];
-    final closeTime = todaySchedule['close'];
-
-    if (openTime == null || closeTime == null) return false;
-
-    final currentTime = DateTime(now.year, now.month, now.day, now.hour, now.minute);
-    final open = DateTime(now.year, now.month, now.day, openTime.hour, openTime.minute);
-    final close = DateTime(now.year, now.month, now.day, closeTime.hour, closeTime.minute);
-
-    return currentTime.isAfter(open) && currentTime.isBefore(close);
-  }
+  @override
+  int get hashCode => centerId.hashCode;
 }

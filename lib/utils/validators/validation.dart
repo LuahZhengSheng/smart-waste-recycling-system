@@ -1,4 +1,3 @@
-
 class FValidator {
   /// Empty Text Validation
   static String? validateEmptyText(String? fieldName, String? value) {
@@ -51,6 +50,19 @@ class FValidator {
     // Check for special characters
     if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
       return 'Password must contain at least one special character.';
+    }
+
+    return null;
+  }
+
+  static String? validateConfirmPassword(String? value, String password) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter the confirmation password';
+    }
+
+    // 确保确认密码与原始密码相同
+    if (value != password) {
+      return 'Passwords do not match';
     }
 
     return null;

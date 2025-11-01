@@ -11,6 +11,7 @@ import 'data/repositories/authentication/authentication_repository.dart';
 import 'features/event/screens/event/event.dart';
 import 'features/event/screens/test_reminder.dart';
 import 'features/personalization/screens/profile/profile.dart';
+import 'features/waste_classification/controllers/scan_sort_camera_controller.dart';
 import 'features/waste_classification/screens/scan_sort_camera/scan_sort_camera.dart';
 import 'features/waste_classification/screens/waste_category_guideline/waste_category_guide.dart';
 
@@ -32,8 +33,21 @@ class NavigationMenu extends StatelessWidget {
           height: 70, // Navigation bar height
           elevation: 0, // No shadow
           selectedIndex: controller.selectedIndex.value, // Current active tab
-          onDestinationSelected: (index) =>
-          controller.selectedIndex.value = index, // Change active tab
+          onDestinationSelected: (index) {
+            // 在切换页面之前，如果当前是相机页面，释放相机
+            if (controller.selectedIndex.value == 2) {
+              final cameraController = Get.find<ScanSortCameraController>();
+              cameraController.disposeCameraForPage();
+            }
+
+            controller.selectedIndex.value = index;
+
+            // 如果切换到相机页面，初始化相机
+            if (index == 2) {
+              final cameraController = Get.find<ScanSortCameraController>();
+              cameraController.initializeCameraForPage();
+            }
+          },
           backgroundColor:
           dark ? FColors.black : FColors.white, // Background color
           indicatorColor:
@@ -117,8 +131,6 @@ class NavigationController extends GetxController {
     const HomeScreen(),
     const EventsScreen(),
     ScanSortCameraScreen(),
-    // NotificationTestScreen(),
-    // const WasteCategoryGuideScreen(),
     const PostsScreen(),
     const ProfileScreen(),
   ];

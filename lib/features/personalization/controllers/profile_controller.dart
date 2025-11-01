@@ -1,18 +1,25 @@
+import 'dart:async';
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:fyp/utils/helpers/helper_functions.dart';
+import 'package:uuid/uuid.dart';
 import 'package:fyp/utils/constants/image_strings.dart';
+import 'package:fyp/utils/helpers/network_manager.dart';
+import 'package:fyp/utils/popups/full_screen_loader.dart';
+import 'package:fyp/utils/popups/loaders.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../data/repositories/authentication/authentication_repository.dart';
-import '../../../utils/helpers/network_manager.dart';
-import '../../../utils/popups/full_screen_loader.dart';
-import '../../../utils/popups/loaders.dart';
+import '../../../data/repositories/user/user_repository.dart';
 import '../../authentication/models/user_model.dart';
 import '../../authentication/screens/login/login.dart';
 import '../screens/profile/edit_profile/edit_profile.dart';
+import '../screens/profile/edit_profile/image_cropper.dart';
+import '../screens/profile/profile_camera.dart';
+import '../screens/profile/widgets/media_lightbox.dart';
 import '../screens/profile/widgets/re_authenticate_user_login_form.dart';
 
 class ProfileController extends GetxController {
@@ -22,273 +29,110 @@ class ProfileController extends GetxController {
   final hidePassword = false.obs;
   final verifyEmail = TextEditingController();
   final verifyPassword = TextEditingController();
-  final firstName = TextEditingController();
-  final lastName = TextEditingController();
-  final username = TextEditingController();
-  final email = TextEditingController();
-  final phoneNumber = TextEditingController();
-  final password = TextEditingController();
-  final dateOfBirth = TextEditingController();
-  final gender = TextEditingController();
   GlobalKey<FormState> reAuthFormKey = GlobalKey<FormState>();
 
-  // User data observable
+  // User data observable with stream
   final Rx<UserModel> user = UserModel.empty().obs;
+  StreamSubscription<UserModel>? _userStreamSubscription;
 
   final authRepository = Get.put(AuthenticationRepository());
+  final userRepository = Get.put(UserRepository());
+  final uuid = const Uuid();
 
   @override
   void onInit() {
     super.onInit();
-    fetchUserRecord();
+    _initializeUserStream();
   }
 
-  /// Fetch user record
-  Future<void> fetchUserRecord() async {
-    try {
-      // TODO: Implement actual user fetching from your data source
-      // For now, using mock data
-      user(UserModel(
-        userId: '123',
-        username: 'john_doe',
-        email: 'john@example.com',
-        phoneNo: '+1234567890',
-        profileImage: 'https://via.placeholder.com/150',
-        loginAttemptCount: 0,
-        role: 'user',
-        isVerified: true,
-        isActive: true,
-        joinDate: DateTime.now().subtract(const Duration(days: 365)),
-        rewardPoint: 1250,
-        gender: 'Male',
-        dob: DateTime(1990, 5, 15),
-      ));
+  /// Initialize user stream for real-time updates
+  void _initializeUserStream() {
+    final currentUserId = AuthenticationRepository.instance.authUser?.uid;
+    if (currentUserId != null && currentUserId.isNotEmpty) {
+      _userStreamSubscription = userRepository
+          .getUserDetailsStream(currentUserId)
+          .listen((userData) async {
+        // 如果用户有头像文件名，获取完整的下载URL
+        if (userData.profileImg != null && userData.profileImg!.isNotEmpty) {
+          try {
+            final imageUrl = await userRepository.getProfileImageUrl(
+                userData.profileImg!
+            );
+            // 创建带有完整URL的新用户对象
+            final userWithImageUrl = userData.copyWith(profileImg: imageUrl);
+            user(userWithImageUrl);
+          } catch (e) {
+            // 如果获取URL失败，使用原始数据
+            user(userData);
+            if (kDebugMode) {
+              print('Failed to get profile image URL: $e');
+            }
+          }
+        } else {
+          user(userData);
+        }
 
-      // Populate text controllers
-      firstName.text = user.value.username.split(' ').first;
-      lastName.text = user.value.username.split(' ').length > 1
-          ? user.value.username.split(' ').last : '';
-      username.text = user.value.username;
-      email.text = user.value.email;
-      phoneNumber.text = user.value.phoneNo ?? '';
-      gender.text = user.value.gender ?? '';
-      if (user.value.dob != null) {
-        dateOfBirth.text = '${user.value.dob!.day}/${user.value.dob!.month}/${user.value.dob!.year}';
-      }
-    } catch (e) {
+        if (kDebugMode) {
+          print('=== User Stream Update ===');
+          print('Username: ${userData.username}');
+          print('Gender: ${userData.gender}');
+          print('Phone: ${userData.phoneNo}');
+          print('Profile Image File Name: ${userData.profileImg}');
+        }
+      }, onError: (error) {
+        if (kDebugMode) {
+          print('Error in user stream: $error');
+        }
+        FLoaders.warningSnackBar(
+          title: 'Data Error',
+          message: 'Failed to load user data',
+        );
+      });
+    } else {
       user(UserModel.empty());
-      FLoaders.warningSnackBar(title: 'Data not found', message: e.toString());
     }
   }
 
-  /// Save user record from any registration provider
-  Future<void> saveUserRecord(UserCredential? userCredential) async {
+  /// Manually refresh user data
+  Future<void> refreshUserData() async {
     try {
-      // Refresh User Record
-      await fetchUserRecord();
+      final currentUserId = AuthenticationRepository.instance.authUser?.uid;
+      if (currentUserId != null) {
+        final fetchedUser = await userRepository.fetchUserDetails();
 
-      // If no record already stored
-      if (user.value.userId.isEmpty) {
-        if (userCredential != null) {
-          // Map Data
-          final user = UserModel(
-            userId: userCredential.user!.uid,
-            username: userCredential.user!.displayName ?? '',
-            email: userCredential.user!.email ?? '',
-            phoneNo: userCredential.user!.phoneNumber ?? '',
-            profileImage: userCredential.user!.photoURL ?? '',
-            loginAttemptCount: 0,
-            role: 'user',
-            isVerified: userCredential.user!.emailVerified,
-            isActive: true,
-            joinDate: DateTime.now(),
-          );
-
-          // Save user data
-          // TODO: Implement actual saving to your data source
-          await saveUserData(user);
+        // 如果用户有头像文件名，获取完整的下载URL
+        if (fetchedUser.profileImg != null && fetchedUser.profileImg!.isNotEmpty) {
+          try {
+            final imageUrl = await userRepository.getProfileImageUrl(
+                fetchedUser.profileImg!
+            );
+            final userWithImageUrl = fetchedUser.copyWith(profileImg: imageUrl);
+            user(userWithImageUrl);
+          } catch (e) {
+            user(fetchedUser);
+            if (kDebugMode) {
+              print('Failed to get profile image URL: $e');
+            }
+          }
+        } else {
+          user(fetchedUser);
         }
       }
     } catch (e) {
-      FLoaders.warningSnackBar(
-        title: 'Data not saved',
-        message: 'Something went wrong while saving your information. You can re-save your data in your Profile.',
-      );
-    }
-  }
-
-  /// Save user data to Firestore
-  Future<void> saveUserData(UserModel user) async {
-    try {
-      // TODO: Implement actual saving to your data source
-      // For now, just update the local observable
-      this.user(user);
-      FLoaders.successSnackBar(title: 'Success', message: 'Your data has been saved successfully.');
-    } catch (e) {
-      FLoaders.errorSnackBar(title: 'Data not saved', message: 'Something went wrong while saving your information.');
-    }
-  }
-
-  /// Delete account warning
-  void deleteAccountWarningPopup() {
-    Get.defaultDialog(
-      contentPadding: const EdgeInsets.all(16),
-      title: 'Delete Account',
-      middleText: 'Are you sure you want to delete your account permanently? This action is not reversible and all of your data will be removed permanently.',
-      confirm: ElevatedButton(
-        onPressed: () async => deleteUserAccount(),
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
-        child: const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Delete')),
-      ),
-      cancel: OutlinedButton(
-        child: const Text('Cancel'),
-        onPressed: () => Navigator.of(Get.overlayContext!).pop(),
-      ),
-    );
-  }
-
-  /// Delete User Account
-  void deleteUserAccount() async {
-    try {
-      FFullScreenLoader.openLoadingDialog('Processing', FImages.docerAnimation);
-
-      /// First re-authenticate user
-      final auth = AuthenticationRepository.instance;
-      final provider = auth.authUser!.providerData.map((e) => e.providerId).first;
-      if (provider.isNotEmpty) {
-        // Re Verify Auth Email
-        if (provider == 'google.com') {
-          await auth.signInWithGoogle();
-          await auth.deleteAccount();
-          FFullScreenLoader.stopLoading();
-          Get.offAll(() => const LoginScreen());
-        } else if (provider == 'password') {
-          FFullScreenLoader.stopLoading();
-          Get.to(() => const ReAuthLoginForm());
-        }
+      if (kDebugMode) {
+        print('Error refreshing user data: $e');
       }
-    } catch (e) {
-      FFullScreenLoader.stopLoading();
-      FLoaders.warningSnackBar(title: 'Oh Snap!', message: e.toString());
     }
   }
 
-  /// -- RE-AUTHENTICATE before deleting
-  Future<void> reAuthenticateEmailAndPasswordUser() async {
-    try {
-      FFullScreenLoader.openLoadingDialog('Processing', FImages.docerAnimation);
-
-      // Check Internet
-      final isConnected = await NetworkManager.instance.isConnected();
-      if (!isConnected) {
-        FFullScreenLoader.stopLoading();
-        return;
-      }
-
-      if (!reAuthFormKey.currentState!.validate()) {
-        FFullScreenLoader.stopLoading();
-        return;
-      }
-
-      await AuthenticationRepository.instance.reAuthenticateWithEmailAndPassword(verifyEmail.text.trim(), verifyPassword.text.trim());
-      await AuthenticationRepository.instance.deleteAccount();
-      FFullScreenLoader.stopLoading();
-      Get.offAll(() => const LoginScreen());
-    } catch (e) {
-      FFullScreenLoader.stopLoading();
-      FLoaders.warningSnackBar(title: 'Oh Snap!', message: e.toString());
+  /// Show profile image in lightbox
+  void viewProfileImage() {
+    if (user.value.profileImg != null && user.value.profileImg!.isNotEmpty) {
+      showMediaLightbox([user.value.profileImg!]);
     }
   }
 
-  /// Upload Profile Image
-  Future<void> uploadUserProfilePicture() async {
-    try {
-      final image = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70,
-        maxHeight: 512,
-        maxWidth: 512,
-      );
-      if (image != null) {
-        // Check file size (5MB = 5 * 1024 * 1024 bytes)
-        final file = File(image.path);
-        final fileSizeInBytes = await file.length();
-        final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
-
-        if (fileSizeInMB > 5) {
-          FLoaders.errorSnackBar(
-            title: 'Image too large',
-            message: 'Please select an image smaller than 5MB.',
-          );
-          return;
-        }
-
-        imageUploading.value = true;
-
-        // TODO: Upload image to your storage service and get URL
-        final imageUrl = await uploadImage('Users/Images/Profile/', image);
-
-        // Update user's profile picture
-        Map<String, dynamic> json = {'ProfilePicture': imageUrl};
-        await updateSingleField(json);
-
-        user.value.profileImage = imageUrl;
-        user.refresh();
-
-        FLoaders.successSnackBar(title: 'Congratulations', message: 'Your profile image has been updated!');
-      }
-    } catch (e) {
-      FLoaders.errorSnackBar(title: 'Oh Snap!', message: 'Something went wrong: $e');
-    } finally {
-      imageUploading.value = false;
-    }
-  }
-
-  /// Upload Profile Image from Camera
-  Future<void> uploadUserProfilePictureFromCamera() async {
-    try {
-      final image = await ImagePicker().pickImage(
-        source: ImageSource.camera,
-        imageQuality: 70,
-        maxHeight: 512,
-        maxWidth: 512,
-      );
-      if (image != null) {
-        // Check file size (5MB = 5 * 1024 * 1024 bytes)
-        final file = File(image.path);
-        final fileSizeInBytes = await file.length();
-        final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
-
-        if (fileSizeInMB > 5) {
-          FLoaders.errorSnackBar(
-            title: 'Image too large',
-            message: 'Please select an image smaller than 5MB.',
-          );
-          return;
-        }
-
-        imageUploading.value = true;
-
-        // TODO: Upload image to your storage service and get URL
-        final imageUrl = await uploadImage('Users/Images/Profile/', image);
-
-        // Update user's profile picture
-        Map<String, dynamic> json = {'ProfilePicture': imageUrl};
-        await updateSingleField(json);
-
-        user.value.profileImage = imageUrl;
-        user.refresh();
-
-        FLoaders.successSnackBar(title: 'Congratulations', message: 'Your profile image has been updated!');
-      }
-    } catch (e) {
-      FLoaders.errorSnackBar(title: 'Oh Snap!', message: 'Something went wrong: $e');
-    } finally {
-      imageUploading.value = false;
-    }
-  }
-
-  /// Show Image Source Selection
+  /// Show Image Source Selection (Camera or Gallery)
   void showImageSourceSelection() {
     Get.bottomSheet(
       Container(
@@ -303,18 +147,27 @@ class ProfileController extends GetxController {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             Text(
               'Select Image Source',
               style: Get.textTheme.titleLarge,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 GestureDetector(
                   onTap: () {
                     Get.back();
-                    uploadUserProfilePictureFromCamera();
+                    uploadProfileImageFromCustomCamera();
                   },
                   child: Column(
                     children: [
@@ -334,7 +187,7 @@ class ProfileController extends GetxController {
                 GestureDetector(
                   onTap: () {
                     Get.back();
-                    uploadUserProfilePicture();
+                    uploadProfileImageFromGallery();
                   },
                   child: Column(
                     children: [
@@ -351,6 +204,26 @@ class ProfileController extends GetxController {
                     ],
                   ),
                 ),
+                GestureDetector(
+                  onTap: () {
+                    Get.back();
+                    viewProfileImage();
+                  },
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.remove_red_eye, color: Colors.purple, size: 32),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('View'),
+                    ],
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -361,14 +234,209 @@ class ProfileController extends GetxController {
     );
   }
 
-  // Placeholder methods - implement according to your needs
-  Future<String> uploadImage(String path, XFile image) async {
-    // TODO: Implement actual image upload
-    return 'https://via.placeholder.com/150';
+  /// Upload Profile Image from Custom Camera
+  Future<void> uploadProfileImageFromCustomCamera() async {
+    try {
+      // Use custom camera controller
+      final result = await Get.to(() => ProfileCameraScreen());
+
+      if (result != null && result is File) {
+        await _processAndUploadImage(result);
+      }
+    } catch (e) {
+      FLoaders.errorSnackBar(title: 'Error', message: 'Failed to capture image: $e');
+    }
   }
 
-  Future<void> updateSingleField(Map<String, dynamic> json) async {
-    // TODO: Implement actual field update
+  /// Upload Profile Image from Gallery
+  Future<void> uploadProfileImageFromGallery() async {
+    try {
+      final image = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+      );
+
+      if (image != null) {
+        await _processAndUploadImage(File(image.path));
+      }
+    } catch (e) {
+      FLoaders.errorSnackBar(title: 'Error', message: 'Failed to pick image: $e');
+    }
+  }
+
+  /// Process and upload image
+  Future<void> _processAndUploadImage(File imageFile) async {
+    try {
+      // Check file size (10MB = 10 * 1024 * 1024 bytes)
+      final fileSizeInBytes = await imageFile.length();
+      final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+
+      if (fileSizeInMB > 10) {
+        FLoaders.errorSnackBar(
+          title: 'Image too large',
+          message: 'Please select an image smaller than 10MB.',
+        );
+        return;
+      }
+
+      // Show crop screen
+      final croppedFile = await Get.to<File?>(() => ImageCropperScreen(imageFile: imageFile));
+
+      if (croppedFile == null) return;
+
+      imageUploading.value = true;
+
+      // Compress and convert to WebP
+      final compressedFile = await _compressAndConvertToWebP(croppedFile);
+
+      // 获取当前用户的旧头像文件名
+      final oldFileName = user.value.profileImg;
+      String? oldImageFileName;
+      if (oldFileName != null && oldFileName.isNotEmpty) {
+        try {
+          final uri = Uri.parse(oldFileName);
+          final pathSegments = uri.pathSegments;
+          if (pathSegments.isNotEmpty) {
+            // 获取最后一个路径段（可能是编码的）
+            final lastSegment = pathSegments.last;
+            // 解码 URL 编码
+            final decodedSegment = Uri.decodeComponent(lastSegment);
+            // 按斜杠分割并取最后一部分
+            final parts = decodedSegment.split('/');
+            oldImageFileName = parts.last;
+            print('oldFilename: $oldImageFileName');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error extracting old image file name: $e');
+          }
+        }
+      }
+
+      // Upload to Firebase Storage and get download URL (同时删除旧头像)
+      final imageUrl = await userRepository.uploadProfileImage(compressedFile, user.value.userId, oldImageFileName);
+
+      // 更新本地用户数据，使用新的图片URL
+      user.value = user.value.copyWith(profileImg: imageUrl);
+      user.refresh();
+
+      FLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Profile image updated successfully!',
+      );
+    } catch (e) {
+      FLoaders.errorSnackBar(title: 'Error', message: 'Failed to upload image: $e');
+    } finally {
+      imageUploading.value = false;
+    }
+  }
+
+  /// Compress image and convert to WebP format
+  Future<File> _compressAndConvertToWebP(File imageFile) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final targetPath = '${tempDir.path}/${uuid.v4()}.webp';
+
+      final result = await FlutterImageCompress.compressAndGetFile(
+        imageFile.absolute.path,
+        targetPath,
+        format: CompressFormat.webp,
+        quality: 85,
+        minWidth: 500,
+        minHeight: 500,
+        autoCorrectionAngle: true,
+      );
+
+      if (result == null) {
+        throw 'Failed to compress image';
+      }
+
+      return File(result.path);
+    } catch (e) {
+      print('Image compression failed: $e, using original file');
+      return imageFile;
+    }
+  }
+
+  /// Delete account warning
+  void deleteAccountWarningPopup() {
+    Get.defaultDialog(
+      contentPadding: const EdgeInsets.all(16),
+      title: 'Delete Account',
+      middleText: 'Are you sure you want to delete your account permanently? This action is not reversible and all of your data will be removed permanently.',
+      confirm: ElevatedButton(
+        onPressed: () {
+          Get.back();
+          deleteUserAccount();
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red,
+          side: const BorderSide(color: Colors.red),
+        ),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text('Delete'),
+        ),
+      ),
+      cancel: OutlinedButton(
+        child: const Text('Cancel'),
+        onPressed: () => Get.back(),
+      ),
+    );
+  }
+
+  /// Delete User Account
+  void deleteUserAccount() async {
+    try {
+      FFullScreenLoader.openLoadingDialog('Processing', FImages.docerAnimation);
+
+      final auth = AuthenticationRepository.instance;
+      final provider = auth.authUser!.providerData.map((e) => e.providerId).first;
+
+      if (provider.isNotEmpty) {
+        if (provider == 'google.com') {
+          await auth.signInWithGoogle();
+          await auth.deleteAccount();
+          FFullScreenLoader.stopLoading();
+          Get.offAll(() => const LoginScreen());
+        } else if (provider == 'password') {
+          FFullScreenLoader.stopLoading();
+          Get.to(() => const ReAuthLoginForm());
+        }
+      }
+    } catch (e) {
+      FFullScreenLoader.stopLoading();
+      FLoaders.warningSnackBar(title: 'Error', message: e.toString());
+    }
+  }
+
+  /// Re-authenticate before deleting
+  Future<void> reAuthenticateEmailAndPasswordUser() async {
+    try {
+      FFullScreenLoader.openLoadingDialog('Processing', FImages.docerAnimation);
+
+      final isConnected = await NetworkManager.instance.isConnected();
+      if (!isConnected) {
+        FFullScreenLoader.stopLoading();
+        return;
+      }
+
+      if (!reAuthFormKey.currentState!.validate()) {
+        FFullScreenLoader.stopLoading();
+        return;
+      }
+
+      await authRepository.reAuthenticateWithEmailAndPassword(
+        verifyEmail.text.trim(),
+        verifyPassword.text.trim(),
+      );
+
+      await authRepository.deleteAccount();
+      FFullScreenLoader.stopLoading();
+      Get.offAll(() => const LoginScreen());
+    } catch (e) {
+      FFullScreenLoader.stopLoading();
+      FLoaders.warningSnackBar(title: 'Error', message: e.toString());
+    }
   }
 
   void navigateToEditProfile() {
@@ -377,5 +445,13 @@ class ProfileController extends GetxController {
 
   void logout() {
     authRepository.logout();
+  }
+
+  @override
+  void onClose() {
+    _userStreamSubscription?.cancel();
+    verifyEmail.dispose();
+    verifyPassword.dispose();
+    super.onClose();
   }
 }

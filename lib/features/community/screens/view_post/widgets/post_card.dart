@@ -35,13 +35,8 @@ class FPostCard extends StatelessWidget {
         padding: const EdgeInsets.all(FSizes.md),
         margin: const EdgeInsets.only(bottom: FSizes.spaceBtwItems),
         decoration: BoxDecoration(
-          color: dark ? FColors.darkerGrey : FColors.white,
+          color: dark ? FColors.darkContainer : FColors.white,
           borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
-          border: Border.all(
-            color: dark
-                ? FColors.darkGrey.withOpacity(0.3)
-                : FColors.grey.withOpacity(0.2),
-          ),
           boxShadow: [
             BoxShadow(
               color: dark
@@ -106,7 +101,7 @@ class FPostCard extends StatelessWidget {
             IconButton(
               onPressed: () => _showPostOptions(context, post),
               icon: Icon(
-                Iconsax.menu_14,
+                Iconsax.more_2,
                 color: dark ? FColors.darkGrey : FColors.grey,
               ),
               iconSize: FSizes.iconMd,

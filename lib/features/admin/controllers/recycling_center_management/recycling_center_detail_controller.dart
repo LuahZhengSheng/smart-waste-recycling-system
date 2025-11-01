@@ -68,7 +68,7 @@ class RecyclingCenterDetailsController extends GetxController {
   }
 
   PartnerRecyclingCenter _getMockCenter() {
-    // Mock center data - replace with actual API call
+    // Mock center data with new openingHours format
     return PartnerRecyclingCenter(
       centerId: centerId,
       name: 'EcoCenter Kuala Lumpur',
@@ -86,18 +86,54 @@ class RecyclingCenterDetailsController extends GetxController {
         geoPoint: const GeoPointModel(latitude: 3.1390, longitude: 101.6869),
       ),
       image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800',
-      operatingHours: {
-        'monday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-        'tuesday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-        'wednesday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-        'thursday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-        'friday': {'open': DateTime(2024, 1, 1, 8, 0), 'close': DateTime(2024, 1, 1, 18, 0)},
-        'saturday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 15, 0)},
-        'sunday': {'open': DateTime(2024, 1, 1, 9, 0), 'close': DateTime(2024, 1, 1, 15, 0)},
+      openingHours: {
+        'periods': [
+          {
+            'open': {'day': 0, 'time': '0900'}, // Sunday
+            'close': {'day': 0, 'time': '1500'},
+          },
+          {
+            'open': {'day': 1, 'time': '0800'}, // Monday
+            'close': {'day': 1, 'time': '1800'},
+          },
+          {
+            'open': {'day': 2, 'time': '0800'}, // Tuesday
+            'close': {'day': 2, 'time': '1800'},
+          },
+          {
+            'open': {'day': 3, 'time': '0800'}, // Wednesday
+            'close': {'day': 3, 'time': '1800'},
+          },
+          {
+            'open': {'day': 4, 'time': '0800'}, // Thursday
+            'close': {'day': 4, 'time': '1800'},
+          },
+          {
+            'open': {'day': 5, 'time': '0800'}, // Friday
+            'close': {'day': 5, 'time': '1800'},
+          },
+          {
+            'open': {'day': 6, 'time': '0900'}, // Saturday
+            'close': {'day': 6, 'time': '1500'},
+          },
+        ],
+        'weekday_text': [
+          'Monday: 8:00 AM – 6:00 PM',
+          'Tuesday: 8:00 AM – 6:00 PM',
+          'Wednesday: 8:00 AM – 6:00 PM',
+          'Thursday: 8:00 AM – 6:00 PM',
+          'Friday: 8:00 AM – 6:00 PM',
+          'Saturday: 9:00 AM – 3:00 PM',
+          'Sunday: 9:00 AM – 3:00 PM',
+        ],
       },
+      acceptedMaterials: ['plastic', 'paper', 'glass', 'metal', 'electronics'],
       numberOfStaff: 15,
       createdAt: DateTime.now().subtract(const Duration(days: 120)),
       status: 'active',
+      rating: 4.5,
+      userRatingsTotal: 128,
+      placeId: 'ChIJP5jIRfdizTERr2dFDD2K9No',
     );
   }
 
@@ -109,7 +145,7 @@ class RecyclingCenterDetailsController extends GetxController {
         username: 'Ahmad Rahman',
         email: 'ahmad@ecocenter-kl.com',
         phoneNo: '0123456701',
-        profileImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+        profileImg: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
         loginAttemptCount: 0,
         role: 'staff',
         isVerified: true,
@@ -123,7 +159,7 @@ class RecyclingCenterDetailsController extends GetxController {
         username: 'Siti Nurhaliza',
         email: 'siti@ecocenter-kl.com',
         phoneNo: '0123456702',
-        profileImage: 'https://images.unsplash.com/photo-1494790108755-2616b60c1859?w=150',
+        profileImg: 'https://images.unsplash.com/photo-1494790108755-2616b60c1859?w=150',
         loginAttemptCount: 0,
         role: 'staff',
         isVerified: true,
@@ -137,7 +173,7 @@ class RecyclingCenterDetailsController extends GetxController {
         username: 'Wong Wei Ming',
         email: 'wong@ecocenter-kl.com',
         phoneNo: '0123456703',
-        profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+        profileImg: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         loginAttemptCount: 0,
         role: 'staff',
         isVerified: true,
@@ -151,7 +187,7 @@ class RecyclingCenterDetailsController extends GetxController {
         username: 'Priya Sharma',
         email: 'priya@ecocenter-kl.com',
         phoneNo: '0123456704',
-        profileImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
+        profileImg: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
         loginAttemptCount: 0,
         role: 'supervisor',
         isVerified: true,
@@ -248,7 +284,7 @@ class RecyclingCenterDetailsController extends GetxController {
         userId: 'user1',
         username: 'Alex Johnson',
         email: 'alex@example.com',
-        profileImage: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+        profileImg: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
         loginAttemptCount: 0,
         role: 'user',
         isVerified: true,
@@ -260,7 +296,7 @@ class RecyclingCenterDetailsController extends GetxController {
         userId: 'user2',
         username: 'Sarah Chen',
         email: 'sarah@example.com',
-        profileImage: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
+        profileImg: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
         loginAttemptCount: 0,
         role: 'user',
         isVerified: true,
@@ -272,7 +308,7 @@ class RecyclingCenterDetailsController extends GetxController {
         userId: 'user3',
         username: 'Michael Brown',
         email: 'michael@example.com',
-        profileImage: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=150',
+        profileImg: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=150',
         loginAttemptCount: 0,
         role: 'user',
         isVerified: true,
@@ -284,7 +320,7 @@ class RecyclingCenterDetailsController extends GetxController {
         userId: 'user4',
         username: 'Lisa Wang',
         email: 'lisa@example.com',
-        profileImage: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=150',
+        profileImg: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=150',
         loginAttemptCount: 0,
         role: 'user',
         isVerified: true,
@@ -432,15 +468,30 @@ class RecyclingCenterDetailsController extends GetxController {
   }
 
   String formatOperatingHours(String day) {
-    if (center.value?.operatingHours[day] == null) return 'Closed';
+    if (center.value?.openingHours == null) return 'Unknown';
 
-    final times = center.value!.operatingHours[day]!;
-    final open = times['open'];
-    final close = times['close'];
+    // Use the weekday_text from Google Places format
+    final weekdayText = center.value!.weekdayText;
+    final dayIndex = _getDayIndex(day);
 
-    if (open == null || close == null) return 'Closed';
+    if (dayIndex < weekdayText.length) {
+      return weekdayText[dayIndex].split(':').skip(1).join(':').trim();
+    }
 
-    return '${_formatTime(open)} - ${_formatTime(close)}';
+    return 'Unknown';
+  }
+
+  int _getDayIndex(String day) {
+    switch (day.toLowerCase()) {
+      case 'monday': return 0;
+      case 'tuesday': return 1;
+      case 'wednesday': return 2;
+      case 'thursday': return 3;
+      case 'friday': return 4;
+      case 'saturday': return 5;
+      case 'sunday': return 6;
+      default: return 0;
+    }
   }
 
   String _formatTime(DateTime time) {

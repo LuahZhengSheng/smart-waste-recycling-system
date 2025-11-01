@@ -873,9 +873,9 @@ class AchievementDetailsScreen extends StatelessWidget {
               ),
             ),
             child: ClipOval(
-              child: user.profileImage != null && user.profileImage!.isNotEmpty
+              child: user.profileImg != null && user.profileImg!.isNotEmpty
                   ? Image.network(
-                user.profileImage!,
+                user.profileImg!,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => _buildDefaultAvatar(user, dark),
               )

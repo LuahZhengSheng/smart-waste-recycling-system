@@ -100,7 +100,7 @@ class AchievementDetailsController extends GetxController {
       userId: 'user_${index}_${level}',
       username: names[nameIndex],
       email: '${names[nameIndex].toLowerCase().replaceAll(' ', '.')}@example.com',
-      profileImage: avatars[avatarIndex],
+      profileImg: avatars[avatarIndex],
       loginAttemptCount: 0,
       role: 'user',
       isVerified: true,

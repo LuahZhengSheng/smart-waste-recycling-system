@@ -28,8 +28,8 @@ class AddPartnerCenterController extends GetxController {
   final selectedImage = RxnString();
   final selectedStatus = 'active'.obs;
 
-  // Operating hours map
-  final RxMap<String, Map<String, DateTime?>> operatingHours = <String, Map<String, DateTime?>>{}.obs;
+  // Opening hours map - changed to Google Places format
+  final RxMap<String, dynamic> openingHours = <String, dynamic>{}.obs;
 
   // Image picker
   final ImagePicker _picker = ImagePicker();
@@ -43,7 +43,7 @@ class AddPartnerCenterController extends GetxController {
   void onInit() {
     super.onInit();
     _initializeControllers();
-    _initializeOperatingHours();
+    _initializeOpeningHours();
     _setupFormProgressListener();
   }
 
@@ -55,10 +55,13 @@ class AddPartnerCenterController extends GetxController {
     staffCountController = TextEditingController();
   }
 
-  void _initializeOperatingHours() {
-    for (String day in daysOfWeek) {
-      operatingHours[day] = {'open': null, 'close': null};
-    }
+  void _initializeOpeningHours() {
+    // Initialize with Google Places format structure
+    openingHours.value = {
+      'periods': [],
+      'weekday_text': [],
+      'open_now': false,
+    };
   }
 
   void _setupFormProgressListener() {
@@ -94,12 +97,29 @@ class AddPartnerCenterController extends GetxController {
     // Staff count
     if (staffCountController.text.isNotEmpty) progress += 1;
 
-    // Operating hours (check if at least one day is set)
-    bool hasOperatingHours = operatingHours.values.any((hours) =>
-    hours['open'] != null && hours['close'] != null);
-    if (hasOperatingHours) progress += 1;
+    // Opening hours (check if at least one day is set)
+    bool hasOpeningHours = _hasValidOpeningHours();
+    if (hasOpeningHours) progress += 1;
 
     formProgress.value = progress / totalFields;
+  }
+
+  bool _hasValidOpeningHours() {
+    final periods = openingHours['periods'] as List<dynamic>?;
+    return periods != null && periods.isNotEmpty;
+  }
+
+  // Add formatTime method here
+  String formatTime(String timeString) {
+    if (timeString.length != 4) return timeString;
+
+    final hour = int.parse(timeString.substring(0, 2));
+    final minute = timeString.substring(2, 4);
+
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour == 0 ? 12 : hour > 12 ? hour - 12 : hour;
+
+    return '${displayHour.toString().padLeft(2, '0')}:$minute $period';
   }
 
   // Validation methods
@@ -207,7 +227,7 @@ class AddPartnerCenterController extends GetxController {
     FLoaders.customToast(message: 'Image removed');
   }
 
-  // Operating hours methods
+  // Opening hours methods - updated for Google Places format
   Future<void> selectTime(String day, String timeType) async {
     final TimeOfDay? picked = await showTimePicker(
       context: Get.context!,
@@ -230,44 +250,147 @@ class AddPartnerCenterController extends GetxController {
     );
 
     if (picked != null) {
-      final now = DateTime.now();
-      final selectedTime = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        picked.hour,
-        picked.minute,
-      );
+      final timeString = '${picked.hour.toString().padLeft(2, '0')}${picked.minute.toString().padLeft(2, '0')}';
+      final dayIndex = daysOfWeek.indexOf(day); // 0=monday, 6=sunday
+      final googleDayIndex = (dayIndex + 1) % 7; // Convert to Google format: 0=Sunday, 6=Saturday
 
-      // Update the operating hours
-      Map<String, DateTime?> dayHours = Map.from(operatingHours[day]!);
-      dayHours[timeType] = selectedTime;
-      operatingHours[day] = dayHours;
+      // Get current periods
+      final List<dynamic> periods = List.from(openingHours['periods'] ?? []);
+
+      // Find existing period for this day
+      int existingIndex = periods.indexWhere((period) =>
+      period['open'] != null && period['open']['day'] == googleDayIndex);
+
+      if (existingIndex == -1) {
+        // Create new period
+        periods.add({
+          'open': {
+            'day': googleDayIndex,
+            'time': timeString,
+          },
+          'close': {
+            'day': googleDayIndex,
+            'time': '',
+          }
+        });
+        existingIndex = periods.length - 1;
+      }
+
+      // Update the time
+      if (timeType == 'open') {
+        periods[existingIndex]['open']['time'] = timeString;
+      } else {
+        periods[existingIndex]['close']['time'] = timeString;
+      }
 
       // Validate time logic
-      if (dayHours['open'] != null && dayHours['close'] != null) {
-        if (dayHours['close']!.isBefore(dayHours['open']!) ||
-            dayHours['close']!.isAtSameMomentAs(dayHours['open']!)) {
+      final openTime = periods[existingIndex]['open']['time'];
+      final closeTime = periods[existingIndex]['close']['time'];
+
+      if (openTime.isNotEmpty && closeTime.isNotEmpty) {
+        if (closeTime.compareTo(openTime) <= 0) {
           FLoaders.warningSnackBar(
             title: 'Invalid Time',
             message: 'Close time must be after open time',
           );
           // Reset the close time
-          dayHours['close'] = null;
-          operatingHours[day] = dayHours;
+          periods[existingIndex]['close']['time'] = '';
         }
       }
+
+      // Update weekday_text
+      final weekdayText = _generateWeekdayText(periods);
+
+      openingHours.value = {
+        'periods': periods,
+        'weekday_text': weekdayText,
+        'open_now': _calculateOpenNow(periods),
+      };
 
       _updateFormProgress();
     }
   }
 
-  String formatTime(DateTime time) {
-    final hour = time.hour;
-    final minute = time.minute;
+  List<String> _generateWeekdayText(List<dynamic> periods) {
+    final List<String> result = [];
+    final dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    for (int i = 0; i < 7; i++) {
+      final googleDayIndex = i; // Google: 0=Sunday, 6=Saturday
+      final period = periods.firstWhere(
+            (p) => p['open'] != null && p['open']['day'] == googleDayIndex,
+        orElse: () => null,
+      );
+
+      if (period != null &&
+          period['open']['time'].isNotEmpty &&
+          period['close']['time'].isNotEmpty) {
+        final openTime = _formatTimeString(period['open']['time']);
+        final closeTime = _formatTimeString(period['close']['time']);
+        result.add('${dayNames[i]}: $openTime - $closeTime');
+      } else {
+        result.add('${dayNames[i]}: Closed');
+      }
+    }
+
+    return result;
+  }
+
+  String _formatTimeString(String timeString) {
+    if (timeString.length != 4) return timeString;
+
+    final hour = int.parse(timeString.substring(0, 2));
+    final minute = timeString.substring(2, 4);
+
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour == 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
+
+    return '${displayHour.toString().padLeft(2, '0')}:$minute $period';
+  }
+
+  bool _calculateOpenNow(List<dynamic> periods) {
+    final now = DateTime.now();
+    final currentDay = now.weekday - 1; // Convert to Google format: 0=Sunday, 6=Saturday
+    final currentTime = '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+
+    for (var period in periods) {
+      if (period['open'] != null &&
+          period['open']['day'] == currentDay &&
+          period['open']['time'].isNotEmpty &&
+          period['close']['time'].isNotEmpty) {
+
+        final openTime = period['open']['time'];
+        final closeTime = period['close']['time'];
+
+        if (currentTime.compareTo(openTime) >= 0 && currentTime.compareTo(closeTime) < 0) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  String getTimeDisplay(String day, String timeType) {
+    final periods = openingHours['periods'] as List<dynamic>?;
+    if (periods == null) return 'Not set';
+
+    final dayIndex = daysOfWeek.indexOf(day);
+    final googleDayIndex = (dayIndex + 1) % 7;
+
+    final period = periods.firstWhere(
+          (p) => p['open'] != null && p['open']['day'] == googleDayIndex,
+      orElse: () => null,
+    );
+
+    if (period != null) {
+      final timeString = period[timeType]?['time'] ?? '';
+      if (timeString.isNotEmpty) {
+        return _formatTimeString(timeString);
+      }
+    }
+
+    return 'Not set';
   }
 
   // Save draft functionality
@@ -290,16 +413,18 @@ class AddPartnerCenterController extends GetxController {
       await Future.delayed(const Duration(seconds: 2));
 
       // Create PartnerRecyclingCenter object
-      final center = PartnerRecyclingCenter.createNew(
+      final center = PartnerRecyclingCenter(
         name: nameController.text.trim(),
         email: emailController.text.trim(),
         phoneNo: phoneController.text.trim(),
         website: websiteController.text.trim(),
         centerLocation: selectedLocation.value!,
         image: selectedImage.value ?? '', // In real app, upload image first
-        operatingHours: _convertOperatingHours(),
+        openingHours: openingHours.value.isNotEmpty ? openingHours.value : null,
         numberOfStaff: int.parse(staffCountController.text.trim()),
         status: selectedStatus.value,
+        centerId: '',
+        createdAt: DateTime.now(),
       );
 
       // In real implementation, save to database
@@ -351,34 +476,16 @@ class AddPartnerCenterController extends GetxController {
       );
     }
 
-    // Operating hours validation
-    bool hasValidOperatingHours = operatingHours.values.any((hours) =>
-    hours['open'] != null && hours['close'] != null);
-
-    if (!hasValidOperatingHours) {
+    // Opening hours validation
+    if (!_hasValidOpeningHours()) {
       FLoaders.errorSnackBar(
-        title: 'Operating Hours Required',
-        message: 'Please set operating hours for at least one day',
+        title: 'Opening Hours Required',
+        message: 'Please set opening hours for at least one day',
       );
       return false;
     }
 
     return true;
-  }
-
-  Map<String, Map<String, DateTime>> _convertOperatingHours() {
-    Map<String, Map<String, DateTime>> result = {};
-
-    operatingHours.forEach((day, hours) {
-      if (hours['open'] != null && hours['close'] != null) {
-        result[day] = {
-          'open': hours['open']!,
-          'close': hours['close']!,
-        };
-      }
-    });
-
-    return result;
   }
 
   Future<void> _saveCenterToDatabase(PartnerRecyclingCenter center) async {
@@ -407,8 +514,8 @@ class AddPartnerCenterController extends GetxController {
     selectedImage.value = null;
     selectedStatus.value = 'active';
 
-    // Reset operating hours
-    _initializeOperatingHours();
+    // Reset opening hours
+    _initializeOpeningHours();
 
     // Reset progress
     formProgress.value = 0.0;
@@ -435,8 +542,7 @@ class AddPartnerCenterController extends GetxController {
         staffCountController.text.isNotEmpty ||
         selectedLocation.value != null ||
         selectedImage.value != null ||
-        operatingHours.values.any((hours) =>
-        hours['open'] != null || hours['close'] != null);
+        _hasValidOpeningHours();
   }
 
   // Method to handle back navigation with confirmation
@@ -494,3 +600,4 @@ class AddPartnerCenterController extends GetxController {
     return result ?? false;
   }
 }
+

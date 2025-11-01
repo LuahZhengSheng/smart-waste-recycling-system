@@ -766,10 +766,7 @@ class AddPartnerCenterScreen extends StatelessWidget {
   Widget _buildOperatingHours(AddPartnerCenterController controller, bool dark) {
     return Column(
       children: [
-        ...controller.operatingHours.entries.map((entry) {
-          final day = entry.key;
-          final hours = entry.value;
-
+        ...controller.daysOfWeek.map((day) {
           return Container(
             margin: const EdgeInsets.only(bottom: FSizes.md),
             padding: const EdgeInsets.all(FSizes.md),
@@ -811,9 +808,7 @@ class AddPartnerCenterScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: FSizes.sm),
                               Text(
-                                hours['open'] != null
-                                    ? controller.formatTime(hours['open']!)
-                                    : 'Open Time',
+                                controller.getTimeDisplay(day, 'open'),
                                 style: TextStyle(
                                   color: dark ? FColors.adminDarkText : FColors.adminLightText,
                                 ),
@@ -852,9 +847,7 @@ class AddPartnerCenterScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: FSizes.sm),
                               Text(
-                                hours['close'] != null
-                                    ? controller.formatTime(hours['close']!)
-                                    : 'Close Time',
+                                controller.getTimeDisplay(day, 'close'),
                                 style: TextStyle(
                                   color: dark ? FColors.adminDarkText : FColors.adminLightText,
                                 ),

@@ -251,7 +251,8 @@ class RecyclingCenterDetailsScreen extends StatelessWidget {
                     _buildInfoRow(Iconsax.calendar_1, 'Created Date',
                         center.formattedCreatedAt, dark),
                     _buildInfoRow(
-                        Iconsax.clock, 'Age', '${center.ageInDays} days', dark),
+                        // Iconsax.clock, 'Age', '${center.ageInDays} days', dark),
+                        Iconsax.clock, 'Age', 'center.ageInDays days', dark),
                   ],
                   dark,
                 ),
@@ -664,7 +665,7 @@ class RecyclingCenterDetailsScreen extends StatelessWidget {
             ),
             child: ClipOval(
               child: Image.network(
-                staff.profileImage ?? '',
+                staff.profileImg ?? '',
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) =>
                     Container(
@@ -942,7 +943,7 @@ class RecyclingCenterDetailsScreen extends StatelessWidget {
                               shape: BoxShape.circle),
                           child: ClipOval(
                             child: Image.network(
-                              staff.profileImage ?? '',
+                              staff.profileImg ?? '',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   Icon(
@@ -1130,7 +1131,7 @@ class RecyclingCenterDetailsScreen extends StatelessWidget {
                       child: _buildPersonInfo(
                         'User',
                         user?.username ?? 'Unknown User',
-                        user?.profileImage,
+                        user?.profileImg,
                         user?.rewardPoint.toString(),
                         Iconsax.medal_star,
                         dark,
@@ -1142,7 +1143,7 @@ class RecyclingCenterDetailsScreen extends StatelessWidget {
                       child: _buildPersonInfo(
                         'Handled by',
                         staff?.username ?? 'Unknown Staff',
-                        staff?.profileImage,
+                        staff?.profileImg,
                         staff?.role,
                         Iconsax.user_tag,
                         dark,

@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import Firebase
+import GoogleMaps
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -34,6 +35,9 @@ import Firebase
 
     // Register for remote notifications
     application.registerForRemoteNotifications()
+
+    // ==================== GOOGLE MAP API ====================
+    GMSServices.provideAPIKey("AIzaSyDxxkSWPJGDFFpcejtULq6hHohdYuTLQ5A")
 
     // ==================== FLUTTER CONFIGURATION ====================
 

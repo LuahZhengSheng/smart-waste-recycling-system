@@ -12,7 +12,7 @@ class ReAuthLoginForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = UserController.instance;
+    final controller = Get.put(UserController());
     
     return Scaffold(
       appBar: AppBar(title: const Text('Re-Authenticate User')),
