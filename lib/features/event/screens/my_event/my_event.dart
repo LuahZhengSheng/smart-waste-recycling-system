@@ -8,6 +8,7 @@ import '../../../../utils/helpers/helper_functions.dart';
 import '../../controllers/my_event_controller.dart';
 import '../../models/event_enums.dart';
 import '../../utils/event_utils.dart';
+import '../common_event_widgets/common_event_widgets.dart';
 import '../event_detail/event_detail.dart';
 import 'widgets/my_event_card.dart';
 
@@ -43,11 +44,14 @@ class MyEventsScreen extends StatelessWidget {
             // Tab Bar with Pills Design
             Container(
               color: dark ? FColors.dark : FColors.white,
-              padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace, vertical: 12),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: FSizes.defaultSpace, vertical: 12),
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1),
+                  color: dark
+                      ? FColors.darkerGrey
+                      : FColors.grey.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TabBar(
@@ -55,7 +59,8 @@ class MyEventsScreen extends StatelessWidget {
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
                   labelColor: FColors.white,
-                  unselectedLabelColor: dark ? FColors.darkGrey : FColors.textSecondary,
+                  unselectedLabelColor:
+                  dark ? FColors.darkGrey : FColors.textSecondary,
                   indicator: BoxDecoration(
                     color: FColors.primary,
                     borderRadius: BorderRadius.circular(10),
@@ -77,7 +82,8 @@ class MyEventsScreen extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                     fontSize: 13,
                   ),
-                  labelPadding: const EdgeInsets.symmetric(horizontal: FSizes.md),
+                  labelPadding:
+                  const EdgeInsets.symmetric(horizontal: FSizes.md),
                   tabs: [
                     _buildTab('All', 0, controller),
                     _buildTab('Upcoming', 1, controller),
@@ -91,14 +97,17 @@ class MyEventsScreen extends StatelessWidget {
 
             // Time Filter
             Container(
-              padding: const EdgeInsets.fromLTRB(FSizes.defaultSpace, 8, FSizes.defaultSpace, 8),
+              padding: const EdgeInsets.fromLTRB(
+                  FSizes.defaultSpace, 8, FSizes.defaultSpace, 8),
               color: dark ? FColors.dark : FColors.white,
               child: Obx(() {
-                final isFiltered = controller.selectedTimeFilter.value != TimeFilter.allTime;
+                final isFiltered =
+                    controller.selectedTimeFilter.value != TimeFilter.allTime;
                 return Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () => _showTimeFilterBottomSheet(context, controller, dark),
+                    onTap: () =>
+                        _showTimeFilterBottomSheet(context, controller, dark),
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       height: 50,
@@ -106,22 +115,29 @@ class MyEventsScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isFiltered
                             ? FColors.primary.withOpacity(0.1)
-                            : (dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1)),
+                            : (dark
+                            ? FColors.darkerGrey
+                            : FColors.grey.withOpacity(0.1)),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isFiltered
                               ? FColors.primary
-                              : (dark ? FColors.darkGrey.withOpacity(0.3) : FColors.grey.withOpacity(0.2)),
+                              : (dark
+                              ? FColors.darkGrey.withOpacity(0.3)
+                              : FColors.grey.withOpacity(0.2)),
                           width: 1.5,
                         ),
                       ),
                       child: Row(
                         children: [
                           Icon(
-                            EventUtils.getTimeFilterIcon(controller.selectedTimeFilter.value),
+                            EventUtils.getTimeFilterIcon(
+                                controller.selectedTimeFilter.value),
                             color: isFiltered
                                 ? FColors.primary
-                                : (dark ? FColors.darkGrey : FColors.textSecondary),
+                                : (dark
+                                ? FColors.darkGrey
+                                : FColors.textSecondary),
                             size: 20,
                           ),
                           const SizedBox(width: 12),
@@ -141,7 +157,9 @@ class MyEventsScreen extends StatelessWidget {
                             Iconsax.arrow_down_1,
                             color: isFiltered
                                 ? FColors.primary
-                                : (dark ? FColors.darkGrey : FColors.textSecondary),
+                                : (dark
+                                ? FColors.darkGrey
+                                : FColors.textSecondary),
                             size: 16,
                           ),
                         ],
@@ -168,22 +186,31 @@ class MyEventsScreen extends StatelessWidget {
                       return _buildEmptyState(index, dark);
                     }
 
-                    return ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: FSizes.defaultSpace,
-                        vertical: 12,
+                    return RefreshIndicator(
+                      color: FColors.primary,
+                      onRefresh: controller.refreshEvents,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: FSizes.defaultSpace,
+                          vertical: 12,
+                        ),
+                        itemCount: controller.filteredEvents.length,
+                        itemBuilder: (context, itemIndex) {
+                          final event = controller.filteredEvents[itemIndex];
+                          final isCancelled =
+                              controller.cancelledEventIds[event.eventId] ??
+                                  false;
+                          return MyEventCard(
+                            event: event,
+                            isCancelled: isCancelled,
+                            onTap: () =>
+                                Get.to(() => EventDetailsScreen(event: event)),
+                            showCancelButton: index == 0 ||
+                                index ==
+                                    1, // Show for All and Upcoming tabs
+                          );
+                        },
                       ),
-                      itemCount: controller.filteredEvents.length,
-                      itemBuilder: (context, itemIndex) {
-                        final event = controller.filteredEvents[itemIndex];
-                        final isCancelled = controller.cancelledEventIds[event.eventId] ?? false;
-                        return MyEventCard(
-                          event: event,
-                          isCancelled: isCancelled,
-                          onTap: () => Get.to(() => EventDetailsScreen(event: event)),
-                          showCancelButton: index == 0 || index == 1, // Show for All and Upcoming tabs
-                        );
-                      },
                     );
                   });
                 }),
@@ -217,8 +244,10 @@ class MyEventsScreen extends StatelessWidget {
                       : FColors.primary.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                   border: isSelected
-                      ? Border.all(color: FColors.white.withOpacity(0.3), width: 0.5)
-                      : Border.all(color: FColors.primary.withOpacity(0.3), width: 0.5),
+                      ? Border.all(
+                      color: FColors.white.withOpacity(0.3), width: 0.5)
+                      : Border.all(
+                      color: FColors.primary.withOpacity(0.3), width: 0.5),
                 ),
                 child: Text(
                   count.toString(),
@@ -237,7 +266,8 @@ class MyEventsScreen extends StatelessWidget {
   }
 
   /// Show time filter bottom sheet
-  void _showTimeFilterBottomSheet(BuildContext context, MyEventsController controller, bool dark) {
+  void _showTimeFilterBottomSheet(
+      BuildContext context, MyEventsController controller, bool dark) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -268,7 +298,8 @@ class MyEventsScreen extends StatelessWidget {
 
               // Title
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
+                padding:
+                const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
                 child: Row(
                   children: [
                     const Icon(
@@ -294,7 +325,8 @@ class MyEventsScreen extends StatelessWidget {
               Obx(() => Column(
                 mainAxisSize: MainAxisSize.min,
                 children: TimeFilter.values.map((filter) {
-                  return _buildTimeFilterOption(filter, controller, dark, context);
+                  return _buildTimeFilterOption(
+                      filter, controller, dark, context);
                 }).toList(),
               )),
 
@@ -328,7 +360,9 @@ class MyEventsScreen extends StatelessWidget {
             vertical: 16,
           ),
           decoration: BoxDecoration(
-            color: isSelected ? FColors.primary.withOpacity(0.1) : Colors.transparent,
+            color: isSelected
+                ? FColors.primary.withOpacity(0.1)
+                : Colors.transparent,
           ),
           child: Row(
             children: [
@@ -337,7 +371,9 @@ class MyEventsScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isSelected
                       ? FColors.primary.withOpacity(0.2)
-                      : (dark ? FColors.darkGrey.withOpacity(0.2) : FColors.grey.withOpacity(0.2)),
+                      : (dark
+                      ? FColors.darkGrey.withOpacity(0.2)
+                      : FColors.grey.withOpacity(0.2)),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -383,27 +419,32 @@ class MyEventsScreen extends StatelessWidget {
     switch (tabIndex) {
       case 0:
         title = 'No Events Found';
-        subtitle = 'You haven\'t registered for any events yet. Discover exciting events happening near you!';
+        subtitle =
+        'You haven\'t registered for any events yet. Discover exciting events happening near you!';
         icon = Iconsax.calendar_remove;
         break;
       case 1:
         title = 'No Upcoming Events';
-        subtitle = 'You have no upcoming events to attend. Browse available events and join exciting activities!';
+        subtitle =
+        'You have no upcoming events to attend. Browse available events and join exciting activities!';
         icon = Iconsax.calendar_add;
         break;
       case 2:
         title = 'No Ongoing Events';
-        subtitle = 'No events are currently in progress. Check back when your registered events begin!';
+        subtitle =
+        'No events are currently in progress. Check back when your registered events begin!';
         icon = Iconsax.calendar_tick;
         break;
       case 3:
         title = 'No Completed Events';
-        subtitle = 'You haven\'t attended any events yet. Start participating in community events today!';
+        subtitle =
+        'You haven\'t attended any events yet. Start participating in community events today!';
         icon = Iconsax.medal_star;
         break;
       case 4:
         title = 'No Cancelled Events';
-        subtitle = 'You have no cancelled registrations. Keep exploring events that interest you!';
+        subtitle =
+        'You have no cancelled registrations. Keep exploring events that interest you!';
         icon = Iconsax.calendar_remove;
         break;
       default:
@@ -412,67 +453,12 @@ class MyEventsScreen extends StatelessWidget {
         icon = Iconsax.calendar;
     }
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(FSizes.defaultSpace * 2),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: FColors.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 64,
-                color: FColors.primary.withOpacity(0.5),
-              ),
-            ),
-            const SizedBox(height: FSizes.spaceBtwItems),
-            Text(
-              title,
-              style: Theme.of(Get.context!).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: dark ? FColors.white : FColors.black,
-              ),
-            ),
-            const SizedBox(height: FSizes.sm),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: Theme.of(Get.context!).textTheme.bodyMedium?.copyWith(
-                color: dark ? FColors.darkGrey : FColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: FSizes.xl),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => Get.back(),
-                icon: const Icon(Iconsax.search_normal, size: FSizes.iconSm),
-                label: const Text(
-                  'Explore Events',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: FColors.primary,
-                  foregroundColor: FColors.white,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: FSizes.md,
-                    horizontal: FSizes.xl,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
-                  ),
-                  elevation: 2,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return EmptyStateWidget(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      buttonText: 'Explore Events',
+      onButtonPressed: () => Get.back(),
     );
   }
 }

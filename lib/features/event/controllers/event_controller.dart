@@ -4,18 +4,12 @@ import '../../../data/repositories/event/event_registration_repository.dart';
 import '../../../data/repositories/event/event_repository.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../data/repositories/event/reminder_repository.dart';
+import '../../../data/services/notification/fcm_service.dart';
 import '../../../utils/popups/loaders.dart';
 import '../models/event_model.dart';
+import '../models/event_enums.dart';
 import '../models/reminder_model.dart';
 import 'dart:async';
-
-// Event Status Enum
-enum EventStatus {
-  all,
-  open,
-  full,
-  closed
-}
 
 class EventController extends GetxController with GetSingleTickerProviderStateMixin {
   static EventController get instance => Get.find();
@@ -24,6 +18,7 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
   final eventRegistrationRepository = Get.put(EventRegistrationRepository());
   final reminderRepository = Get.put(ReminderRepository());
   final authRepository = Get.put(AuthenticationRepository());
+  final fcmService = FCMService();
 
   // Observable variables
   final isLoading = false.obs;
@@ -33,8 +28,12 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
   final searchQuery = ''.obs;
   final selectedTimeFilter = 'All Time'.obs;
 
-  // Reminder management - 使用 Observable Map 来跟踪提醒状态
-  final eventReminders = <String, bool>{}.obs; // eventId -> hasReminder
+  // Event poster URLs cache
+  final eventPosterUrls = <String, String?>{}.obs;
+  final isLoadingPoster = <String, bool>{}.obs;
+
+  // Reminder management
+  final eventReminders = <String, bool>{}.obs;
 
   // Tab Controller
   late TabController tabController;
@@ -82,32 +81,18 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
   }
 
   /// Get current tab status as enum
-  EventStatus get currentTabStatus {
+  EventStatusFilter get currentTabStatus {
     switch (tabController.index) {
       case 0:
-        return EventStatus.all;
+        return EventStatusFilter.all;
       case 1:
-        return EventStatus.open;
+        return EventStatusFilter.open;
       case 2:
-        return EventStatus.full;
+        return EventStatusFilter.full;
       case 3:
-        return EventStatus.closed;
+        return EventStatusFilter.closed;
       default:
-        return EventStatus.all;
-    }
-  }
-
-  /// Get status display name
-  String getStatusDisplayName(EventStatus status) {
-    switch (status) {
-      case EventStatus.all:
-        return 'All';
-      case EventStatus.open:
-        return 'Open';
-      case EventStatus.full:
-        return 'Full';
-      case EventStatus.closed:
-        return 'Closed';
+        return EventStatusFilter.all;
     }
   }
 
@@ -120,6 +105,14 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
       _eventsSubscription = eventRepository.getAllEvents().listen(
             (events) {
           allEvents.assignAll(events);
+
+          // Load poster URLs for all events
+          for (final event in events) {
+            if (event.poster.isNotEmpty) {
+              _loadEventPoster(event.eventId, event.poster);
+            }
+          }
+
           filterEvents();
           isLoading(false);
         },
@@ -140,6 +133,22 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
     }
   }
 
+  /// Load event poster from Firebase Storage
+  Future<void> _loadEventPoster(String eventId, String posterFileName) async {
+    if (eventPosterUrls.containsKey(eventId)) return;
+
+    try {
+      isLoadingPoster[eventId] = true;
+      final url = await eventRepository.getEventPosterUrl(posterFileName);
+      eventPosterUrls[eventId] = url;
+    } catch (e) {
+      print('Error loading poster for event $eventId: $e');
+      eventPosterUrls[eventId] = null;
+    } finally {
+      isLoadingPoster[eventId] = false;
+    }
+  }
+
   /// Get single event stream
   Stream<Event> getEventStream(String eventId) {
     return eventRepository.getEventById(eventId);
@@ -152,27 +161,24 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
     // Filter by tab (status)
     final status = currentTabStatus;
     switch (status) {
-      case EventStatus.open:
-        filtered = filtered.where((event) =>
-        event.isRegistrationOpen &&
-            !event.isFullyBooked &&
-            !event.hasEnded
-        ).toList();
+      case EventStatusFilter.open:
+        filtered = filtered
+            .where((event) =>
+        event.isRegistrationOpen && !event.isFullyBooked && !event.hasEnded)
+            .toList();
         break;
-      case EventStatus.full:
-        filtered = filtered.where((event) =>
-        event.isFullyBooked &&
-            !event.isRegistrationClosed &&
-            !event.hasEnded
-        ).toList();
+      case EventStatusFilter.full:
+        filtered = filtered
+            .where((event) =>
+        event.isFullyBooked && !event.isRegistrationClosed && !event.hasEnded)
+            .toList();
         break;
-      case EventStatus.closed:
-        filtered = filtered.where((event) =>
-        event.isRegistrationClosed &&
-            !event.hasEnded
-        ).toList();
+      case EventStatusFilter.closed:
+        filtered = filtered
+            .where((event) => event.isRegistrationClosed && !event.hasEnded)
+            .toList();
         break;
-      case EventStatus.all:
+      case EventStatusFilter.all:
       default:
         filtered = filtered.where((event) => !event.hasEnded).toList();
         break;
@@ -181,12 +187,13 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
     // Filter by search query
     if (searchQuery.value.isNotEmpty) {
       final query = searchQuery.value.toLowerCase();
-      filtered = filtered.where((event) =>
+      filtered = filtered
+          .where((event) =>
       event.title.toLowerCase().contains(query) ||
           event.description.toLowerCase().contains(query) ||
           event.location.address.city.toLowerCase().contains(query) ||
-          event.location.address.area.toLowerCase().contains(query)
-      ).toList();
+          event.location.address.area.toLowerCase().contains(query))
+          .toList();
     }
 
     // Filter by time
@@ -209,28 +216,31 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
 
         case 'This Week':
           startDate = now.subtract(Duration(days: now.weekday - 1));
-          filtered = filtered.where((event) =>
+          filtered = filtered
+              .where((event) =>
           event.startDateTime.isAfter(startDate) &&
-              event.startDateTime.isBefore(startDate.add(const Duration(days: 7)))
-          ).toList();
+              event.startDateTime.isBefore(startDate.add(const Duration(days: 7))))
+              .toList();
           break;
 
         case 'This Month':
           startDate = DateTime(now.year, now.month, 1);
           final endDate = DateTime(now.year, now.month + 1, 0);
-          filtered = filtered.where((event) =>
+          filtered = filtered
+              .where((event) =>
           event.startDateTime.isAfter(startDate) &&
-              event.startDateTime.isBefore(endDate)
-          ).toList();
+              event.startDateTime.isBefore(endDate))
+              .toList();
           break;
 
         case 'This Year':
           startDate = DateTime(now.year, 1, 1);
           final endDate = DateTime(now.year, 12, 31);
-          filtered = filtered.where((event) =>
+          filtered = filtered
+              .where((event) =>
           event.startDateTime.isAfter(startDate) &&
-              event.startDateTime.isBefore(endDate)
-          ).toList();
+              event.startDateTime.isBefore(endDate))
+              .toList();
           break;
       }
     }
@@ -300,7 +310,8 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
       isRegistering(true);
 
       // Get registration ID first to delete reminder
-      final registrationId = await eventRegistrationRepository.getUserRegistrationId(currentUserId, event.eventId);
+      final registrationId =
+      await eventRegistrationRepository.getUserRegistrationId(currentUserId, event.eventId);
 
       await eventRegistrationRepository.cancelRegistration(currentUserId, event.eventId);
 
@@ -338,9 +349,7 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
   /// Load user's event reminders
   void _loadReminders() {
     try {
-      // Get user's registration IDs first
-      _remindersSubscription?.cancel();
-      // We'll load reminders on-demand when checking specific events
+      // Reminders will be loaded on-demand when checking specific events
     } catch (e) {
       FLoaders.errorSnackBar(
         title: 'Error loading reminders',
@@ -352,19 +361,17 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
   /// Check if event has reminder enabled
   Future<bool> hasReminder(String eventId) async {
     try {
-      // 如果本地已经有状态，先返回本地状态
       if (eventReminders.containsKey(eventId)) {
         return eventReminders[eventId]!;
       }
 
-      // Get registration ID for this event
-      final registrationId = await eventRegistrationRepository.getUserRegistrationId(currentUserId, eventId);
+      final registrationId =
+      await eventRegistrationRepository.getUserRegistrationId(currentUserId, eventId);
       if (registrationId.isEmpty) {
         eventReminders[eventId] = false;
         return false;
       }
 
-      // Check if reminder exists in Firestore using reminder repository
       final reminderExists = await reminderRepository.checkReminderExists(registrationId);
       eventReminders[eventId] = reminderExists;
       return reminderExists;
@@ -376,21 +383,18 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
   /// Toggle reminder for event
   Future<void> toggleReminder(String eventId, bool value) async {
     try {
-      // Get registration ID for this event
-      final registrationId = await eventRegistrationRepository.getUserRegistrationId(currentUserId, eventId);
+      final registrationId =
+      await eventRegistrationRepository.getUserRegistrationId(currentUserId, eventId);
       if (registrationId.isEmpty) {
         throw 'User is not registered for this event';
       }
 
       if (value) {
-        // Create new reminder using reminder repository
         await _createReminder(eventId, registrationId);
       } else {
-        // Delete existing reminder using reminder repository
         await _deleteReminder(registrationId, eventId);
       }
 
-      // 立即更新本地状态，确保 UI 实时响应
       eventReminders[eventId] = value;
 
       FLoaders.successSnackBar(
@@ -409,10 +413,9 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
     }
   }
 
-  /// Create a new reminder using reminder repository
+  /// Create a new reminder with FCM notification
   Future<void> _createReminder(String eventId, String registrationId) async {
     try {
-      // Get event details
       final event = await eventRepository.getEventById(eventId).first;
 
       // Calculate reminder time (1 day before event start)
@@ -423,27 +426,40 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
         reminderId: _generateReminderId(),
         registrationId: registrationId,
         title: 'Event Reminder: ${event.title}',
-        message: 'Your event "${event.title}" starts in 1 day at ${event.location.address.area}',
+        message:
+        'Your event "${event.title}" starts in 1 day at ${event.location.address.area}',
         remindAt: remindAt,
         createdAt: DateTime.now(),
         isSent: false,
       );
 
-      // Save to Firestore using reminder repository
+      // Save to Firestore
       await reminderRepository.createReminder(reminder);
 
+      // Schedule FCM notification
+      await fcmService.scheduleEventReminder(
+        userId: currentUserId,
+        eventId: eventId,
+        eventTitle: event.title,
+        eventLocation: event.location.address.area,
+        remindAt: remindAt,
+        reminderId: reminder.reminderId,
+        registrationId: registrationId,
+      );
     } catch (e) {
       rethrow;
     }
   }
 
-  /// Delete an existing reminder using reminder repository
+  /// Delete an existing reminder and cancel FCM notification
   Future<void> _deleteReminder(String registrationId, String eventId) async {
     try {
-      // Get the reminder to get its ID using reminder repository
       final reminder = await reminderRepository.getReminderByRegistration(registrationId);
       if (reminder != null) {
         await reminderRepository.deleteReminder(reminder.reminderId);
+
+        // Cancel FCM notification
+        await fcmService.cancelEventReminder(reminder.reminderId);
       }
     } catch (e) {
       rethrow;

@@ -1,13 +1,14 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fyp/features/community/controllers/posts/create_post_controller.dart';
-import 'package:fyp/features/community/screens/create_post/widgets/media_lightbox.dart';
+import 'package:fyp/features/community/models/post_enums.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:video_player/video_player.dart';
+
+import 'media_lightbox.dart';
 
 class FMediaPreviewGrid extends StatelessWidget {
   const FMediaPreviewGrid({super.key});
@@ -19,53 +20,7 @@ class FMediaPreviewGrid extends StatelessWidget {
 
     return Obx(() {
       if (controller.mediaFiles.isEmpty) {
-        return Container(
-          height: 200,
-          decoration: BoxDecoration(
-            color: dark ? FColors.darkerGrey.withOpacity(0.3) : FColors.light,
-            borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
-            border: Border.all(
-              color: (dark ? FColors.darkGrey : FColors.grey).withOpacity(0.3),
-              style: BorderStyle.solid,
-              width: 2,
-            ),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: (dark ? FColors.darkGrey : FColors.grey).withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Iconsax.gallery_add,
-                    size: 40,
-                    color: dark ? FColors.darkGrey : FColors.grey,
-                  ),
-                ),
-                const SizedBox(height: FSizes.md),
-                Text(
-                  'No media added yet',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: dark ? FColors.darkGrey : FColors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: FSizes.xs),
-                Text(
-                  'Tap Camera or Gallery to add',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: (dark ? FColors.darkGrey : FColors.grey).withOpacity(0.7),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+        return _buildEmptyState(context, dark);
       }
 
       return GridView.builder(
@@ -83,7 +38,7 @@ class FMediaPreviewGrid extends StatelessWidget {
           return _MediaPreviewCard(
             media: media,
             dark: dark,
-            onTap: () => _showMediaLightbox(context, index),
+            onTap: () => _showMediaLightbox(context, index, controller),
             onRemove: () => controller.removeMediaFile(media.id),
           );
         },
@@ -91,10 +46,75 @@ class FMediaPreviewGrid extends StatelessWidget {
     });
   }
 
-  void _showMediaLightbox(BuildContext context, int initialIndex) {
+  Widget _buildEmptyState(BuildContext context, bool dark) {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: dark ? FColors.communityDarkSurface : FColors.light,
+        borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+        border: Border.all(
+          color: (dark ? FColors.communityDarkBorder : FColors.grey).withOpacity(0.3),
+          style: BorderStyle.solid,
+          width: 2,
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: (dark ? FColors.communityDarkBorder : FColors.grey).withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Iconsax.gallery_add,
+                size: 40,
+                color: dark ? FColors.darkTextSecondary : FColors.grey,
+              ),
+            ),
+            const SizedBox(height: FSizes.md),
+            Text(
+              'No media added yet',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: dark ? FColors.darkTextSecondary : FColors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: FSizes.xs),
+            Text(
+              'Tap Camera or Gallery to add',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: (dark ? FColors.darkTextSecondary : FColors.grey).withOpacity(0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMediaLightbox(BuildContext context, int initialIndex, CreatePostController controller) {
+    final mediaItems = controller.mediaFiles.map((media) {
+      return UnifiedMediaItem.file(
+        id: media.id,
+        file: media.file,
+        isVideo: media.type == MediaType.video,
+      );
+    }).toList();
+
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => MediaLightbox(initialIndex: initialIndex),
+        builder: (_) => UnifiedMediaLightbox(
+          mediaItems: mediaItems,
+          initialIndex: initialIndex,
+          showDeleteButton: true,
+          onDelete: (id) {
+            controller.removeMediaFile(id);
+          },
+        ),
         fullscreenDialog: true,
       ),
     );
@@ -123,10 +143,10 @@ class _MediaPreviewCard extends StatelessWidget {
           // Media Preview
           Container(
             decoration: BoxDecoration(
-              color: dark ? FColors.darkerGrey : FColors.lightGrey,
+              color: dark ? FColors.communityDarkSurface : FColors.lightGrey,
               borderRadius: BorderRadius.circular(FSizes.borderRadiusMd),
               border: Border.all(
-                color: dark ? FColors.darkGrey : FColors.grey.withOpacity(0.3),
+                color: dark ? FColors.communityDarkBorder : FColors.grey.withOpacity(0.3),
               ),
             ),
             child: ClipRRect(

@@ -1,14 +1,12 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:fyp/data/repositories/authentication/authentication_repository.dart';
+import 'package:fyp/data/repositories/community/comment_repository.dart';
+import 'package:fyp/data/repositories/community/post_repository.dart';
 import 'package:fyp/features/community/models/comment_model.dart';
+import 'package:fyp/features/community/models/post_enums.dart';
 import 'package:fyp/features/community/models/post_model.dart';
+import 'package:fyp/utils/popups/loaders.dart';
 import 'package:get/get.dart';
-
-import '../../../../data/repositories/community/comment_repository.dart';
-import '../../../../data/repositories/community/post_repository.dart';
-import '../../../../utils/popups/loaders.dart';
-import '../../screens/edit_post/edit_post.dart';
 
 class PostDetailsController extends GetxController {
   // Repositories
@@ -19,8 +17,7 @@ class PostDetailsController extends GetxController {
   final _post = Rx<PostModel?>(null);
   final _comments = <Comment>[].obs;
   final _isLoading = false.obs;
-  final _commentSortType = 'Top comments'.obs;
-  final _userCache = <String, Map<String, String>>{}.obs;
+  final _commentSortType = CommentSortType.newestFirst.obs; // 默认改为 newestFirst
 
   // Stream subscriptions
   StreamSubscription<PostModel?>? _postSubscription;
@@ -34,25 +31,22 @@ class PostDetailsController extends GetxController {
       ? Rx<PostModel>(_post.value!)
       : Rx<PostModel>(PostModel.empty());
   List<Comment> get comments => _comments;
-  RxString get commentSortType => _commentSortType;
+  Rx<CommentSortType> get commentSortType => _commentSortType; // 直接返回枚举
   RxBool get isLoading => _isLoading;
 
   List<Comment> get sortedComments {
     final commentsList = List<Comment>.from(_comments);
 
-    if (_commentSortType.value == 'Top comments') {
-      commentsList.sort((a, b) => b.likes.length.compareTo(a.likes.length));
-    } else {
-      commentsList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    switch (_commentSortType.value) {
+      case CommentSortType.topComments:
+        commentsList.sort((a, b) => b.likes.length.compareTo(a.likes.length));
+        break;
+      case CommentSortType.newestFirst:
+        commentsList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
     }
 
     return commentsList;
-  }
-
-  @override
-  void onInit() {
-    super.onInit();
-    _initializeUserCache();
   }
 
   @override
@@ -62,13 +56,13 @@ class PostDetailsController extends GetxController {
     super.onClose();
   }
 
-  // Load post details and comments
+  /// Load post details and comments
   Future<void> loadPostDetails(String postId) async {
     _isLoading.value = true;
     _currentPostId = postId;
 
     try {
-      // Subscribe to post stream for real-time updates
+      // Subscribe to post stream
       _postSubscription?.cancel();
       _postSubscription = postRepository.getPostByIdStream(postId).listen(
             (post) {
@@ -77,34 +71,42 @@ class PostDetailsController extends GetxController {
           }
         },
         onError: (error) {
-          Get.snackbar('Error', 'Failed to load post: $error');
+          FLoaders.errorSnackBar(
+            title: 'Error',
+            message: 'Failed to load post: $error',
+          );
         },
       );
 
-      // Subscribe to comments stream for real-time updates
+      // Subscribe to comments stream
       _commentsSubscription?.cancel();
       _commentsSubscription = commentRepository.getCommentsStream(postId).listen(
             (commentsList) {
           _comments.assignAll(commentsList);
         },
         onError: (error) {
-          Get.snackbar('Error', 'Failed to load comments: $error');
+          FLoaders.errorSnackBar(
+            title: 'Error',
+            message: 'Failed to load comments: $error',
+          );
         },
       );
-
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load post details: $e');
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to load post details: $e',
+      );
     } finally {
       _isLoading.value = false;
     }
   }
 
-  // Set comment sort type
-  void setSortType(String sortType) {
+  /// Set comment sort type using enum
+  void setSortType(CommentSortType sortType) {
     _commentSortType.value = sortType;
   }
 
-  // Toggle post like
+  /// Toggle post like
   Future<void> togglePostLike() async {
     if (_post.value == null) return;
 
@@ -124,42 +126,17 @@ class PostDetailsController extends GetxController {
 
       // Update in Firestore
       await postRepository.updatePostLikes(currentPost.postId, updatedLikes);
-
     } catch (e) {
-      Get.snackbar('Error', 'Failed to update like: $e');
-      // Revert on error by reloading from stream
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to update like: $e',
+      );
     }
   }
 
-  // Get current user ID
+  /// Get current user ID
   String getCurrentUserId() {
-    // TODO: Get from authentication service
-    // return AuthenticationRepository.instance.authUser?.uid ?? '';
-    return 'current_user_id';
+    return AuthenticationRepository.instance.authUser?.uid ?? '';
   }
 
-  // Get user name by ID
-  String getUserName(String userId) {
-    // TODO: Implement user lookup from UserRepository
-    return _userCache[userId]?['name'] ?? 'User ${userId.substring(0, 4)}';
-  }
-
-  // Get user avatar by ID
-  String getUserAvatar(String userId) {
-    // TODO: Implement user lookup from UserRepository
-    return _userCache[userId]?['avatar'] ?? 'https://picsum.photos/100?random=$userId';
-  }
-
-  // Initialize user cache (temporary until user repository is implemented)
-  void _initializeUserCache() {
-    _userCache.addAll({
-      'current_user_id': {
-        'name': 'You',
-        'avatar': 'https://picsum.photos/100?random=0',
-      },
-    });
-  }
-
-  // Reference to Firestore for ID generation
-  final _db = FirebaseFirestore.instance;
 }

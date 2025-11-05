@@ -1,26 +1,63 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:fyp/features/community/controllers/posts/create_post_controller.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:video_player/video_player.dart';
 
-class MediaLightbox extends StatefulWidget {
-  final int initialIndex;
+/// 媒体类型枚举
+enum UnifiedMediaType { network, file }
 
-  const MediaLightbox({
+/// 媒体项数据模型
+class UnifiedMediaItem {
+  final String id;
+  final UnifiedMediaType type;
+  final String? networkUrl;
+  final File? file;
+  final bool isVideo;
+
+  UnifiedMediaItem.network({
+    required this.id,
+    required this.networkUrl,
+    required this.isVideo,
+  })  : type = UnifiedMediaType.network,
+        file = null;
+
+  UnifiedMediaItem.file({
+    required this.id,
+    required this.file,
+    required this.isVideo,
+  })  : type = UnifiedMediaType.file,
+        networkUrl = null;
+
+  String get displayPath {
+    return type == UnifiedMediaType.network ? networkUrl! : file!.path;
+  }
+}
+
+/// 统一的媒体查看器
+class UnifiedMediaLightbox extends StatefulWidget {
+  final List<UnifiedMediaItem> mediaItems;
+  final int initialIndex;
+  final bool showDeleteButton;
+  final Function(String id)? onDelete;
+
+  const UnifiedMediaLightbox({
     super.key,
+    required this.mediaItems,
     required this.initialIndex,
+    this.showDeleteButton = false,
+    this.onDelete,
   });
 
   @override
-  State<MediaLightbox> createState() => _MediaLightboxState();
+  State<UnifiedMediaLightbox> createState() => _UnifiedMediaLightboxState();
 }
 
-class _MediaLightboxState extends State<MediaLightbox> {
+class _UnifiedMediaLightboxState extends State<UnifiedMediaLightbox> {
   late PageController _pageController;
   late int _currentIndex;
-  final controller = Get.find<CreatePostController>();
+  final Map<int, VideoPlayerController> _videoControllers = {};
 
   @override
   void initState() {
@@ -32,7 +69,17 @@ class _MediaLightboxState extends State<MediaLightbox> {
   @override
   void dispose() {
     _pageController.dispose();
+    for (var controller in _videoControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  void _pauseCurrentVideo() {
+    final controller = _videoControllers[_currentIndex];
+    if (controller?.value.isPlaying == true) {
+      controller?.pause();
+    }
   }
 
   @override
@@ -45,23 +92,60 @@ class _MediaLightboxState extends State<MediaLightbox> {
           PageView.builder(
             controller: _pageController,
             onPageChanged: (index) {
+              _pauseCurrentVideo();
               setState(() {
                 _currentIndex = index;
               });
             },
-            itemCount: controller.mediaFiles.length,
+            itemCount: widget.mediaItems.length,
             itemBuilder: (context, index) {
-              final media = controller.mediaFiles[index];
-              return Center(
-                child: media.type == MediaType.image
-                    ? InteractiveViewer(
-                  child: Image.file(
-                    media.file,
-                    fit: BoxFit.contain,
+              final mediaItem = widget.mediaItems[index];
+
+              if (mediaItem.isVideo) {
+                return _UnifiedVideoPlayerWidget(
+                  mediaItem: mediaItem,
+                  onControllerCreated: (controller) {
+                    _videoControllers[index] = controller;
+                  },
+                );
+              } else {
+                return Center(
+                  child: InteractiveViewer(
+                    child: mediaItem.type == UnifiedMediaType.network
+                        ? Image.network(
+                      mediaItem.networkUrl!,
+                      fit: BoxFit.contain,
+                      width: double.infinity,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                                : null,
+                            color: Colors.white,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 64,
+                          ),
+                        );
+                      },
+                    )
+                        : Image.file(
+                      mediaItem.file!,
+                      fit: BoxFit.contain,
+                      width: double.infinity,
+                    ),
                   ),
-                )
-                    : _VideoPlayerWidget(media: media),
-              );
+                );
+              }
             },
           ),
 
@@ -99,40 +183,35 @@ class _MediaLightboxState extends State<MediaLightbox> {
                     ),
                   ),
                   Text(
-                    '${_currentIndex + 1}/${controller.mediaFiles.length}',
+                    '${_currentIndex + 1}/${widget.mediaItems.length}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () {
-                      controller.removeMediaFile(
-                        controller.mediaFiles[_currentIndex].id,
-                      );
-                      if (controller.mediaFiles.isEmpty) {
+                  if (widget.showDeleteButton)
+                    IconButton(
+                      onPressed: () {
+                        final currentItem = widget.mediaItems[_currentIndex];
+                        widget.onDelete?.call(currentItem.id);
                         Navigator.pop(context);
-                      } else if (_currentIndex >= controller.mediaFiles.length) {
-                        setState(() {
-                          _currentIndex = controller.mediaFiles.length - 1;
-                        });
-                        _pageController.jumpToPage(_currentIndex);
-                      }
-                    },
-                    icon: const Icon(
-                      Iconsax.trash,
-                      color: Colors.red,
-                      size: 24,
-                    ),
-                  ),
+                      },
+                      icon: const Icon(
+                        Iconsax.trash,
+                        color: Colors.red,
+                        size: 24,
+                      ),
+                    )
+                  else
+                    const SizedBox(width: 48),
                 ],
               ),
             ),
           ),
 
           // Page Indicator
-          if (controller.mediaFiles.length > 1)
+          if (widget.mediaItems.length > 1)
             Positioned(
               bottom: 40,
               left: 0,
@@ -140,7 +219,7 @@ class _MediaLightboxState extends State<MediaLightbox> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
-                  controller.mediaFiles.length,
+                  widget.mediaItems.length,
                       (index) => Container(
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     width: 8,
@@ -161,52 +240,81 @@ class _MediaLightboxState extends State<MediaLightbox> {
   }
 }
 
-class _VideoPlayerWidget extends StatefulWidget {
-  final MediaFile media;
+/// 统一的视频播放器组件
+class _UnifiedVideoPlayerWidget extends StatefulWidget {
+  final UnifiedMediaItem mediaItem;
+  final Function(VideoPlayerController)? onControllerCreated;
 
-  const _VideoPlayerWidget({required this.media});
+  const _UnifiedVideoPlayerWidget({
+    required this.mediaItem,
+    this.onControllerCreated,
+  });
 
   @override
-  State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+  State<_UnifiedVideoPlayerWidget> createState() => _UnifiedVideoPlayerWidgetState();
 }
 
-class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
+class _UnifiedVideoPlayerWidgetState extends State<_UnifiedVideoPlayerWidget> {
+  late VideoPlayerController _controller;
   bool _isPlaying = false;
   bool _showControls = true;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    widget.media.videoController?.addListener(_videoListener);
+    _initializeVideo();
   }
 
   @override
   void dispose() {
-    widget.media.videoController?.removeListener(_videoListener);
+    _controller.dispose();
     super.dispose();
+  }
+
+  void _initializeVideo() async {
+    try {
+      if (widget.mediaItem.type == UnifiedMediaType.network) {
+        _controller = VideoPlayerController.networkUrl(
+          Uri.parse(widget.mediaItem.networkUrl!),
+        );
+      } else {
+        _controller = VideoPlayerController.file(widget.mediaItem.file!);
+      }
+
+      await _controller.initialize();
+      _controller.addListener(_videoListener);
+      widget.onControllerCreated?.call(_controller);
+
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      print('Failed to initialize video: $e');
+    }
   }
 
   void _videoListener() {
     if (mounted) {
       setState(() {
-        _isPlaying = widget.media.videoController?.value.isPlaying ?? false;
+        _isPlaying = _controller.value.isPlaying;
       });
     }
   }
 
   void _togglePlayPause() {
-    if (widget.media.videoController?.value.isPlaying ?? false) {
-      widget.media.videoController?.pause();
+    if (_controller.value.isPlaying) {
+      _controller.pause();
     } else {
-      widget.media.videoController?.play();
+      _controller.play();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = widget.media.videoController;
-
-    if (controller == null || !controller.value.isInitialized) {
+    if (!_isInitialized) {
       return const Center(
         child: CircularProgressIndicator(color: FColors.primary),
       );
@@ -218,51 +326,48 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
           _showControls = !_showControls;
         });
       },
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          AspectRatio(
-            aspectRatio: controller.value.aspectRatio,
-            child: VideoPlayer(controller),
-          ),
-          if (_showControls)
-            Container(
-              color: Colors.black.withOpacity(0.3),
-              child: Center(
-                child: IconButton(
-                  onPressed: _togglePlayPause,
-                  icon: Icon(
-                    _isPlaying ? Iconsax.pause_circle : Iconsax.play_circle,
-                    color: Colors.white,
-                    size: 64,
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: _controller.value.aspectRatio,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              VideoPlayer(_controller),
+              if (_showControls)
+                Container(
+                  color: Colors.black.withOpacity(0.3),
+                  child: Center(
+                    child: IconButton(
+                      onPressed: _togglePlayPause,
+                      icon: Icon(
+                        _isPlaying ? Iconsax.pause_circle : Iconsax.play_circle,
+                        color: Colors.white,
+                        size: 64,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          if (_showControls)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.7),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-                child: ValueListenableBuilder(
-                  valueListenable: controller,
-                  builder: (context, VideoPlayerValue value, child) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
+              if (_showControls)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withOpacity(0.7),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: ValueListenableBuilder(
+                      valueListenable: _controller,
+                      builder: (context, VideoPlayerValue value, child) {
+                        return Row(
                           children: [
                             Text(
                               _formatDuration(value.position),
@@ -276,7 +381,7 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
                                 value: value.position.inMilliseconds.toDouble(),
                                 max: value.duration.inMilliseconds.toDouble(),
                                 onChanged: (newValue) {
-                                  controller.seekTo(
+                                  _controller.seekTo(
                                     Duration(milliseconds: newValue.toInt()),
                                   );
                                 },
@@ -292,14 +397,14 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
                               ),
                             ),
                           ],
-                        ),
-                      ],
-                    );
-                  },
+                        );
+                      },
+                    ),
+                  ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -545,7 +545,7 @@ class AchievementDetailsScreen extends StatelessWidget {
 
   Widget _buildLevelProgressCard(
       AchievementDetailsController controller,
-      AchievementLevelModel level,
+      AchievementLevel level,
       bool dark,
       ) {
     final userCount = controller.getUserCountForLevel(level.level);

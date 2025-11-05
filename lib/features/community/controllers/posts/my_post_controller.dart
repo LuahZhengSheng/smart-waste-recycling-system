@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:fyp/data/repositories/authentication/authentication_repository.dart';
+import 'package:fyp/data/repositories/community/post_repository.dart';
+import 'package:fyp/features/community/models/post_enums.dart';
 import 'package:fyp/features/community/models/post_model.dart';
+import 'package:fyp/utils/popups/loaders.dart';
 import 'package:get/get.dart';
-
-import '../../../../data/repositories/community/post_repository.dart';
-
 
 class MyPostsController extends GetxController with GetSingleTickerProviderStateMixin {
   // Tab Controller
@@ -15,16 +16,21 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
   // Observable variables
   final _myPosts = <PostModel>[].obs;
   final _filteredPosts = <PostModel>[].obs;
-  final _selectedFilter = 'All'.obs;
+  final _selectedFilter = Rx<PostType?>(null); // 修改：使用 nullable 类型
   final _isLoading = false.obs;
 
-  // Filter mapping - 修复标签名称匹配问题
-  final List<String> filters = ['All', 'Tips', 'Questions', 'Discussion'];
+  // Filter list using enum - 第一个是 null 表示 "All"
+  final List<PostType?> filters = [
+    null, // All
+    PostType.tip,
+    PostType.question,
+    PostType.discussion,
+  ];
 
   // Getters
   List<PostModel> get myPosts => _myPosts;
   List<PostModel> get filteredPosts => _filteredPosts;
-  RxString get selectedFilter => _selectedFilter;
+  PostType? get selectedFilter => _selectedFilter.value;
   RxBool get isLoading => _isLoading;
 
   // Statistics
@@ -56,18 +62,18 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
     super.onClose();
   }
 
-  // Handle tab changes
+  /// Handle tab changes
   void _handleTabChange() {
     if (tabController.indexIsChanging || !tabController.indexIsChanging) {
       final newFilter = filters[tabController.index];
       if (_selectedFilter.value != newFilter) {
-        _selectedFilter.value = newFilter;
+        _selectedFilter.value = newFilter; // 直接设置，不需要默认值
         _applyFilters();
       }
     }
   }
 
-  // Load user's posts from Firestore
+  /// Load user's posts from Firestore
   Future<void> loadMyPosts() async {
     _isLoading.value = true;
 
@@ -85,11 +91,16 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
         _myPosts.assignAll(posts);
         _applyFilters();
       }, onError: (error) {
-        Get.snackbar('Error', 'Failed to load your posts: $error');
+        FLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Failed to load your posts: $error',
+        );
       });
-
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load your posts: $e');
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to load your posts: $e',
+      );
     } finally {
       // Delay hiding loading to ensure smooth UI transition
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -98,27 +109,18 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
     }
   }
 
-  // Apply category filter - 修复过滤逻辑
+  /// Apply category filter using enum - 修复过滤逻辑
   void _applyFilters() {
     var filtered = List<PostModel>.from(_myPosts);
 
-    // Apply category filter
-    if (_selectedFilter.value != 'All') {
+    // 修复：只有当选择了具体的 filter 时才进行过滤
+    if (_selectedFilter.value != null) {
       filtered = filtered.where((post) {
-        final postType = post.postType.toLowerCase();
-        final selectedType = _selectedFilter.value.toLowerCase();
-
-        // 修复匹配逻辑
-        if (selectedType == 'tips') {
-          return postType == 'tips' || postType == 'tip';
-        } else if (selectedType == 'questions') {
-          return postType == 'questions' || postType == 'question';
-        } else if (selectedType == 'discussion') {
-          return postType == 'discussion';
-        }
-        return false;
+        final postType = PostType.fromString(post.postType);
+        return postType == _selectedFilter.value;
       }).toList();
     }
+    // 如果 _selectedFilter.value 是 null，则显示所有帖子
 
     // Sort by creation date (newest first)
     filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -126,9 +128,9 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
     _filteredPosts.assignAll(filtered);
   }
 
-  // Set category filter and sync with tab
-  void setFilter(String filter) {
-    _selectedFilter.value = filter;
+  /// Set category filter and sync with tab using enum
+  void setFilter(PostType? filter) {
+    _selectedFilter.value = filter; // 直接设置，不需要默认值
 
     // Sync tab controller with filter change
     final filterIndex = filters.indexOf(filter);
@@ -139,7 +141,7 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
     _applyFilters();
   }
 
-  // Toggle community like
+  /// Toggle post like
   Future<void> toggleLike(String postId) async {
     try {
       final postIndex = _myPosts.indexWhere((p) => p.postId == postId);
@@ -164,54 +166,46 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
         await postRepository.updatePostLikes(postId, updatedLikes);
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to update like: $e');
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to update like: $e',
+      );
       // Reload posts to sync with server state
       loadMyPosts();
     }
   }
 
-  // Delete community
+  /// Delete post
   Future<void> deletePost(String postId) async {
     try {
-      // Show confirmation dialog
-      final confirmed = await Get.dialog<bool>(
-        AlertDialog(
-          title: const Text('Delete Post'),
-          content: const Text('Are you sure you want to delete this community? This action cannot be undone.'),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(result: false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Get.back(result: true),
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        ),
+      FLoaders.showLoading('Deleting post...');
+
+      // Delete from Firestore using repository
+      await postRepository.deletePost(postId);
+
+      // Remove from local list
+      _myPosts.removeWhere((post) => post.postId == postId);
+      _applyFilters();
+
+      FLoaders.stopLoading();
+      FLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Post deleted successfully',
       );
-
-      if (confirmed == true) {
-        // Delete from Firestore using repository
-        await postRepository.deletePost(postId);
-
-        // Remove from local list
-        _myPosts.removeWhere((post) => post.postId == postId);
-        _applyFilters();
-
-        Get.snackbar('Success', 'Post deleted successfully');
-      }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to delete community: $e');
+      FLoaders.stopLoading();
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to delete post: $e',
+      );
     }
   }
 
-  // Edit community
+  /// Edit post
   Future<void> editPost(PostModel updatedPost) async {
     try {
+      FLoaders.showLoading('Updating post...');
+
       // Update in Firestore using repository
       await postRepository.savePost(updatedPost);
 
@@ -223,31 +217,31 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
         _applyFilters();
       }
 
-      Get.snackbar('Success', 'Post updated successfully');
+      FLoaders.stopLoading();
+      FLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Post updated successfully',
+      );
     } catch (e) {
-      Get.snackbar('Error', 'Failed to update community: $e');
+      FLoaders.stopLoading();
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to update post: $e',
+      );
     }
   }
 
-  // Refresh posts
+  /// Refresh posts
   Future<void> refreshPosts() async {
     await loadMyPosts();
   }
 
-  // Get current user ID
+  /// Get current user ID
   String getCurrentUserId() {
-    try {
-      // Try to get from AuthController if available
-      // final authController = Get.find<AuthController>();
-      return 'current_user_id';
-    } catch (e) {
-      // Fallback to local storage or other method
-      // You might need to implement this based on your auth setup
-      return '';
-    }
+    return AuthenticationRepository.instance.authUser?.uid ?? '';
   }
 
-  // Get community by ID
+  /// Get post by ID
   PostModel? getPostById(String postId) {
     try {
       return _myPosts.firstWhere((post) => post.postId == postId);
@@ -256,7 +250,7 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
     }
   }
 
-  // Check if user has liked a community
+  /// Check if user has liked a post
   bool hasUserLikedPost(String postId) {
     final currentUserId = getCurrentUserId();
     final post = _myPosts.firstWhere(
@@ -266,16 +260,13 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
     return post.likes.contains(currentUserId);
   }
 
-  // Get posts statistics by type
+  /// Get posts statistics by type using enum
   Map<String, int> getPostsStatistics() {
     return {
       'All': _myPosts.length,
-      'Tips': _myPosts.where((post) =>
-      post.postType.toLowerCase() == 'tips' || post.postType.toLowerCase() == 'tip').length,
-      'Questions': _myPosts.where((post) =>
-      post.postType.toLowerCase() == 'questions' || post.postType.toLowerCase() == 'question').length,
-      'Discussion': _myPosts.where((post) =>
-      post.postType.toLowerCase() == 'discussion').length,
+      'Tips': _myPosts.where((post) => PostType.fromString(post.postType) == PostType.tip).length,
+      'Questions': _myPosts.where((post) => PostType.fromString(post.postType) == PostType.question).length,
+      'Discussion': _myPosts.where((post) => PostType.fromString(post.postType) == PostType.discussion).length,
     };
   }
 }

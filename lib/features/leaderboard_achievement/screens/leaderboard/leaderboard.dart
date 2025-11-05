@@ -34,7 +34,11 @@ class LeaderboardScreen extends StatelessWidget {
       ),
       body: Obx(() {
         if (controller.isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: CircularProgressIndicator(
+              color: FColors.primary,
+            ),
+          );
         }
 
         return Column(
@@ -53,12 +57,13 @@ class LeaderboardScreen extends StatelessWidget {
                       _buildLeaderboardContent(context, controller, dark),
                     ],
                   ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: _buildCurrentUserCard(context, controller, dark),
-                  ),
+                  if (controller.isUserInTop20)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: _buildCurrentUserCard(context, controller, dark),
+                    ),
                 ],
               ),
             ),
@@ -69,15 +74,57 @@ class LeaderboardScreen extends StatelessWidget {
   }
 
   Widget _buildLeaderboardContent(BuildContext context, LeaderboardController controller, bool dark) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 120), // Space for current user card
+    return Obx(() {
+      if (!controller.hasData) {
+        return _buildEmptyState(context, dark);
+      }
+
+      return SingleChildScrollView(
+        padding: EdgeInsets.only(
+          bottom: controller.isUserInTop20 ? 120 : FSizes.spaceBtwSections,
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: FSizes.spaceBtwSections),
+            if (controller.topThree.length == 3)
+              _buildPodium(context, controller, dark),
+            const SizedBox(height: FSizes.spaceBtwSections),
+            _buildUsersList(context, controller, dark),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildEmptyState(BuildContext context, bool dark) {
+    return Center(
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: FSizes.spaceBtwSections),
-          if (controller.topThree.length == 3)
-            _buildPodium(context, controller, dark),
-          const SizedBox(height: FSizes.spaceBtwSections),
-          _buildUsersList(context, controller, dark),
+          Icon(
+            Iconsax.chart,
+            size: 80,
+            color: dark ? FColors.darkGrey : FColors.grey,
+          ),
+          const SizedBox(height: FSizes.spaceBtwItems),
+          Text(
+            'No Rankings Yet',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: dark ? FColors.white : FColors.black,
+            ),
+          ),
+          const SizedBox(height: FSizes.sm),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace * 2),
+            child: Text(
+              'Start recycling to earn points and appear on the leaderboard!',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: dark ? FColors.darkGrey : FColors.textSecondary,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -136,7 +183,7 @@ class LeaderboardScreen extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: FSizes.md),
         decoration: BoxDecoration(
-          color: isSelected ? FColors.primary : null,
+          color: isSelected ? FColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
         ),
         child: Text(
@@ -145,7 +192,7 @@ class LeaderboardScreen extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
             color: isSelected
-                ? Colors.white
+                ? FColors.white
                 : (dark ? FColors.textSecondary : FColors.darkGrey),
           ),
         ),
@@ -335,9 +382,9 @@ class LeaderboardScreen extends StatelessWidget {
                   ? Image.network(
                 user.profileImg!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _buildDefaultAvatar(user.username),
+                errorBuilder: (_, __, ___) => _buildDefaultAvatar(user.username, size),
               )
-                  : _buildDefaultAvatar(user.username),
+                  : _buildDefaultAvatar(user.username, size),
             ),
           ),
           const SizedBox(height: FSizes.sm),
@@ -356,22 +403,16 @@ class LeaderboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDefaultAvatar(String username) {
+  Widget _buildDefaultAvatar(String username, double size) {
     return Container(
       decoration: const BoxDecoration(
         color: FColors.primary,
-        // gradient: LinearGradient(
-        //   colors: [Color(0xFF4DD4AC), Color(0xFF3BA889)],
-        // ),
       ),
       child: Center(
-        child: Text(
-          username.isNotEmpty ? username[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 36,
-            fontWeight: FontWeight.bold,
-          ),
+        child: Icon(
+          Iconsax.user,
+          size: size * 0.5,
+          color: FColors.white,
         ),
       ),
     );
@@ -422,7 +463,7 @@ class LeaderboardScreen extends StatelessWidget {
             child: Center(
               child: Text(
                 '$rank',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: FSizes.fontSizeMd,
                   fontWeight: FontWeight.bold,
                   color: FColors.primary,
@@ -485,9 +526,6 @@ class LeaderboardScreen extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: FColors.primary,
-              // gradient: const LinearGradient(
-              //   colors: [Color(0xFF4DD4AC), Color(0xFF3BA889)],
-              // ),
               borderRadius: BorderRadius.circular(FSizes.borderRadiusMd),
             ),
             child: Text(
@@ -495,7 +533,7 @@ class LeaderboardScreen extends StatelessWidget {
               style: const TextStyle(
                 fontSize: FSizes.fontSizeMd,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: FColors.white,
               ),
             ),
           ),
@@ -515,15 +553,10 @@ class LeaderboardScreen extends StatelessWidget {
         padding: const EdgeInsets.all(FSizes.md),
         decoration: BoxDecoration(
           color: FColors.primary,
-          // gradient: const LinearGradient(
-          //   colors: [Color(0xFF4DD4AC), Color(0xFF3BA889)],
-          //   begin: Alignment.topLeft,
-          //   end: Alignment.bottomRight,
-          // ),
           borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
           boxShadow: [
             BoxShadow(
-              color: FColors.leaderboardAccent.withOpacity(0.3),
+              color: FColors.primary.withOpacity(0.3),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -540,11 +573,11 @@ class LeaderboardScreen extends StatelessWidget {
               ),
               child: Center(
                 child: Text(
-                  rank > 20 ? '--' : '$rank',
+                  '#$rank',
                   style: const TextStyle(
                     fontSize: FSizes.fontSizeLg,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: FColors.white,
                   ),
                 ),
               ),
@@ -555,7 +588,7 @@ class LeaderboardScreen extends StatelessWidget {
               height: 52,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 3),
+                border: Border.all(color: FColors.white, width: 3),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.2),
@@ -584,7 +617,7 @@ class LeaderboardScreen extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: FSizes.fontSizeMd,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: FColors.white,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -606,7 +639,7 @@ class LeaderboardScreen extends StatelessWidget {
                 vertical: FSizes.sm,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: FColors.white,
                 borderRadius: BorderRadius.circular(FSizes.borderRadiusMd),
               ),
               child: Column(
@@ -640,18 +673,12 @@ class LeaderboardScreen extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: FColors.primary,
-        // gradient: LinearGradient(
-        //   colors: [Color(0xFF4DD4AC), Color(0xFF3BA889)],
-        // ),
       ),
-      child: Center(
-        child: Text(
-          username.isNotEmpty ? username[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+      child: const Center(
+        child: Icon(
+          Iconsax.user,
+          size: 24,
+          color: FColors.white,
         ),
       ),
     );

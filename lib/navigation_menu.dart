@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/features/community/screens/view_post/view_post.dart';
 import 'package:fyp/features/personalization/screens/home/home.dart';
-import 'package:fyp/features/personalization/screens/recycle_activity/recycle_activity.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 
-import 'data/repositories/authentication/authentication_repository.dart';
 import 'features/event/screens/event/event.dart';
-import 'features/event/screens/test_reminder.dart';
 import 'features/personalization/screens/profile/profile.dart';
 import 'features/waste_classification/controllers/scan_sort_camera_controller.dart';
 import 'features/waste_classification/screens/scan_sort_camera/scan_sort_camera.dart';
-import 'features/waste_classification/screens/waste_category_guideline/waste_category_guide.dart';
 
 class NavigationMenu extends StatelessWidget {
   const NavigationMenu({super.key});
@@ -92,7 +88,7 @@ class NavigationMenu extends StatelessWidget {
                     ? FColors.primary // 选中时青色
                     : FColors.darkGrey, // 未选中时灰色
               ),
-              label: 'Scan & Sort',
+              label: 'Scan',
               selectedIcon: Icon(Iconsax.repeat, color: FColors.primary), // 选中时的图标
             ),
             NavigationDestination(

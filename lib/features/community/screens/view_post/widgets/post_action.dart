@@ -5,8 +5,6 @@ import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 import 'package:iconsax/iconsax.dart';
 
-import 'action_button.dart';
-
 class FPostActions extends StatelessWidget {
   final PostModel post;
   final bool isLiked;
@@ -28,42 +26,161 @@ class FPostActions extends StatelessWidget {
     final dark = FHelperFunctions.isDarkMode(context);
 
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         // Like Button
-        FActionButton(
+        _ActionButton(
           icon: isLiked ? Iconsax.like_15 : Iconsax.like_1,
-          text: _formatCount(post.likes.length),
-          backgroundColor: FColors.transparent,
-          iconColor: FColors.primary,
-          textColor: FColors.primary,
-          hasHoverEffect: true,
+          count: post.likes.length,
+          isActive: isLiked,
           onPressed: onLikePressed,
+          dark: dark,
         ),
-        const SizedBox(width: FSizes.spaceBtwItems),
+        const SizedBox(width: FSizes.md),
 
         // Comment Button
-        FActionButton(
+        _ActionButton(
           icon: Iconsax.message,
-          text: _formatCount(post.commentCount),
-          backgroundColor: FColors.transparent,
-          iconColor: FColors.primary,
-          textColor: FColors.primary,
-          hasHoverEffect: true,
+          count: post.commentCount,
+          isActive: false,
           onPressed: onCommentPressed,
+          dark: dark,
         ),
-        const SizedBox(width: FSizes.spaceBtwItems),
-
-        // Share Button
-        // FActionButton(
-        //   icon: Iconsax.share,
-        //   text: 'Share',
-        //   backgroundColor: FColors.transparent,
-        //   iconColor: FColors.primary,
-        //   textColor: FColors.primary,
-        //   hasHoverEffect: true,
-        //   onPressed: onSharePressed ?? () => _showShareOptions(context),
-        // ),
       ],
+    );
+  }
+}
+
+class _ActionButton extends StatefulWidget {
+  final IconData icon;
+  final int count;
+  final bool isActive;
+  final VoidCallback? onPressed;
+  final bool dark;
+
+  const _ActionButton({
+    required this.icon,
+    required this.count,
+    required this.isActive,
+    this.onPressed,
+    required this.dark,
+  });
+
+  @override
+  State<_ActionButton> createState() => _ActionButtonState();
+}
+
+class _ActionButtonState extends State<_ActionButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  bool _isPressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    setState(() => _isPressed = true);
+    _animationController.forward();
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    setState(() => _isPressed = false);
+    _animationController.reverse();
+  }
+
+  void _handleTapCancel() {
+    setState(() => _isPressed = false);
+    _animationController.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _handleTapDown,
+      onTapUp: _handleTapUp,
+      onTapCancel: _handleTapCancel,
+      onTap: widget.onPressed,
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(
+                horizontal: FSizes.sm,
+                vertical: FSizes.xs,
+              ),
+              decoration: BoxDecoration(
+                color: _isPressed
+                    ? (widget.dark
+                    ? FColors.communityDarkBorder
+                    : FColors.grey.withOpacity(0.2))
+                    : (widget.dark
+                    ? FColors.communityDarkSurface
+                    : FColors.lightContainer),
+                borderRadius: BorderRadius.circular(FSizes.borderRadiusSm * 2),
+                // border: Border.all(
+                //   color: widget.isActive
+                //       ? FColors.primary
+                //       : (widget.dark
+                //       ? FColors.communityDarkBorder
+                //       : FColors.grey.withOpacity(0.3)),
+                //   width: widget.isActive ? 1.5 : 1,
+                // ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    widget.icon,
+                    color: widget.isActive
+                        ? FColors.primary
+                        : (widget.dark
+                        ? FColors.darkTextSecondary
+                        : FColors.textSecondary),
+                    size: FSizes.iconSm,
+                  ),
+                  if (widget.count > 0) ...[
+                    const SizedBox(width: FSizes.xs),
+                    Text(
+                      _formatCount(widget.count),
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: widget.isActive
+                            ? FColors.primary
+                            : (widget.dark
+                            ? FColors.darkTextSecondary
+                            : FColors.textSecondary),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -75,78 +192,5 @@ class FPostActions extends StatelessWidget {
     } else {
       return '${(count / 1000000).toStringAsFixed(1)}M';
     }
-  }
-
-  void _showShareOptions(BuildContext context) {
-    final dark = FHelperFunctions.isDarkMode(context);
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: dark ? FColors.darkerGrey : FColors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(FSizes.borderRadiusLg)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(FSizes.defaultSpace),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: FSizes.spaceBtwItems),
-              decoration: BoxDecoration(
-                color: dark ? FColors.darkGrey : FColors.grey.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-
-            Text(
-              'Share Post',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: dark ? FColors.white : FColors.black,
-              ),
-            ),
-            const SizedBox(height: FSizes.spaceBtwItems),
-
-            // Share options
-            ListTile(
-              leading: Icon(
-                Iconsax.copy,
-                color: dark ? FColors.darkGrey : FColors.grey,
-              ),
-              title: Text(
-                'Copy Link',
-                style: TextStyle(
-                  color: dark ? FColors.white : FColors.black,
-                ),
-              ),
-              onTap: () {
-                // TODO: Implement copy link functionality
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Iconsax.message,
-                color: dark ? FColors.darkGrey : FColors.grey,
-              ),
-              title: Text(
-                'Share via Message',
-                style: TextStyle(
-                  color: dark ? FColors.white : FColors.black,
-                ),
-              ),
-              onTap: () {
-                // TODO: Implement share via message
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

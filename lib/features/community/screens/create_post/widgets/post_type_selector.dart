@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/features/community/controllers/posts/create_post_controller.dart';
+import 'package:fyp/features/community/models/post_enums.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
@@ -21,8 +22,8 @@ class FPostTypeSelector extends StatelessWidget {
             child: _PostTypeChip(
               label: 'Tip',
               icon: Iconsax.lamp_on,
-              type: 'tip',
-              isSelected: controller.selectedPostType == 'tip',
+              type: PostType.tip,
+              isSelected: controller.selectedPostType == PostType.tip,
               dark: dark,
             ),
           ),
@@ -31,8 +32,8 @@ class FPostTypeSelector extends StatelessWidget {
             child: _PostTypeChip(
               label: 'Discussion',
               icon: Iconsax.messages_3,
-              type: 'discussion',
-              isSelected: controller.selectedPostType == 'discussion',
+              type: PostType.discussion,
+              isSelected: controller.selectedPostType == PostType.discussion,
               dark: dark,
             ),
           ),
@@ -41,8 +42,8 @@ class FPostTypeSelector extends StatelessWidget {
             child: _PostTypeChip(
               label: 'Question',
               icon: Iconsax.message_question,
-              type: 'question',
-              isSelected: controller.selectedPostType == 'question',
+              type: PostType.question,
+              isSelected: controller.selectedPostType == PostType.question,
               dark: dark,
             ),
           ),
@@ -55,7 +56,7 @@ class FPostTypeSelector extends StatelessWidget {
 class _PostTypeChip extends StatelessWidget {
   final String label;
   final IconData icon;
-  final String type;
+  final PostType type;
   final bool isSelected;
   final bool dark;
 
@@ -83,12 +84,12 @@ class _PostTypeChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? FColors.primary
-              : (dark ? FColors.darkerGrey : FColors.white),
+              : (dark ? FColors.communityDarkSurface : FColors.white),
           borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
           border: Border.all(
             color: isSelected
                 ? FColors.primary
-                : (dark ? FColors.darkGrey : FColors.grey.withOpacity(0.3)),
+                : (dark ? FColors.communityDarkBorder : FColors.grey.withOpacity(0.3)),
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
@@ -107,7 +108,7 @@ class _PostTypeChip extends StatelessWidget {
               icon,
               color: isSelected
                   ? FColors.white
-                  : (dark ? FColors.white : FColors.black),
+                  : (dark ? FColors.darkText : FColors.black),
               size: FSizes.iconMd,
             ),
             const SizedBox(height: FSizes.xs),
@@ -116,7 +117,7 @@ class _PostTypeChip extends StatelessWidget {
               style: TextStyle(
                 color: isSelected
                     ? FColors.white
-                    : (dark ? FColors.white : FColors.black),
+                    : (dark ? FColors.darkText : FColors.black),
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 fontSize: 13,
               ),

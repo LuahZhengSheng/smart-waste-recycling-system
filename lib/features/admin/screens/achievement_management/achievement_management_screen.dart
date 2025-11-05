@@ -328,7 +328,7 @@ class AchievementManagementScreen extends StatelessWidget {
 }
 
 class AdminAchievementDataTable extends StatefulWidget {
-  final List<AchievementModel> achievements;
+  final List<Achievement> achievements;
   final Function(int, bool) onSort;
   final int? sortColumnIndex;
   final bool sortAscending;
@@ -657,7 +657,7 @@ class _AdminAchievementDataTableState extends State<AdminAchievementDataTable> {
     );
   }
 
-  DataCell _buildActionCell(AchievementModel achievement) {
+  DataCell _buildActionCell(Achievement achievement) {
     final status = widget.controller.getAchievementStatus(achievement);
 
     return DataCell(
@@ -712,7 +712,7 @@ class _AdminAchievementDataTableState extends State<AdminAchievementDataTable> {
     );
   }
 
-  void _showActivationConfirmation(AchievementModel achievement, String currentStatus) {
+  void _showActivationConfirmation(Achievement achievement, String currentStatus) {
     final isActivating = currentStatus != 'active';
 
     Get.dialog(

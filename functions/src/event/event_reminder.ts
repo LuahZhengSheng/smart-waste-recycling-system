@@ -1,230 +1,340 @@
-// functions/src/event-reminders.ts
-import * as admin from "firebase-admin";
-import * as functions from "firebase-functions";
-import {onSchedule} from "firebase-functions/v2/scheduler";
+import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
+
+// Initialize Firebase Admin
+admin.initializeApp();
+
+const db = admin.firestore();
+const messaging = admin.messaging();
+
+interface ReminderData {
+  status: string;
+  remindAt: admin.firestore.Timestamp;
+  userId: string;
+  eventId?: string;
+  eventTitle?: string;
+  eventLocation?: string;
+  registrationId?: string;
+  isSent?: boolean;
+  processedAt?: admin.firestore.Timestamp;
+  statusMessage?: string;
+}
+
+interface UserData {
+  fcmTokens?: string[];
+}
+
+interface SendResult {
+  success: boolean;
+  token: string;
+  error?: string;
+}
 
 /**
- * Send event reminder notification
- * 通过 registrationId 获取 userId 和 eventId
+ * Scheduled function to check and send event reminders
+ * Runs every 15 minutes to check for pending reminders
  */
-export const sendEventReminder = async (
-  registrationId: string,
-  reminderId: string,
-  title: string,
-  message: string
-): Promise<void> => {
-  try {
-    // 1. 通过 registrationId 获取 EventRegistration
-    const registrationDoc = await admin.firestore()
-      .collection("eventRegistrations")
-      .doc(registrationId)
-      .get();
+export const sendEventReminders = functions.pubsub
+  .schedule('every 15 minutes')
+  .timeZone('Asia/Kuala_Lumpur')
+  .onRun(async (context) => {
+    try {
+      console.log('Starting event reminder check...');
 
-    if (!registrationDoc.exists) {
-      functions.logger.error(`EventRegistration ${registrationId} does not exist`);
-      return;
-    }
+      const now = admin.firestore.Timestamp.now();
 
-    const registrationData = registrationDoc.data();
-    const userId = registrationData?.userId;
-    const eventId = registrationData?.eventId;
+      // Query for reminders that are due and not yet sent
+      const remindersSnapshot = await db
+        .collection('scheduledReminders')
+        .where('status', '==', 'pending')
+        .where('remindAt', '<=', now)
+        .limit(100) // Process 100 reminders at a time
+        .get();
 
-    if (!userId || !eventId) {
-      functions.logger.error(`EventRegistration ${registrationId} missing userId or eventId`);
-      return;
-    }
-
-    // 2. 获取用户的 FCM tokens
-    const userDoc = await admin.firestore().collection("users").doc(userId).get();
-    if (!userDoc.exists) {
-      functions.logger.error(`User ${userId} does not exist`);
-      return;
-    }
-
-    const userData = userDoc.data();
-    const fcmTokens = userData?.fcmTokens || [];
-
-    if (fcmTokens.length === 0) {
-      functions.logger.warn(`User ${userId} has no registered FCM tokens`);
-      return;
-    }
-
-    // 3. 构建通知消息
-    const notificationMessage: admin.messaging.MulticastMessage = {
-      tokens: fcmTokens,
-      notification: {
-        title: title,
-        body: message,
-      },
-      data: {
-        type: "event_reminder",
-        eventId: eventId,
-        reminderId: reminderId,
-        registrationId: registrationId,
-        userId: userId, // 包含 userId 用于客户端验证
-        title: title,
-        message: message,
-        click_action: "FLUTTER_NOTIFICATION_CLICK",
-      },
-      apns: {
-        payload: {
-          aps: {
-            sound: "default",
-            badge: 1,
-          },
-        },
-      },
-      android: {
-        priority: "high",
-        notification: {
-          sound: "default",
-          channelId: "event_reminders",
-        },
-      },
-    };
-
-    // 4. 发送通知
-    const response = await admin.messaging().sendEachForMulticast(notificationMessage);
-    functions.logger.info(`Successfully sent ${response.successCount} event reminders`);
-
-    if (response.failureCount > 0) {
-      response.responses.forEach((resp, idx) => {
-        if (!resp.success) {
-          functions.logger.error(`Failed to send to token ${fcmTokens[idx]}:`, resp.error);
-        }
-      });
-    }
-
-    // 5. 更新提醒状态为已发送
-    await admin.firestore()
-      .collection("reminders")
-      .doc(reminderId)
-      .update({
-        isSent: true,
-        sentAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-    functions.logger.info(`Event reminder sent for registration: ${registrationId}`);
-
-  } catch (error) {
-    functions.logger.error("Error sending event reminder notification:", error);
-    throw error;
-  }
-};
-
-/**
- * Schedule event reminders - check every 5 minutes
- * 定时检查需要发送的提醒
- */
-export const scheduleEventReminders = onSchedule({
-  schedule: "every 5 minutes",
-  timeZone: "Asia/Kuala_Lumpur",
-  retryCount: 3,
-}, async (event) => {
-  try {
-    const now = new Date();
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000); // 1小时内
-
-    // 查找需要发送的提醒（未发送且在1小时内）
-    const pendingReminders = await admin.firestore()
-      .collection("reminders")
-      .where("isSent", "==", false)
-      .where("remindAt", ">=", now)
-      .where("remindAt", "<=", oneHourLater)
-      .get();
-
-    functions.logger.info(`Found ${pendingReminders.size} pending event reminders`);
-
-    // 处理每个提醒
-    for (const reminderDoc of pendingReminders.docs) {
-      const reminder = reminderDoc.data();
-      const reminderId = reminderDoc.id;
-      const registrationId = reminder.registrationId;
-
-      if (!registrationId) {
-        functions.logger.error(`Reminder ${reminderId} missing registrationId`);
-        continue;
+      if (remindersSnapshot.empty) {
+        console.log('No pending reminders found');
+        return null;
       }
 
-      // 发送提醒通知
-      await sendEventReminder(
-        registrationId,
-        reminderId,
-        reminder.title,
-        reminder.message
-      );
+      console.log(`Found ${remindersSnapshot.size} reminders to process`);
 
-      functions.logger.info(`Processed reminder for registration: ${registrationId}`);
+      // Process each reminder
+      const promises = remindersSnapshot.docs.map(async (doc) => {
+        const reminder = doc.data() as ReminderData;
+        const reminderId = doc.id;
+
+        try {
+          // Get user's FCM tokens
+          const userDoc = await db.collection('users').doc(reminder.userId).get();
+
+          if (!userDoc.exists) {
+            console.log(`User ${reminder.userId} not found`);
+            await updateReminderStatus(reminderId, 'failed', 'User not found');
+            return;
+          }
+
+          const userData = userDoc.data() as UserData;
+          const fcmTokens = userData.fcmTokens || [];
+
+          if (fcmTokens.length === 0) {
+            console.log(`No FCM tokens for user ${reminder.userId}`);
+            await updateReminderStatus(reminderId, 'failed', 'No FCM tokens');
+            return;
+          }
+
+          // Prepare notification message
+          const message: admin.messaging.MessagingPayload = {
+            notification: {
+              title: reminder.eventTitle ? `Event Reminder: ${reminder.eventTitle}` : 'Event Reminder',
+              body: `Your event starts tomorrow at ${reminder.eventLocation || 'the venue'}. Don't forget to attend!`,
+            },
+            data: {
+              type: 'event_reminder',
+              eventId: reminder.eventId || '',
+              reminderId: reminderId,
+              registrationId: reminder.registrationId || '',
+              userId: reminder.userId,
+              click_action: 'FLUTTER_NOTIFICATION_CLICK',
+            },
+            android: {
+              priority: 'high',
+              notification: {
+                channelId: 'event_reminders',
+                sound: 'default',
+                priority: 'high',
+              },
+            },
+            apns: {
+              payload: {
+                aps: {
+                  sound: 'default',
+                  badge: 1,
+                },
+              },
+            },
+          };
+
+          // Send to all user's devices
+          const sendPromises = fcmTokens.map(async (token: string) => {
+            try {
+              await messaging.send({
+                ...message,
+                token: token,
+              } as admin.messaging.Message);
+              console.log(`Sent reminder to token: ${token.substring(0, 20)}...`);
+              return { success: true, token } as SendResult;
+            } catch (error: any) {
+              console.error(`Failed to send to token ${token.substring(0, 20)}:`, error.code);
+
+              // Remove invalid tokens
+              if (error.code === 'messaging/invalid-registration-token' ||
+                  error.code === 'messaging/registration-token-not-registered') {
+                await removeInvalidToken(reminder.userId, token);
+              }
+
+              return { success: false, token, error: error.code } as SendResult;
+            }
+          });
+
+          const results = await Promise.all(sendPromises);
+          const successCount = results.filter(r => r.success).length;
+
+          if (successCount > 0) {
+            // Update reminder status to sent
+            await updateReminderStatus(reminderId, 'sent', `Sent to ${successCount} device(s)`);
+
+            // Update the reminder document in the reminders collection
+            await db.collection('reminders').doc(reminderId).update({
+              isSent: true,
+              sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+            console.log(`Successfully sent reminder ${reminderId} to ${successCount} device(s)`);
+          } else {
+            await updateReminderStatus(reminderId, 'failed', 'Failed to send to any device');
+          }
+
+        } catch (error: any) {
+          console.error(`Error processing reminder ${reminderId}:`, error);
+          await updateReminderStatus(reminderId, 'failed', error.message);
+        }
+      });
+
+      await Promise.all(promises);
+      console.log('Event reminder check completed');
+      return null;
+
+    } catch (error: any) {
+      console.error('Error in sendEventReminders:', error);
+      return null;
     }
-
-    functions.logger.info("Event reminder processing completed");
-  } catch (error) {
-    functions.logger.error("Error processing event reminders:", error);
-    throw error;
-  }
-});
+  });
 
 /**
- * HTTP endpoint to manually send event reminder (for testing)
+ * Update reminder status in scheduledReminders collection
  */
-export const sendEventReminderHttp = functions.https.onCall(async (data, context) => {
-  // 检查认证
+async function updateReminderStatus(reminderId: string, status: string, message: string = ''): Promise<void> {
+  try {
+    await db.collection('scheduledReminders').doc(reminderId).update({
+      status: status,
+      processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      statusMessage: message,
+    });
+  } catch (error: any) {
+    console.error(`Error updating reminder status for ${reminderId}:`, error);
+  }
+}
+
+/**
+ * Remove invalid FCM token from user document
+ */
+async function removeInvalidToken(userId: string, token: string): Promise<void> {
+  try {
+    await db.collection('users').doc(userId).update({
+      fcmTokens: admin.firestore.FieldValue.arrayRemove(token),
+    });
+    console.log(`Removed invalid token for user ${userId}`);
+  } catch (error: any) {
+    console.error(`Error removing invalid token:`, error);
+  }
+}
+
+/**
+ * Clean up old processed reminders (runs daily)
+ * Removes reminders older than 7 days
+ */
+export const cleanupOldReminders = functions.pubsub
+  .schedule('every 24 hours')
+  .timeZone('Asia/Kuala_Lumpur')
+  .onRun(async (context) => {
+    try {
+      console.log('Starting cleanup of old reminders...');
+
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const cutoffTimestamp = admin.firestore.Timestamp.fromDate(sevenDaysAgo);
+
+      // Delete old reminders
+      const oldRemindersSnapshot = await db
+        .collection('scheduledReminders')
+        .where('status', 'in', ['sent', 'failed'])
+        .where('processedAt', '<=', cutoffTimestamp)
+        .limit(500)
+        .get();
+
+      if (oldRemindersSnapshot.empty) {
+        console.log('No old reminders to clean up');
+        return null;
+      }
+
+      const batch = db.batch();
+      oldRemindersSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      await batch.commit();
+      console.log(`Cleaned up ${oldRemindersSnapshot.size} old reminders`);
+
+      return null;
+    } catch (error: any) {
+      console.error('Error in cleanupOldReminders:', error);
+      return null;
+    }
+  });
+
+/**
+ * HTTP function to manually trigger a test notification (for debugging)
+ */
+export const sendTestNotification = functions.https.onCall(async (data: any, context: functions.https.CallableContext) => {
+  // Check authentication
   if (!context.auth) {
     throw new functions.https.HttpsError(
-      "unauthenticated",
-      "User must be authenticated"
+      'unauthenticated',
+      'User must be authenticated to send test notifications'
     );
   }
 
-  const { registrationId, reminderId, title, message } = data;
-
-  if (!registrationId || !reminderId || !title || !message) {
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "Missing required fields"
-    );
-  }
+  const userId = context.auth.uid;
 
   try {
-    await sendEventReminder(registrationId, reminderId, title, message);
-    return {
-      success: true,
-      message: "Event reminder sent successfully"
+    // Get user's FCM tokens
+    const userDoc = await db.collection('users').doc(userId).get();
+
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+
+    const userData = userDoc.data() as UserData;
+    const fcmTokens = userData.fcmTokens || [];
+
+    if (fcmTokens.length === 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'No FCM tokens found');
+    }
+
+    const message: admin.messaging.MessagingPayload = {
+      notification: {
+        title: 'Test Notification',
+        body: 'This is a test event reminder notification.',
+      },
+      data: {
+        type: 'test_notification',
+        userId: userId,
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'event_reminders',
+          sound: 'default',
+        },
+      },
     };
-  } catch (error) {
-    throw new functions.https.HttpsError(
-      "internal",
-      "Failed to send event reminder"
-    );
+
+    // Send to first token
+    await messaging.send({
+      ...message,
+      token: fcmTokens[0],
+    } as admin.messaging.Message);
+
+    return { success: true, message: 'Test notification sent successfully' };
+
+  } catch (error: any) {
+    console.error('Error sending test notification:', error);
+    throw new functions.https.HttpsError('internal', error.message);
   }
 });
 
 /**
- * 清理过期的提醒（可选）
+ * Trigger when a new reminder is created
+ * Validates reminder data
  */
-export const cleanupExpiredReminders = onSchedule({
-  schedule: "every 24 hours",
-  timeZone: "Asia/Kuala_Lumpur",
-}, async (event) => {
-  try {
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+export const onReminderCreated = functions.firestore
+  .document('reminders/{reminderId}')
+  .onCreate(async (snapshot, context) => {
+    const reminder = snapshot.data() as ReminderData;
+    const reminderId = context.params.reminderId;
 
-    // 删除一周前已发送的提醒
-    const expiredReminders = await admin.firestore()
-      .collection("reminders")
-      .where("isSent", "==", true)
-      .where("sentAt", "<", oneWeekAgo)
-      .get();
+    try {
+      console.log(`New reminder created: ${reminderId}`);
 
-    const batch = admin.firestore().batch();
-    expiredReminders.docs.forEach(doc => {
-      batch.delete(doc.ref);
-    });
+      // Validate reminder data
+      if (!reminder.remindAt || !reminder.userId) {
+        console.error('Invalid reminder data:', reminder);
+        return null;
+      }
 
-    await batch.commit();
-    functions.logger.info(`Cleaned up ${expiredReminders.size} expired reminders`);
-  } catch (error) {
-    functions.logger.error("Error cleaning up expired reminders:", error);
-  }
-});
+      // Check if remindAt is in the future
+      const now = admin.firestore.Timestamp.now();
+      if (reminder.remindAt <= now) {
+        console.log('Reminder time is in the past, marking as expired');
+        await snapshot.ref.update({
+          status: 'expired',
+          isSent: false,
+        });
+      }
+
+      return null;
+    } catch (error: any) {
+      console.error('Error in onReminderCreated:', error);
+      return null;
+    }
+  });

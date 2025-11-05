@@ -10,8 +10,8 @@ class AchievementManagementController extends GetxController {
   final TextEditingController searchController = TextEditingController();
 
   // Observables
-  final RxList<AchievementModel> allAchievements = <AchievementModel>[].obs;
-  final RxList<AchievementModel> filteredAchievements = <AchievementModel>[].obs;
+  final RxList<Achievement> allAchievements = <Achievement>[].obs;
+  final RxList<Achievement> filteredAchievements = <Achievement>[].obs;
   final RxString searchQuery = ''.obs;
   final RxInt currentPage = 1.obs;
   final RxInt itemsPerPage = 25.obs;
@@ -41,221 +41,244 @@ class AchievementManagementController extends GetxController {
     filteredAchievements.value = List.from(allAchievements);
   }
 
-  List<AchievementModel> _generateMockAchievements() {
+  List<Achievement> _generateMockAchievements() {
     final now = DateTime.now();
     return [
-      AchievementModel(
+      Achievement(
         achievementId: '1',
         title: 'Recycling Master',
         category: 'Recycling',
         maxLevel: 5,
         createdAt: now.subtract(const Duration(days: 60)),
         achievementLevels: [
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '1-1',
             level: 1,
             unlockCriteria: 10,
             description: 'Recycle 10 items',
             badgeImage: 'https://example.com/badge1.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '1-2',
             level: 2,
             unlockCriteria: 50,
             description: 'Recycle 50 items',
             badgeImage: 'https://example.com/badge2.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '1-3',
             level: 3,
             unlockCriteria: 100,
             description: 'Recycle 100 items',
             badgeImage: 'https://example.com/badge3.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '1-4',
             level: 4,
             unlockCriteria: 250,
             description: 'Recycle 250 items',
             badgeImage: 'https://example.com/badge4.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '1-5',
             level: 5,
             unlockCriteria: 500,
             description: 'Recycle 500 items',
             badgeImage: 'https://example.com/badge5.png',
+            title: '',
           ),
         ],
       ),
-      AchievementModel(
+      Achievement(
         achievementId: '2',
         title: 'Scanner Expert',
         category: 'Scanning',
         maxLevel: 3,
         createdAt: now.subtract(const Duration(days: 45)),
         achievementLevels: [
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '2-1',
             level: 1,
             unlockCriteria: 25,
             description: 'Scan 25 items successfully',
             badgeImage: 'https://example.com/scan-badge1.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '2-2',
             level: 2,
             unlockCriteria: 100,
             description: 'Scan 100 items successfully',
             badgeImage: 'https://example.com/scan-badge2.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '2-3',
             level: 3,
             unlockCriteria: 300,
             description: 'Scan 300 items successfully',
             badgeImage: 'https://example.com/scan-badge3.png',
+            title: '',
           ),
         ],
       ),
-      AchievementModel(
+      Achievement(
         achievementId: '3',
         title: 'Community Leader',
         category: 'Community',
         maxLevel: 4,
         createdAt: now.subtract(const Duration(days: 30)),
         achievementLevels: [
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '3-1',
             level: 1,
             unlockCriteria: 5,
             description: 'Create 5 community posts',
             badgeImage: 'https://example.com/community-badge1.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '3-2',
             level: 2,
             unlockCriteria: 15,
             description: 'Create 15 community posts',
             badgeImage: 'https://example.com/community-badge2.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '3-3',
             level: 3,
             unlockCriteria: 50,
             description: 'Create 50 community posts',
             badgeImage: 'https://example.com/community-badge3.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '3-4',
             level: 4,
             unlockCriteria: 100,
             description: 'Create 100 community posts',
             badgeImage: 'https://example.com/community-badge4.png',
+            title: '',
           ),
         ],
       ),
-      AchievementModel(
+      Achievement(
         achievementId: '4',
         title: 'Daily Streak Champion',
         category: 'Streak',
         maxLevel: 6,
         createdAt: now.subtract(const Duration(days: 75)),
         achievementLevels: [
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '4-1',
             level: 1,
             unlockCriteria: 7,
             description: 'Login for 7 consecutive days',
             badgeImage: 'https://example.com/streak-badge1.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '4-2',
             level: 2,
             unlockCriteria: 14,
             description: 'Login for 14 consecutive days',
             badgeImage: 'https://example.com/streak-badge2.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '4-3',
             level: 3,
             unlockCriteria: 30,
             description: 'Login for 30 consecutive days',
             badgeImage: 'https://example.com/streak-badge3.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '4-4',
             level: 4,
             unlockCriteria: 60,
             description: 'Login for 60 consecutive days',
             badgeImage: 'https://example.com/streak-badge4.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '4-5',
             level: 5,
             unlockCriteria: 90,
             description: 'Login for 90 consecutive days',
             badgeImage: 'https://example.com/streak-badge5.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '4-6',
             level: 6,
             unlockCriteria: 180,
             description: 'Login for 180 consecutive days',
             badgeImage: 'https://example.com/streak-badge6.png',
+            title: '',
           ),
         ],
       ),
-      AchievementModel(
+      Achievement(
         achievementId: '5',
         title: 'Environmental Hero',
         category: 'Environmental',
         maxLevel: 3,
         createdAt: now.subtract(const Duration(days: 90)),
         achievementLevels: [
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '5-1',
             level: 1,
             unlockCriteria: 1000,
             description: 'Save 1kg of CO2 through recycling',
             badgeImage: 'https://example.com/env-badge1.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '5-2',
             level: 2,
             unlockCriteria: 5000,
             description: 'Save 5kg of CO2 through recycling',
             badgeImage: 'https://example.com/env-badge2.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '5-3',
             level: 3,
             unlockCriteria: 10000,
             description: 'Save 10kg of CO2 through recycling',
             badgeImage: 'https://example.com/env-badge3.png',
+            title: '',
           ),
         ],
       ),
-      AchievementModel(
+      Achievement(
         achievementId: '6',
         title: 'Waste Sorting Pro (Inactive)',
         category: 'Scanning',
         maxLevel: 4,
         createdAt: now.subtract(const Duration(days: 120)),
         achievementLevels: [
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '6-1',
             level: 1,
             unlockCriteria: 20,
             description: 'Correctly sort 20 waste items',
             badgeImage: 'https://example.com/sort-badge1.png',
+            title: '',
           ),
-          AchievementLevelModel(
+          AchievementLevel(
             achievementLevelId: '6-2',
             level: 2,
             unlockCriteria: 75,
             description: 'Correctly sort 75 waste items',
             badgeImage: 'https://example.com/sort-badge2.png',
+            title: '',
           ),
         ],
       ),
@@ -263,7 +286,7 @@ class AchievementManagementController extends GetxController {
   }
 
   // Get achievement status - by default achievements are active unless specified otherwise
-  String getAchievementStatus(AchievementModel achievement) {
+  String getAchievementStatus(Achievement achievement) {
     // For demo purposes, achievements with "(Inactive)" in title are considered inactive
     if (achievement.title.toLowerCase().contains('inactive')) {
       return 'inactive';
@@ -277,7 +300,7 @@ class AchievementManagementController extends GetxController {
   }
 
   void applyFiltersAndSearch() {
-    List<AchievementModel> result = List.from(allAchievements);
+    List<Achievement> result = List.from(allAchievements);
 
     // Apply search filter
     if (searchQuery.value.isNotEmpty) {
@@ -378,7 +401,7 @@ class AchievementManagementController extends GetxController {
   }
 
   // Achievement actions
-  void toggleAchievementStatus(AchievementModel achievement) {
+  void toggleAchievementStatus(Achievement achievement) {
     final currentStatus = getAchievementStatus(achievement);
 
     if (currentStatus == 'active') {
@@ -388,7 +411,7 @@ class AchievementManagementController extends GetxController {
     }
   }
 
-  void _activateAchievement(AchievementModel achievement) {
+  void _activateAchievement(Achievement achievement) {
     // In a real app, you would update the achievement status in the database
     // For demo purposes, we'll modify the title to remove "(Inactive)"
     final achievementIndex = allAchievements.indexWhere((a) => a.achievementId == achievement.achievementId);
@@ -400,7 +423,7 @@ class AchievementManagementController extends GetxController {
     }
   }
 
-  void _deactivateAchievement(AchievementModel achievement) {
+  void _deactivateAchievement(Achievement achievement) {
     // In a real app, you would update the achievement status in the database
     // For demo purposes, we'll modify the title to add "(Inactive)"
     final achievementIndex = allAchievements.indexWhere((a) => a.achievementId == achievement.achievementId);
@@ -412,7 +435,7 @@ class AchievementManagementController extends GetxController {
     }
   }
 
-  void viewAchievement(AchievementModel achievement) {
+  void viewAchievement(Achievement achievement) {
     // Navigate to view achievement detail screen
     // This would show the achievement levels and other details
     FHelperFunctions.showSnackBar('View Achievement: ${achievement.title}');
@@ -420,7 +443,7 @@ class AchievementManagementController extends GetxController {
     print('View achievement: ${achievement.title}');
   }
 
-  void editAchievement(AchievementModel achievement) {
+  void editAchievement(Achievement achievement) {
     // Navigate to edit achievement screen
     FHelperFunctions.showSnackBar('Edit Achievement: ${achievement.title}');
     // TODO: Implement navigation to edit achievement screen
@@ -428,7 +451,7 @@ class AchievementManagementController extends GetxController {
   }
 
   // Pagination functionality
-  List<AchievementModel> get paginatedAchievements {
+  List<Achievement> get paginatedAchievements {
     final startIndex = (currentPage.value - 1) * itemsPerPage.value;
     final endIndex = (startIndex + itemsPerPage.value).clamp(0, filteredAchievements.length);
 

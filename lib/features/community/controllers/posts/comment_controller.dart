@@ -1,77 +1,147 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fyp/data/repositories/community/post_repository.dart';
 import 'package:get/get.dart';
 import 'package:fyp/features/community/models/comment_model.dart';
-
-import '../../../../data/repositories/community/comment_repository.dart';
+import 'package:fyp/data/repositories/user/user_repository.dart';
+import 'package:fyp/data/repositories/authentication/authentication_repository.dart';
+import 'package:fyp/data/repositories/community/comment_repository.dart';
+import 'package:fyp/features/authentication/models/user_model.dart';
+import 'package:fyp/utils/popups/loaders.dart';
 
 class CommentController extends GetxController {
   static CommentController get instance => Get.find();
 
   // Dependencies
+  final PostRepository postRepository = Get.put(PostRepository());
   final CommentRepository commentRepository = Get.put(CommentRepository());
+  final UserRepository userRepository = Get.put(UserRepository());
+  final AuthenticationRepository authRepository = Get.put(AuthenticationRepository());
 
-  // Current comment data
+  // Current comment data (for replies screen)
   Rx<Comment> currentComment = Comment.empty().obs;
+
+  // User data cache
+  final RxMap<String, UserModel> userDataCache = <String, UserModel>{}.obs;
+
+  // Loading states
+  final RxBool isLoadingUserData = false.obs;
+  final RxBool isSubmitting = false.obs;
+
+  // Text controller for adding/editing comments
+  final commentController = TextEditingController();
+  final FocusNode commentFocusNode = FocusNode();
+
+  // Edit mode
+  final RxBool isEditMode = false.obs;
+  final Rx<Comment?> editingComment = Rx<Comment?>(null);
+
+  // 添加可观察的文本状态
+  final RxString commentText = ''.obs;
 
   // Current post ID
   String _currentPostId = '';
 
-  // Text controller for adding comments
-  final commentController = TextEditingController();
-
-  // User cache for quick lookup
-  final RxMap<String, Map<String, String>> _userCache = <String, Map<String, String>>{}.obs;
-
   @override
   void onInit() {
     super.onInit();
-    _initializeUserCache();
+    // 监听文本变化
+    commentController.addListener(() {
+      commentText.value = commentController.text;
+    });
   }
 
   @override
   void onClose() {
+    commentController.removeListener(() {});
     commentController.dispose();
+    commentFocusNode.dispose();
     super.onClose();
   }
 
-  /// Initialize controller with comment data
-  void initialize(Comment comment, {String? postId}) {
+  /// Load user data for all comments
+  Future<void> loadUserDataForComments(List<Comment> comments) async {
+    if (comments.isEmpty) return;
+
+    try {
+      isLoadingUserData.value = true;
+
+      // 获取所有唯一的 user IDs
+      final uniqueUserIds = comments.map((c) => c.userId).toSet();
+
+      // 过滤出还没有缓存的用户
+      final uncachedUserIds = uniqueUserIds.where((id) => !userDataCache.containsKey(id)).toSet();
+
+      if (uncachedUserIds.isNotEmpty) {
+        // 批量获取用户数据
+        final usersData = await userRepository.getUsersProfileData(uncachedUserIds);
+
+        // 更新缓存
+        userDataCache.addAll(usersData);
+      }
+    } catch (e) {
+      debugPrint('Failed to load user data for comments: $e');
+    } finally {
+      isLoadingUserData.value = false;
+    }
+  }
+
+  /// Get username from cache
+  String getUsername(String userId) {
+    return userDataCache[userId]?.username ?? 'Loading...';
+  }
+
+  /// Get profile image from cache
+  String getProfileImage(String userId) {
+    return userDataCache[userId]?.profileImg ?? '';
+  }
+
+  /// Initialize controller with comment data (for replies screen)
+  Future<void> initialize(Comment comment, {String? postId}) async {
     currentComment.value = comment;
     if (postId != null) {
       _currentPostId = postId;
     }
+
+    // Load user data for the comment
+    await loadUserDataForComments([comment]);
   }
 
   /// Toggle like on the main comment
   Future<void> toggleLike() async {
     try {
       final currentUserId = getCurrentUserId();
-      if (currentUserId.isEmpty) return;
+      if (currentUserId.isEmpty) {
+        FLoaders.warningSnackBar(
+          title: 'Authentication Required',
+          message: 'Please login to like comments',
+        );
+        return;
+      }
 
       final isCurrentlyLiked = currentComment.value.likes.contains(currentUserId);
-
-      // Optimistically update UI
       List<String> updatedLikes = List.from(currentComment.value.likes);
+
       if (isCurrentlyLiked) {
         updatedLikes.remove(currentUserId);
       } else {
         updatedLikes.add(currentUserId);
       }
 
-      _updateComment(likes: updatedLikes);
+      // Optimistically update UI
+      currentComment.value = currentComment.value.copyWith(likes: updatedLikes);
 
       // Update in Firestore
       await commentRepository.toggleCommentLike(
         currentComment.value.commentId,
         updatedLikes,
       );
-
     } catch (e) {
-      // Revert optimistic update on error
-      await _revertLike();
-      _showError('Failed to update like', e.toString());
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to update like: ${e.toString()}',
+      );
     }
   }
 
@@ -79,132 +149,222 @@ class CommentController extends GetxController {
   Future<void> toggleCommentLike(String commentId) async {
     try {
       final currentUserId = getCurrentUserId();
+      if (currentUserId.isEmpty) {
+        FLoaders.warningSnackBar(
+          title: 'Authentication Required',
+          message: 'Please login to like comments',
+        );
+        return;
+      }
 
-      final isCurrentlyLiked = currentComment.value.likes.contains(currentUserId);
+      // This will be handled by the stream update
+      final comment = await commentRepository.getCommentById(commentId);
+      if (comment == null) return;
 
-      // Optimistically update UI
-      List<String> updatedLikes = List.from(currentComment.value.likes);
+      final isCurrentlyLiked = comment.likes.contains(currentUserId);
+      List<String> updatedLikes = List.from(comment.likes);
+
       if (isCurrentlyLiked) {
         updatedLikes.remove(currentUserId);
       } else {
         updatedLikes.add(currentUserId);
       }
 
-      _updateComment(likes: updatedLikes);
-
-      // Update in Firestore
-      await commentRepository.toggleCommentLike(
-        commentId,
-        updatedLikes,
-      );
-
+      await commentRepository.toggleCommentLike(commentId, updatedLikes);
     } catch (e) {
-      // Revert optimistic update on error
-      await _revertLike();
-      _showError('Failed to update like', e.toString());
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to update like: ${e.toString()}',
+      );
     }
   }
 
   /// Add comment to a post
   Future<void> addComment(String postId) async {
     final content = commentController.text.trim();
-    if (content.isEmpty) return;
+    if (content.isEmpty) {
+      FLoaders.warningSnackBar(
+        title: 'Empty Comment',
+        message: 'Please write something before posting',
+      );
+      return;
+    }
 
     try {
+      isSubmitting.value = true;
+      final currentUserId = getCurrentUserId();
+
+      if (currentUserId.isEmpty) {
+        FLoaders.warningSnackBar(
+          title: 'Authentication Required',
+          message: 'Please login to comment',
+        );
+        return;
+      }
+
+      final newCommentId = FirebaseFirestore.instance.collection('comments').doc().id;
+
       final newComment = Comment(
-        commentId: _db.collection('temp').doc().id, // Generate ID
-        userId: getCurrentUserId(),
+        commentId: newCommentId,
+        userId: currentUserId,
         content: content,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
-      // Clear input immediately for better UX
+      // Clear input immediately
       commentController.clear();
+      commentText.value = '';
 
       // Add to Firestore
       await commentRepository.addComment(postId, newComment);
 
-      _showSuccess('Comment added successfully');
+      // Update comment count
+      await postRepository.increaseCommentCount(postId);
 
+      FLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Comment added successfully',
+      );
     } catch (e) {
-      _showError('Failed to add comment', e.toString());
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to add comment: ${e.toString()}',
+      );
+    } finally {
+      isSubmitting.value = false;
     }
   }
 
-  /// Edit the main comment
-  Future<void> edit(String newContent) async {
-    final originalContent = currentComment.value.content;
+  /// Start editing a comment
+  void startEdit(Comment comment) {
+    isEditMode.value = true;
+    editingComment.value = comment;
+    commentController.text = comment.content;
+    commentText.value = comment.content;
+    commentFocusNode.requestFocus();
+  }
+
+  /// Cancel editing
+  void cancelEdit() {
+    isEditMode.value = false;
+    editingComment.value = null;
+    commentController.clear();
+    commentText.value = '';
+  }
+
+  /// Save edited comment
+  Future<void> saveEdit() async {
+    if (editingComment.value == null) return;
+
+    final newContent = commentController.text.trim();
+    if (newContent.isEmpty) {
+      FLoaders.warningSnackBar(
+        title: 'Empty Content',
+        message: 'Comment cannot be empty',
+      );
+      return;
+    }
+
+    if (newContent == editingComment.value!.content) {
+      cancelEdit();
+      return;
+    }
 
     try {
-      // Optimistically update UI
-      _updateComment(content: newContent, updatedAt: DateTime.now());
+      isSubmitting.value = true;
 
       // Update in Firestore
       await commentRepository.updateComment(
-        currentComment.value.commentId,
+        editingComment.value!.commentId,
         newContent,
       );
 
-      _showSuccess('Comment updated successfully');
+      // If editing the main comment in replies screen
+      if (editingComment.value!.commentId == currentComment.value.commentId) {
+        currentComment.value = currentComment.value.copyWith(
+          content: newContent,
+          updatedAt: DateTime.now(),
+        );
+      }
+
+      FLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Comment updated successfully',
+      );
+
+      cancelEdit();
     } catch (e) {
-      // Revert on error
-      _updateComment(content: originalContent);
-      _showError('Failed to update comment', e.toString());
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to update comment: ${e.toString()}',
+      );
+    } finally {
+      isSubmitting.value = false;
     }
   }
 
-  /// Delete the main comment
-  Future<void> delete() async {
+  /// Delete comment
+  Future<void> deleteComment(Comment comment) async {
     if (_currentPostId.isEmpty) return;
 
     try {
-      final confirmed = await _showDeleteConfirmationDialog(
-        'Delete Comment',
-        'Are you sure you want to delete this comment? This action cannot be undone.',
+      final confirmed = await FLoaders.showConfirmationDialog(
+        title: 'Delete Comment',
+        message: 'Are you sure you want to delete this comment? This action cannot be undone.',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        confirmColor: Colors.red,
       );
 
-      if (!confirmed) return;
+      if (confirmed != true) return;
 
-      // Delete from Firestore
-      await commentRepository.deleteComment(
-        _currentPostId,
-        currentComment.value.commentId,
+      FLoaders.showLoading('Deleting comment...');
+
+      await commentRepository.deleteComment(_currentPostId, comment.commentId);
+      await postRepository.decreaseCommentCount(_currentPostId);
+
+      FLoaders.stopLoading();
+      FLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Comment deleted successfully',
       );
 
-      _showSuccess('Comment deleted successfully');
-
-      // Navigate back
-      Get.back();
+      // If deleting main comment in replies screen, go back
+      if (comment.commentId == currentComment.value.commentId) {
+        Get.back();
+      }
     } catch (e) {
-      _showError('Failed to delete comment', e.toString());
+      FLoaders.stopLoading();
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to delete comment: ${e.toString()}',
+      );
     }
   }
 
   /// Copy comment text to clipboard
-  Future<void> copyText() async {
+  Future<void> copyText(String text) async {
     try {
-      await Clipboard.setData(ClipboardData(text: currentComment.value.content));
-      _showSuccess('Text copied to clipboard');
+      await Clipboard.setData(ClipboardData(text: text));
+      FLoaders.successSnackBar(
+        title: 'Copied',
+        message: 'Text copied to clipboard',
+      );
     } catch (e) {
-      _showError('Failed to copy text', e.toString());
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to copy text: ${e.toString()}',
+      );
     }
   }
 
-  /// Report comment
-  Future<void> report(String reason) async {
-    try {
-      // TODO: Implement reporting in repository
-      _showSuccess('Comment reported. Thank you for your feedback.');
-    } catch (e) {
-      _showError('Failed to report comment', e.toString());
-    }
-  }
-
-  /// Update reply count (called from RepliesController)
+  /// Update reply count
   void updateReplyCount(int delta) {
     final newCount = currentComment.value.replyCount + delta;
-    _updateComment(replyCount: newCount.clamp(0, double.infinity).toInt());
+    currentComment.value = currentComment.value.copyWith(
+      replyCount: newCount.clamp(0, double.infinity).toInt(),
+    );
   }
 
   /// Set current post ID
@@ -214,166 +374,21 @@ class CommentController extends GetxController {
 
   /// Get current user ID
   String getCurrentUserId() {
-    // TODO: Get from authentication service
-    return 'current_user_id';
+    return authRepository.authUser?.uid ?? '';
   }
 
-  /// Get user name by ID
-  String getUserName(String userId) {
-    return _userCache[userId]?['name'] ?? 'User ${userId.substring(0, 4)}';
-  }
-
-  /// Get user avatar by ID
-  String getUserAvatar(String userId) {
-    return _userCache[userId]?['avatar'] ?? 'https://picsum.photos/100?random=${userId.hashCode}';
-  }
-
-  /// Check if current user can delete/edit comment
-  bool canModify() {
-    return currentComment.value.userId == getCurrentUserId();
-  }
-
-  /// Check if current user can delete/edit any comment
+  /// Check if current user can modify comment
   bool canModifyComment(Comment comment) {
     return comment.userId == getCurrentUserId();
   }
 
-  /// Clear comment data
+  /// Clear data
   void clearData() {
     currentComment.value = Comment.empty();
     _currentPostId = '';
+    commentController.clear();
+    commentText.value = '';
+    isEditMode.value = false;
+    editingComment.value = null;
   }
-
-  /// Format time ago (moved from PostDetailsController)
-  String formatTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inSeconds < 60) {
-      return '${difference.inSeconds}s ago';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays < 30) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inDays < 365) {
-      final months = (difference.inDays / 30).floor();
-      return '${months}mo ago';
-    } else {
-      final years = (difference.inDays / 365).floor();
-      return '${years}y ago';
-    }
-  }
-
-  /// Private helper methods
-  void _updateComment({
-    String? content,
-    List<String>? likes,
-    int? replyCount,
-    DateTime? updatedAt,
-  }) {
-    currentComment.value = Comment(
-      commentId: currentComment.value.commentId,
-      userId: currentComment.value.userId,
-      content: content ?? currentComment.value.content,
-      likes: likes ?? currentComment.value.likes,
-      replyCount: replyCount ?? currentComment.value.replyCount,
-      createdAt: currentComment.value.createdAt,
-      updatedAt: updatedAt ?? currentComment.value.updatedAt,
-      replies: currentComment.value.replies,
-    );
-  }
-
-  Future<bool> _showDeleteConfirmationDialog(String title, String content) async {
-    final result = await Get.dialog<bool>(
-      AlertDialog(
-        title: Text(title),
-        content: Text(content),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(result: false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Get.back(result: true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
-  }
-
-  void _showSuccess(String message) {
-    Get.snackbar(
-      'Success',
-      message,
-      backgroundColor: Colors.green.withOpacity(0.1),
-      colorText: Colors.green[800],
-      icon: const Icon(Icons.check_circle, color: Colors.green),
-      duration: const Duration(seconds: 2),
-    );
-  }
-
-  void _showError(String title, String message) {
-    Get.snackbar(
-      title,
-      message,
-      backgroundColor: Colors.red.withOpacity(0.1),
-      colorText: Colors.red[800],
-      icon: const Icon(Icons.error, color: Colors.red),
-      duration: const Duration(seconds: 3),
-    );
-  }
-
-  Future<void> _revertLike() async {
-    try {
-      final freshComment = await commentRepository.getCommentById(
-        currentComment.value.commentId,
-      );
-      if (freshComment != null) {
-        currentComment.value = freshComment;
-      }
-    } catch (e) {
-      debugPrint('Failed to revert comment like: $e');
-    }
-  }
-
-  void _initializeUserCache() {
-    _userCache.addAll({
-      'current_user_id': {
-        'name': 'You',
-        'avatar': 'https://picsum.photos/100?random=0',
-      },
-      'anna_mary': {
-        'name': 'Anna Mary',
-        'avatar': 'https://picsum.photos/100?random=1',
-      },
-      'mark_ramos': {
-        'name': 'Mark Ramos',
-        'avatar': 'https://picsum.photos/100?random=2',
-      },
-      'sarah_johnson': {
-        'name': 'Sarah Johnson',
-        'avatar': 'https://picsum.photos/100?random=3',
-      },
-      'mike_chen': {
-        'name': 'Mike Chen',
-        'avatar': 'https://picsum.photos/100?random=4',
-      },
-      'lisa_wong': {
-        'name': 'Lisa Wong',
-        'avatar': 'https://picsum.photos/100?random=5',
-      },
-      'david_kim': {
-        'name': 'David Kim',
-        'avatar': 'https://picsum.photos/100?random=6',
-      },
-    });
-  }
-
-  // Reference to Firestore for ID generation
-  final _db = FirebaseFirestore.instance;
 }

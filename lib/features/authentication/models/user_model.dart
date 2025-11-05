@@ -97,6 +97,31 @@ class UserModel extends RoleModel {
     );
   }
 
+  factory UserModel.profileOnly({
+    required String userId,
+    required String username,
+    required String profileImg,
+  }) {
+    return UserModel(
+      userId: userId,
+      username: username,
+      profileImg: profileImg,
+      email: '',
+      phoneNo: null,
+      loginAttemptCount: 0,
+      role: '',
+      isVerified: false,
+      isActive: true,
+      gender: null,
+      dob: null,
+      joinDate: DateTime.now(),
+      rewardPoint: 0,
+      monthlyRewardPoint: 0,
+      totalRewardPoint: 0,
+      notifications: [],
+    );
+  }
+
   /// ✅ 转 Firestore JSON
   @override
   Map<String, dynamic> toJson() {

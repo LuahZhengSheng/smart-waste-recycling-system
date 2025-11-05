@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/common/widgets/appbar/appbar.dart';
-import 'package:fyp/features/community/screens/my_post/widgets/my_post_card.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
@@ -9,6 +8,7 @@ import 'package:iconsax/iconsax.dart';
 
 import '../../controllers/posts/my_post_controller.dart';
 import '../create_post/create_post.dart';
+import '../view_post/widgets/post_card.dart';
 
 class MyPostsScreen extends StatelessWidget {
   const MyPostsScreen({super.key});
@@ -114,7 +114,7 @@ class MyPostsScreen extends StatelessWidget {
                           padding: const EdgeInsets.all(FSizes.defaultSpace),
                           itemCount: controller.filteredPosts.length,
                           itemBuilder: (context, index) {
-                            return FMyPostCard(post: controller.filteredPosts[index]);
+                            return FPostCard(post: controller.filteredPosts[index]);
                           },
                         );
                       }),

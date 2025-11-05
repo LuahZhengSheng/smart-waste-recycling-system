@@ -3,22 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:fyp/data/repositories/authentication/authentication_repository.dart';
 import 'package:fyp/features/authentication/models/user_model.dart';
-import 'package:fyp/utils/constants/image_strings.dart';
 import 'package:fyp/utils/exceptions/firebase_exceptions.dart';
 import 'package:fyp/utils/exceptions/format_exceptions.dart';
 import 'package:fyp/utils/exceptions/platform_exceptions.dart';
-import 'package:fyp/utils/helpers/network_manager.dart';
-import 'package:fyp/utils/popups/full_screen_loader.dart';
-import 'package:fyp/utils/popups/loaders.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:path_provider/path_provider.dart';
 
 class UserRepository extends GetxController {
   static UserRepository get instance => Get.find();
@@ -32,6 +24,103 @@ class UserRepository extends GetxController {
   final String _usersCollection = "users";
   final String _profileImagesFolder = "profile_images";
   // final String _defaultProfileImage = "default.webp";
+
+  /// Get username and profile image URL for a user
+  Future<UserModel> getUserProfileData(String userId) async {
+    try {
+      final documentSnapshot = await _db
+          .collection(_usersCollection)
+          .doc(userId)
+          .get();
+
+      if (documentSnapshot.exists) {
+        final data = documentSnapshot.data()!;
+        final username = data['username'] as String? ?? 'User';
+        final profileImgFileName = data['profileImg'] as String? ?? '';
+
+        String? profileImgUrl;
+        if (profileImgFileName.isNotEmpty) {
+          try {
+            profileImgUrl = await getProfileImageUrl(profileImgFileName);
+          } catch (e) {
+            if (kDebugMode) {
+              print('Failed to get profile image URL for user $userId: $e');
+            }
+          }
+        }
+
+        return UserModel.profileOnly(
+          userId: userId,
+          username: username,
+          profileImg: profileImgUrl ?? '',
+        );
+      } else {
+        return UserModel.empty()..copyWith(userId: userId);
+      }
+    } on FirebaseException catch (e) {
+      throw FFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const FFormatException();
+    } on PlatformException catch (e) {
+      throw FPlatformException(e.code).message;
+    } catch (e) {
+      throw 'Failed to get user profile data: $e';
+    }
+  }
+
+  /// Get batch user profile data for multiple users
+  Future<Map<String, UserModel>> getUsersProfileData(Set<String> userIds) async {
+    try {
+      if (userIds.isEmpty) return {};
+
+      final querySnapshot = await _db
+          .collection(_usersCollection)
+          .where(FieldPath.documentId, whereIn: userIds.toList())
+          .get();
+
+      final Map<String, UserModel> result = {};
+
+      for (final doc in querySnapshot.docs) {
+        final data = doc.data();
+        final username = data['username'] as String? ?? 'User';
+        final profileImgFileName = data['profileImg'] as String? ?? '';
+
+        String? profileImgUrl;
+        if (profileImgFileName.isNotEmpty) {
+          try {
+            profileImgUrl = await getProfileImageUrl(profileImgFileName);
+          } catch (e) {
+            if (kDebugMode) {
+              print('Failed to get profile image URL for user ${doc.id}: $e');
+            }
+          }
+        }
+
+        result[doc.id] = UserModel.profileOnly(
+          userId: doc.id,
+          username: username,
+          profileImg: profileImgUrl ?? '',
+        );
+      }
+
+      // Add default data for any missing users
+      for (final userId in userIds) {
+        if (!result.containsKey(userId)) {
+          result[userId] = UserModel.empty()..copyWith(userId: userId);
+        }
+      }
+
+      return result;
+    } on FirebaseException catch (e) {
+      throw FFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const FFormatException();
+    } on PlatformException catch (e) {
+      throw FPlatformException(e.code).message;
+    } catch (e) {
+      throw 'Failed to get users profile data: $e';
+    }
+  }
 
   /// Save user record to Firestore
   Future<void> saveUserRecord(UserModel user) async {
@@ -250,14 +339,6 @@ class UserRepository extends GetxController {
     try {
       if (fileName.isEmpty) return;
 
-      // 如果是默认头像，不删除
-      // if (fileName == _defaultProfileImage) {
-      //   if (kDebugMode) {
-      //     print('Cannot delete default profile image');
-      //   }
-      //   return;
-      // }
-
       // 构建完整的存储路径
       final path = '$_profileImagesFolder/$fileName';
       final ref = _storage.ref().child(path);
@@ -383,4 +464,3 @@ class UserRepository extends GetxController {
     }
   }
 }
-

@@ -1,3 +1,5 @@
+/// Event-related enumerations
+
 /// Time filter options for events
 enum TimeFilter {
   allTime,
@@ -31,7 +33,6 @@ enum EventStatusFilter {
   open,
   full,
   closed,
-  ended,
 }
 
 /// Extension to get display name for EventStatusFilter
@@ -39,15 +40,13 @@ extension EventStatusFilterExtension on EventStatusFilter {
   String get displayName {
     switch (this) {
       case EventStatusFilter.all:
-        return 'All Events';
+        return 'All';
       case EventStatusFilter.open:
-        return 'Open for Registration';
+        return 'Open';
       case EventStatusFilter.full:
-        return 'Fully Booked';
+        return 'Full';
       case EventStatusFilter.closed:
-        return 'Registration Closed';
-      case EventStatusFilter.ended:
-        return 'Ended';
+        return 'Closed';
     }
   }
 }
@@ -96,6 +95,38 @@ extension AttendanceStatusExtension on AttendanceStatus {
         return 'Completed';
       case AttendanceStatus.cancelled:
         return 'Cancelled';
+    }
+  }
+}
+
+/// Event notification type
+enum EventNotificationType {
+  reminder,
+  update,
+  cancellation,
+}
+
+/// Extension for EventNotificationType
+extension EventNotificationTypeExtension on EventNotificationType {
+  String get displayName {
+    switch (this) {
+      case EventNotificationType.reminder:
+        return 'Event Reminder';
+      case EventNotificationType.update:
+        return 'Event Update';
+      case EventNotificationType.cancellation:
+        return 'Event Cancellation';
+    }
+  }
+
+  String get fcmType {
+    switch (this) {
+      case EventNotificationType.reminder:
+        return 'event_reminder';
+      case EventNotificationType.update:
+        return 'event_update';
+      case EventNotificationType.cancellation:
+        return 'event_cancellation';
     }
   }
 }

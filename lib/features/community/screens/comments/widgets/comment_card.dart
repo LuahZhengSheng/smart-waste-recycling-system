@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/features/community/controllers/posts/post_detail_controller.dart';
-import 'package:fyp/features/community/controllers/posts/reply_controller.dart';
+import 'package:fyp/features/community/controllers/posts/comment_controller.dart';
 import 'package:fyp/features/community/models/comment_model.dart';
 import 'package:fyp/features/community/screens/comments/widgets/comment_reply.dart';
+import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
+import 'package:fyp/utils/helpers/helper_functions.dart';
+import 'package:fyp/utils/popups/loaders.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:flutter/services.dart';
-import 'package:fyp/features/community/controllers/posts/comment_controller.dart';
+import '../../../../../utils/formatters/formatter.dart';
+import '../../../controllers/posts/reply_controller.dart';
+import '../../common_post_widgets/common_post_widgets.dart';
 
 class FCommentCard extends StatelessWidget {
   final Comment comment;
@@ -25,21 +28,23 @@ class FCommentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 使用 Get.find 获取 CommentController，如果找不到则使用 Get.put 创建
+    final CommentController commentController = Get.find<CommentController>();
+    final dark = FHelperFunctions.isDarkMode(context);
+
     return GestureDetector(
-      onLongPress: () => _showContextMenu(context),
+      onLongPress: () => _showContextMenu(context, commentController, dark),
       child: Container(
         padding: EdgeInsets.all(isOriginalComment ? FSizes.md * 1.4 : FSizes.md * 1.2),
+        color: dark ? FColors.communityDarkBackground : FColors.white,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // User avatar
-            CircleAvatar(
+            FUserAvatar(
+              userId: comment.userId,
               radius: isOriginalComment ? 20 : 16,
-              backgroundImage: NetworkImage(
-                _getUserAvatar(comment.userId),
-              ),
             ),
-
             const SizedBox(width: FSizes.md),
 
             // Comment content
@@ -48,57 +53,36 @@ class FCommentCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // User name and time
-                  Row(
-                    children: [
-                      Text(
-                        _getUserName(comment.userId),
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelMedium
-                            ?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: FSizes.xs),
-                      Text(
-                        _formatTimeAgo(comment.createdAt),
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
+                  FUserInfoRow(
+                    userId: comment.userId,
+                    createdAt: comment.createdAt,
+                    updatedAt: comment.updatedAt,
+                    formatTimeAgo: FFormatter.formatTimeAgo,
                   ),
-
-                  const SizedBox(height: FSizes.spaceBtwItems),
+                  const SizedBox(height: FSizes.spaceBtwItems * 1.5),
 
                   // Comment content
                   Text(
                     comment.content,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       height: isOriginalComment ? 1.4 : 1.3,
+                      color: dark ? FColors.darkText : FColors.textPrimary,
                     ),
                   ),
-
-                  const SizedBox(height: FSizes.spaceBtwItems),
+                  const SizedBox(height: FSizes.spaceBtwItems * 1.5),
 
                   // Action buttons
-                  _buildActionButtons(context),
+                  _buildActionButtons(context, commentController, dark),
 
-                  // View replies if exist (only show in post details screen)
+                  // View replies (only in post details screen)
                   if (!isInRepliesScreen && comment.replyCount > 0) ...[
                     const SizedBox(height: FSizes.md),
                     GestureDetector(
                       onTap: () => _navigateToReplies(context, comment, false),
                       child: Text(
                         'View ${comment.replyCount} ${comment.replyCount == 1 ? 'reply' : 'replies'}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(
-                          color: const Color(0xFF4CAF50),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: FColors.primary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -113,53 +97,27 @@ class FCommentCard extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context) {
+  Widget _buildActionButtons(BuildContext context, CommentController commentController, bool dark) {
     if (isInRepliesScreen) {
-      return _buildRepliesScreenButtons(context);
+      return _buildRepliesScreenButtons(context, commentController, dark);
     } else {
-      return _buildPostDetailsButtons(context);
+      return _buildPostDetailsButtons(context, dark);
     }
   }
 
-  // Action buttons for community details screen
-  Widget _buildPostDetailsButtons(BuildContext context) {
-    // 检查控制器是否存在，如果不存在则使用默认值
-    final bool hasCommentController = Get.isRegistered<CommentController>();
-    final currentUserId = hasCommentController
-        ? Get.find<CommentController>().getCurrentUserId()
-        : 'current_user_id';
-
+  Widget _buildPostDetailsButtons(BuildContext context, bool dark) {
+    final CommentController commentController = Get.find<CommentController>();
+    final currentUserId = commentController.getCurrentUserId();
     final isLiked = comment.likes.contains(currentUserId);
 
     return Row(
       children: [
-        // Like button with count
-        GestureDetector(
-          onTap: () {
-            if (hasCommentController) {
-              Get.find<CommentController>().toggleCommentLike(comment.commentId);
-            }
-          },
-          child: Row(
-            children: [
-              Icon(
-                isLiked ? Iconsax.like_15 : Iconsax.like_1,
-                size: 16,
-                color: isLiked ? const Color(0xFF4CAF50) : Colors.grey[600],
-              ),
-              if (comment.likes.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                Text(
-                  comment.likes.length.toString(),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ],
-          ),
+        // Like button
+        FLikeButton(
+          likes: comment.likes,
+          isLiked: isLiked,
+          onTap: () => commentController.toggleCommentLike(comment.commentId),
         ),
-
         const SizedBox(width: FSizes.md),
 
         // Reply button
@@ -168,7 +126,7 @@ class FCommentCard extends StatelessWidget {
           child: Text(
             'Reply',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.grey[600],
+              color: dark ? FColors.darkTextSecondary : FColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -177,17 +135,7 @@ class FCommentCard extends StatelessWidget {
     );
   }
 
-  // Action buttons for replies screen (original comment)
-  Widget _buildRepliesScreenButtons(BuildContext context) {
-    final bool hasCommentController = Get.isRegistered<CommentController>();
-    final bool hasReplyController = Get.isRegistered<ReplyController>();
-
-    if (!hasCommentController || !hasReplyController) {
-      return const SizedBox.shrink();
-    }
-
-    final commentController = Get.find<CommentController>();
-    final repliesController = Get.find<ReplyController>();
+  Widget _buildRepliesScreenButtons(BuildContext context, CommentController commentController, bool dark) {
     final currentUserId = commentController.getCurrentUserId();
 
     return Obx(() {
@@ -196,46 +144,32 @@ class FCommentCard extends StatelessWidget {
 
       return Row(
         children: [
-          // Like button with count
-          GestureDetector(
+          // Like button
+          FLikeButton(
+            likes: commentController.currentComment.value.likes,
+            isLiked: isLiked,
             onTap: () => commentController.toggleLike(),
-            child: Row(
-              children: [
-                Icon(
-                  isLiked ? Iconsax.like_15 : Iconsax.like_1,
-                  size: 18,
-                  color: isLiked ? const Color(0xFF4CAF50) : Colors.grey[600],
-                ),
-                if (likesCount > 0) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    likesCount.toString(),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ],
-            ),
           ),
-
           const SizedBox(width: FSizes.lg),
 
-          // Reply button (focus input when tapped)
+          // Reply button
           GestureDetector(
-            onTap: () => repliesController.replyFocusNode.requestFocus(),
+            onTap: () {
+              final repliesController = Get.find<ReplyController>();
+              repliesController.replyFocusNode.requestFocus();
+            },
             child: Row(
               children: [
                 Icon(
                   Iconsax.message_text,
                   size: 16,
-                  color: Colors.grey[600],
+                  color: dark ? FColors.darkTextSecondary : FColors.textSecondary,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   'Reply',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
+                    color: dark ? FColors.darkTextSecondary : FColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -247,206 +181,29 @@ class FCommentCard extends StatelessWidget {
     });
   }
 
-  void _showContextMenu(BuildContext context) {
-    final currentUserId = _getCurrentUserId();
-    final isOwner = comment.userId == currentUserId;
+  void _showContextMenu(BuildContext context, CommentController commentController, bool dark) {
+    final canModify = commentController.canModifyComment(comment);
 
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(FSizes.defaultSpace),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Copy text option (always available)
-            ListTile(
-              leading: const Icon(Iconsax.copy),
-              title: const Text('Copy Text'),
-              onTap: () {
-                _copyCommentText();
-                Navigator.pop(context);
-              },
-            ),
-
-            // Owner-only options
-            if (isOwner) ...[
-              ListTile(
-                leading: const Icon(Iconsax.edit_2),
-                title: const Text('Edit'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditDialog(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Iconsax.trash, color: Colors.red),
-                title: const Text('Delete', style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteDialog(context);
-                },
-              ),
-            ],
-          ],
-        ),
+    FLoaders.showBottomSheet(
+      FContextMenuBottomSheet(
+        content: comment.content,
+        canModify: canModify,
+        onCopy: () => commentController.copyText(comment.content),
+        onEdit: canModify ? () => commentController.startEdit(comment) : null,
+        onDelete: canModify ? () => commentController.deleteComment(comment) : null,
       ),
     );
-  }
-
-  void _copyCommentText() {
-    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
-      final commentController = Get.find<CommentController>();
-      commentController.copyText();
-    } else {
-      Clipboard.setData(ClipboardData(text: comment.content));
-      Get.snackbar('Copied', 'Comment text copied to clipboard');
-    }
-  }
-
-  void _showEditDialog(BuildContext context) {
-    final editController = TextEditingController(text: comment.content);
-
-    Get.dialog(
-      AlertDialog(
-        title: const Text('Edit Comment'),
-        content: TextField(
-          controller: editController,
-          maxLines: null,
-          decoration: const InputDecoration(
-            hintText: 'Edit your comment...',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (editController.text.trim().isNotEmpty) {
-                _editComment(editController.text.trim());
-                Get.back();
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDeleteDialog(BuildContext context) {
-    Get.dialog(
-      AlertDialog(
-        title: const Text('Delete Comment'),
-        content: const Text(
-            'Are you sure you want to delete this comment? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              _deleteComment();
-              Get.back(); // Close dialog
-              if (isOriginalComment) {
-                Get.back(); // Close replies screen if deleting original comment
-              }
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _editComment(String newContent) {
-    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
-      final commentController = Get.find<CommentController>();
-      commentController.edit(newContent);
-    } else if (Get.isRegistered<PostDetailsController>()) {
-      final controller = Get.find<PostDetailsController>();
-      // controller.editComment(comment.commentId, newContent);
-    }
-  }
-
-  void _deleteComment() {
-    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
-      final commentController = Get.find<CommentController>();
-      commentController.delete();
-    } else if (Get.isRegistered<PostDetailsController>()) {
-      final controller = Get.find<PostDetailsController>();
-      // controller.deleteComment(comment.commentId);
-    }
   }
 
   void _navigateToReplies(BuildContext context, Comment comment, bool autoFocus) {
+    // 确保在进入回复页面之前 CommentController 已经初始化
+    final CommentController commentController = Get.find<CommentController>();
+    commentController.initialize(comment, postId: postId);
+
     Get.to(() => CommentRepliesScreen(
       postId: postId,
       comment: comment,
       autoFocusReply: autoFocus,
     ));
-  }
-
-  String _getCurrentUserId() {
-    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
-      final commentController = Get.find<CommentController>();
-      return commentController.getCurrentUserId();
-    } else if (Get.isRegistered<PostDetailsController>()) {
-      final controller = Get.find<PostDetailsController>();
-      return controller.getCurrentUserId();
-    }
-    return 'current_user_id';
-  }
-
-  String _getUserAvatar(String userId) {
-    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
-      final commentController = Get.find<CommentController>();
-      return commentController.getUserAvatar(userId);
-    } else if (Get.isRegistered<PostDetailsController>()) {
-      final controller = Get.find<PostDetailsController>();
-      return controller.getUserAvatar(userId);
-    }
-    return 'https://picsum.photos/100?random=${userId.hashCode}';
-  }
-
-  String _getUserName(String userId) {
-    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
-      final commentController = Get.find<CommentController>();
-      return commentController.getUserName(userId);
-    } else if (Get.isRegistered<PostDetailsController>()) {
-      final controller = Get.find<PostDetailsController>();
-      return controller.getUserName(userId);
-    }
-    return 'User ${userId.substring(0, 4)}';
-  }
-
-  String _formatTimeAgo(DateTime dateTime) {
-    if (isInRepliesScreen && Get.isRegistered<CommentController>()) {
-      final commentController = Get.find<CommentController>();
-      return commentController.formatTimeAgo(dateTime);
-    } else {
-      final now = DateTime.now();
-      final difference = now.difference(dateTime);
-
-      if (difference.inMinutes < 1) {
-        return 'now';
-      } else if (difference.inMinutes < 60) {
-        return '${difference.inMinutes}m';
-      } else if (difference.inHours < 24) {
-        return '${difference.inHours}h';
-      } else if (difference.inDays < 30) {
-        return '${difference.inDays}d';
-      } else {
-        final months = (difference.inDays / 30).floor();
-        return '${months}mo';
-      }
-    }
   }
 }

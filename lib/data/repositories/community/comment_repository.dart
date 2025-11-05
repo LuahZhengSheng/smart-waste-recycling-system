@@ -67,12 +67,6 @@ class CommentRepository extends GetxController {
           .collection("comments")
           .doc(comment.commentId)
           .set(commentData);
-
-      // 更新帖子评论计数
-      await _db.collection("posts").doc(postId).update({
-        'commentCount': FieldValue.increment(1),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -113,7 +107,6 @@ class CommentRepository extends GetxController {
           .doc(commentId)
           .update({
         'likes': likes,
-        'updatedAt': FieldValue.serverTimestamp(),
       });
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
@@ -134,11 +127,6 @@ class CommentRepository extends GetxController {
           .collection("comments")
           .doc(commentId)
           .delete();
-
-      // Update post comment count
-      await _db.collection("posts").doc(postId).update({
-        'commentCount': FieldValue.increment(-1),
-      });
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -162,6 +150,40 @@ class CommentRepository extends GetxController {
         return Comment.fromSnapshot(doc);
       }
       return null;
+    } on FirebaseException catch (e) {
+      throw FFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const FFormatException();
+    } on PlatformException catch (e) {
+      throw FPlatformException(e.code).message;
+    } catch (e) {
+      throw 'Something went wrong. Please try again.';
+    }
+  }
+
+  /// Update community comment count
+  Future<void> increaseReplyCount(String commentId) async {
+    try {
+      await _db.collection("comments").doc(commentId).update({
+        'replyCount': FieldValue.increment(1),
+      });
+    } on FirebaseException catch (e) {
+      throw FFirebaseException(e.code).message;
+    } on FormatException catch (_) {
+      throw const FFormatException();
+    } on PlatformException catch (e) {
+      throw FPlatformException(e.code).message;
+    } catch (e) {
+      throw 'Something went wrong. Please try again.';
+    }
+  }
+
+  /// Update community comment count
+  Future<void> decreaseReplyCount(String commentId) async {
+    try {
+      await _db.collection("comments").doc(commentId).update({
+        'replyCount': FieldValue.increment(-1),
+      });
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } on FormatException catch (_) {

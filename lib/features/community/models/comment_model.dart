@@ -40,8 +40,8 @@ class Comment {
       'content': content,
       'likes': likes,
       'replyCount': replyCount,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
+      'createdAt': FieldValue.serverTimestamp(), // Use server timestamp
+      'updatedAt': FieldValue.serverTimestamp(), // Use server timestamp
     };
   }
 
@@ -73,6 +73,29 @@ class Comment {
       createdAt: createdAt,
       updatedAt: updatedAt,
       replies: loadedReplies,
+    );
+  }
+
+  /// Copy with method for updates
+  Comment copyWith({
+    String? commentId,
+    String? userId,
+    String? content,
+    List<String>? likes,
+    int? replyCount,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    List<Reply>? replies,
+  }) {
+    return Comment(
+      commentId: commentId ?? this.commentId,
+      userId: userId ?? this.userId,
+      content: content ?? this.content,
+      likes: likes ?? this.likes,
+      replyCount: replyCount ?? this.replyCount,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      replies: replies ?? this.replies,
     );
   }
 }

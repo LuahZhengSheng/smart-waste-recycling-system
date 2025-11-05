@@ -55,8 +55,8 @@ class ReplyRepository extends GetxController {
     }
   }
 
-  /// Add a new reply - FIXED: 存储到独立的 replies 集合
-  Future<void> addReply(String postId, String commentId, Reply reply) async {
+  /// Add a new reply
+  Future<void> addReply(String commentId, Reply reply) async {
     try {
       // 创建包含额外字段的回复数据
       final replyData = reply.toJson();
@@ -67,14 +67,6 @@ class ReplyRepository extends GetxController {
           .collection("replies")
           .doc(reply.replyId)
           .set(replyData);
-
-      // 更新评论的回复计数
-      await _db
-          .collection("comments")
-          .doc(commentId)
-          .update({
-        'replyCount': FieldValue.increment(1),
-      });
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -128,21 +120,13 @@ class ReplyRepository extends GetxController {
   }
 
   /// Delete reply
-  Future<void> deleteReply(String commentId, String replyId) async {
+  Future<void> deleteReply(String replyId) async {
     try {
       // 从独立的 replies 集合中删除
       await _db
           .collection("replies")
           .doc(replyId)
           .delete();
-
-      // 更新评论的回复计数
-      await _db
-          .collection("comments")
-          .doc(commentId)
-          .update({
-        'replyCount': FieldValue.increment(-1),
-      });
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } on FormatException catch (_) {

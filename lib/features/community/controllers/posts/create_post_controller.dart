@@ -2,26 +2,33 @@ import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:fyp/features/community/models/post_model.dart';
+import 'package:fyp/features/community/models/post_enums.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
-
-import '../../../../data/repositories/community/post_repository.dart';
+import 'package:fyp/data/repositories/community/post_repository.dart';
+import 'package:fyp/data/repositories/authentication/authentication_repository.dart';
+import 'package:fyp/utils/popups/loaders.dart';
+import 'package:http/http.dart' as http;
 import '../../screens/create_post/widgets/custom_camera_screen.dart';
 
 class MediaFile {
   final String id;
   final File file;
   final MediaType type;
+  final String? storagePath; // 存储路径名称 (例如: "8d44fc0e.webp")
+  final bool isExistingMedia; // 标记是否为已存在的媒体（编辑模式）
   VideoPlayerController? videoController;
 
   MediaFile({
     required this.id,
     required this.file,
     required this.type,
+    this.storagePath,
+    this.isExistingMedia = false,
     this.videoController,
   });
 
@@ -29,8 +36,6 @@ class MediaFile {
     await videoController?.dispose();
   }
 }
-
-enum MediaType { image, video }
 
 class CreatePostController extends GetxController {
   final PostRepository _postRepository = Get.put(PostRepository());
@@ -41,10 +46,15 @@ class CreatePostController extends GetxController {
   final contentController = TextEditingController();
 
   // Observable variables
-  final _selectedPostType = 'tip'.obs;
+  final _selectedPostType = PostType.tip.obs;
   final _mediaFiles = <MediaFile>[].obs;
   final _isPosting = false.obs;
   final _isCompressing = false.obs;
+  final _isEditMode = false.obs;
+  final _editingPost = Rx<PostModel?>(null);
+  final _isLoadingMedia = false.obs;
+  final _originalMediaPaths = <String>[].obs; // 存储原始的 storage path
+  final _removedMediaPaths = <String>[].obs; // 存储被删除的媒体路径
 
   // Constants
   static const int maxContentLength = 2000;
@@ -53,18 +63,31 @@ class CreatePostController extends GetxController {
   static const int maxVideoSizeMB = 100;
   static const List<String> allowedImageFormats = ['jpg', 'jpeg', 'png', 'webp', 'heic'];
   static const List<String> allowedVideoFormats = ['mp4', 'mov', 'avi'];
-  static const int imageQuality = 85; // WebP quality (0-100)
+  static const int imageQuality = 85;
 
   // Getters
-  String get selectedPostType => _selectedPostType.value;
+  PostType get selectedPostType => _selectedPostType.value;
   List<MediaFile> get mediaFiles => _mediaFiles;
   bool get isPosting => _isPosting.value;
   bool get isCompressing => _isCompressing.value;
+  bool get isEditMode => _isEditMode.value;
+  PostModel? get editingPost => _editingPost.value;
+  bool get isLoadingMedia => _isLoadingMedia.value;
+
   bool get canPost =>
       contentController.text.trim().isNotEmpty &&
           contentController.text.length <= maxContentLength &&
           !_isPosting.value &&
-          !_isCompressing.value;
+          !_isCompressing.value &&
+          !_isLoadingMedia.value;
+
+  @override
+  void onInit() {
+    super.onInit();
+    if (Get.arguments != null && Get.arguments is PostModel) {
+      _initializeEditMode(Get.arguments as PostModel);
+    }
+  }
 
   @override
   void onClose() {
@@ -75,54 +98,134 @@ class CreatePostController extends GetxController {
     super.onClose();
   }
 
-  /// Set community type
-  void setPostType(String type) {
+  /// Initialize edit mode with existing post data
+  Future<void> _initializeEditMode(PostModel post) async {
+    try {
+      _isEditMode.value = true;
+      _editingPost.value = post;
+      _isLoadingMedia.value = true;
+
+      // Preload content
+      contentController.text = post.content;
+
+      // Preload post type
+      _selectedPostType.value = PostType.fromString(post.postType);
+
+      // 需要从 Firestore 获取原始的 storage paths
+      // 因为 post.media 已经被转换成了完整的 URL
+      final userId = AuthenticationRepository.instance.authUser?.uid ?? '';
+      final originalPost = await _postRepository.getOriginalPost(post.postId);
+
+      if (originalPost != null && originalPost.media.isNotEmpty) {
+        // 保存原始的 storage paths
+        _originalMediaPaths.addAll(originalPost.media);
+
+        // 使用 URL 来加载媒体（post.media 是 URL）
+        for (int i = 0; i < post.media.length; i++) {
+          final mediaUrl = post.media[i];
+          final storagePath = originalPost.media[i];
+          await _loadExistingMediaFromUrl(mediaUrl, storagePath);
+        }
+      }
+
+      _isLoadingMedia.value = false;
+    } catch (e) {
+      _isLoadingMedia.value = false;
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to load post data: $e',
+      );
+      Get.back();
+    }
+  }
+
+  /// Load existing media from URL (for edit mode)
+  Future<void> _loadExistingMediaFromUrl(String mediaUrl, String storagePath) async {
+    try {
+      // 确定媒体类型
+      final isVideo = storagePath.contains('.mp4') ||
+          storagePath.contains('.mov') ||
+          storagePath.contains('.avi');
+      final mediaType = isVideo ? MediaType.video : MediaType.image;
+
+      // 下载文件到临时目录
+      final response = await http.get(Uri.parse(mediaUrl));
+      if (response.statusCode != 200) {
+        throw 'Failed to download media';
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final extension = storagePath.split('.').last;
+      final fileName = '${_uuid.v4()}.$extension';
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(response.bodyBytes);
+
+      // 创建 VideoController (如果是视频)
+      VideoPlayerController? videoController;
+      if (mediaType == MediaType.video) {
+        videoController = VideoPlayerController.file(file);
+        await videoController.initialize();
+      }
+
+      final mediaFile = MediaFile(
+        id: _uuid.v4(),
+        file: file,
+        type: mediaType,
+        storagePath: storagePath, // 保存原始 storage path
+        isExistingMedia: true, // 标记为已存在的媒体
+        videoController: videoController,
+      );
+
+      _mediaFiles.add(mediaFile);
+    } catch (e) {
+      print('Failed to load existing media from URL: $e');
+    }
+  }
+
+  /// Get full storage path from storage path name
+  String _getFullStoragePath(String storagePath, String userId) {
+    if (storagePath.contains('.mp4') ||
+        storagePath.contains('.mov') ||
+        storagePath.contains('.avi')) {
+      return 'posts/$userId/videos/$storagePath';
+    } else {
+      return 'posts/$userId/images/$storagePath';
+    }
+  }
+
+  /// Set post type
+  void setPostType(PostType type) {
     _selectedPostType.value = type;
   }
 
   /// Open custom camera
   Future<void> openCustomCamera() async {
     if (_mediaFiles.length >= maxMediaCount) {
-      Get.snackbar(
-        'Limit Reached',
-        'You can only add up to $maxMediaCount media files',
-        snackPosition: SnackPosition.BOTTOM,
+      FLoaders.warningSnackBar(
+        title: 'Limit Reached',
+        message: 'You can only add up to $maxMediaCount media files',
       );
       return;
     }
 
     final result = await Get.to(() => const CustomCameraScreen());
     if (result != null && result is File) {
-      // 检测文件类型而不是硬编码为图片
       final mediaType = _detectMediaType(result);
       await _addMediaFile(result, mediaType);
     }
   }
 
-  /// 检测文件类型
-  MediaType _detectMediaType(File file) {
-    final path = file.path.toLowerCase();
-    if (path.endsWith('.mp4') ||
-        path.endsWith('.mov') ||
-        path.endsWith('.avi')) {
-      return MediaType.video;
-    }
-    return MediaType.image;
-  }
-
   /// Pick images/videos from gallery
   Future<void> pickFromGallery() async {
     if (_mediaFiles.length >= maxMediaCount) {
-      Get.snackbar(
-        'Limit Reached',
-        'You can only add up to $maxMediaCount media files',
-        snackPosition: SnackPosition.BOTTOM,
+      FLoaders.warningSnackBar(
+        title: 'Limit Reached',
+        message: 'You can only add up to $maxMediaCount media files',
       );
       return;
     }
 
     try {
-      // Show options: Image or Video
       final choice = await Get.dialog<String>(
         AlertDialog(
           title: const Text('Select Media Type'),
@@ -159,57 +262,62 @@ class CreatePostController extends GetxController {
         }
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to pick media: $e');
+      FLoaders.errorSnackBar(title: 'Error', message: 'Failed to pick media: $e');
     }
+  }
+
+  /// Detect media type from file
+  MediaType _detectMediaType(File file) {
+    final path = file.path.toLowerCase();
+    if (path.endsWith('.mp4') || path.endsWith('.mov') || path.endsWith('.avi')) {
+      return MediaType.video;
+    }
+    return MediaType.image;
   }
 
   /// Add media file with validation
   Future<void> _addMediaFile(File file, MediaType type) async {
     try {
-      // Validate file size
       final fileSizeInMB = await file.length() / (1024 * 1024);
 
       if (type == MediaType.image && fileSizeInMB > maxImageSizeMB) {
-        Get.snackbar(
-          'File Too Large',
-          'Image size should not exceed ${maxImageSizeMB}MB',
+        FLoaders.warningSnackBar(
+          title: 'File Too Large',
+          message: 'Image size should not exceed ${maxImageSizeMB}MB',
         );
         return;
       }
 
       if (type == MediaType.video && fileSizeInMB > maxVideoSizeMB) {
-        Get.snackbar(
-          'File Too Large',
-          'Video size should not exceed ${maxVideoSizeMB}MB',
+        FLoaders.warningSnackBar(
+          title: 'File Too Large',
+          message: 'Video size should not exceed ${maxVideoSizeMB}MB',
         );
         return;
       }
 
-      // Validate format
       final extension = file.path.split('.').last.toLowerCase();
       if (type == MediaType.image && !allowedImageFormats.contains(extension)) {
-        Get.snackbar(
-          'Invalid Format',
-          'Allowed image formats: ${allowedImageFormats.join(", ")}',
+        FLoaders.warningSnackBar(
+          title: 'Invalid Format',
+          message: 'Allowed image formats: ${allowedImageFormats.join(", ")}',
         );
         return;
       }
 
       if (type == MediaType.video && !allowedVideoFormats.contains(extension)) {
-        Get.snackbar(
-          'Invalid Format',
-          'Allowed video formats: ${allowedVideoFormats.join(", ")}',
+        FLoaders.warningSnackBar(
+          title: 'Invalid Format',
+          message: 'Allowed video formats: ${allowedVideoFormats.join(", ")}',
         );
         return;
       }
 
-      // For images, compress and convert to WebP
       File processedFile = file;
       if (type == MediaType.image) {
         processedFile = await _compressAndConvertToWebP(file);
       }
 
-      // Create media file object
       VideoPlayerController? videoController;
       if (type == MediaType.video) {
         videoController = VideoPlayerController.file(processedFile);
@@ -225,27 +333,25 @@ class CreatePostController extends GetxController {
 
       _mediaFiles.add(mediaFile);
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add media: $e');
+      FLoaders.errorSnackBar(title: 'Error', message: 'Failed to add media: $e');
     }
   }
 
-  /// Compress image and convert to WebP format
+  /// Compress image and convert to WebP
   Future<File> _compressAndConvertToWebP(File imageFile) async {
     try {
       _isCompressing.value = true;
 
-      // Get temporary directory
       final tempDir = await getTemporaryDirectory();
       final targetPath = '${tempDir.path}/${_uuid.v4()}.webp';
 
-      // Compress and convert to WebP
       final result = await FlutterImageCompress.compressAndGetFile(
         imageFile.absolute.path,
         targetPath,
         format: CompressFormat.webp,
         quality: imageQuality,
-        minWidth: 1080, // Maximum width
-        minHeight: 1080, // Maximum height
+        minWidth: 1080,
+        minHeight: 1080,
         autoCorrectionAngle: true,
       );
 
@@ -257,105 +363,125 @@ class CreatePostController extends GetxController {
       return File(result.path);
     } catch (e) {
       _isCompressing.value = false;
-      // If compression fails, return original file
       print('Image compression failed: $e, using original file');
       return imageFile;
     }
   }
 
   /// Remove media file
-  void removeMediaFile(String id) {
+  Future<void> removeMediaFile(String id) async {
     final index = _mediaFiles.indexWhere((m) => m.id == id);
     if (index != -1) {
-      _mediaFiles[index].dispose();
+      final mediaFile = _mediaFiles[index];
+
+      // 如果是编辑模式且该媒体是已存在的媒体（有 storagePath）
+      if (isEditMode && mediaFile.storagePath != null && mediaFile.isExistingMedia) {
+        // 添加到删除列表，但不立即从 Storage 删除
+        _removedMediaPaths.add(mediaFile.storagePath!);
+        _originalMediaPaths.remove(mediaFile.storagePath);
+      } else if (isEditMode && mediaFile.storagePath != null) {
+        // 如果是新上传的媒体但有 storagePath（不应该发生的情况）
+        try {
+          final userId = AuthenticationRepository.instance.authUser?.uid ?? '';
+          final fullPath = _getFullStoragePath(mediaFile.storagePath!, userId);
+          await _postRepository.storage.ref(fullPath).delete();
+        } catch (e) {
+          print('Failed to delete media from storage: $e');
+        }
+      }
+
+      await mediaFile.dispose();
       _mediaFiles.removeAt(index);
     }
   }
 
-  /// Create community
+  /// Create or update post
   Future<void> createPost() async {
     if (!canPost) return;
 
     try {
+      FLoaders.showLoading(isEditMode ? 'Updating post...' : 'Creating post...');
       _isPosting.value = true;
 
-      // Get current user ID (from auth service)
-      final userId = _getCurrentUserId();
-
-      // Upload media files
-      List<String> mediaUrls = [];
-      if (_mediaFiles.isNotEmpty) {
-        mediaUrls = await _uploadMediaFiles(userId);
+      final userId = AuthenticationRepository.instance.authUser?.uid ?? '';
+      if (userId.isEmpty) {
+        throw 'User not authenticated';
       }
 
-      // Create community model
-      final post = PostModel(
-        postId: _uuid.v4(),
-        userId: userId,
-        postType: _selectedPostType.value,
-        content: contentController.text.trim(),
-        media: mediaUrls,
-        likes: [],
-        commentCount: 0,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        isDisabled: false,
-      );
+      // Upload media files and get storage paths
+      List<String> mediaPaths = [];
+      for (var mediaFile in _mediaFiles) {
+        if (mediaFile.storagePath != null && mediaFile.isExistingMedia) {
+          // Keep existing media path
+          mediaPaths.add(mediaFile.storagePath!);
+        } else {
+          // Upload new file and get storage path
+          final storagePath = mediaFile.type == MediaType.image
+              ? await _uploadImage(mediaFile.file, userId)
+              : await _uploadVideo(mediaFile.file, userId);
+          if (storagePath != null) mediaPaths.add(storagePath);
+        }
+      }
 
-      // Save community to Firestore
+      // 如果是编辑模式，删除被移除的媒体（只有在用户确认更新时才删除）
+      if (isEditMode && editingPost != null && _removedMediaPaths.isNotEmpty) {
+        for (var path in _removedMediaPaths) {
+          try {
+            final fullPath = _getFullStoragePath(path, userId);
+            await _postRepository.storage.ref(fullPath).delete();
+          } catch (e) {
+            print('Failed to delete removed media: $e');
+          }
+        }
+      }
+
+      PostModel post;
+      if (isEditMode && editingPost != null) {
+        // Update existing post
+        post = editingPost!.copyWith(
+          postType: _selectedPostType.value.value,
+          content: contentController.text.trim(),
+          media: mediaPaths,
+          updatedAt: DateTime.now(),
+        );
+      } else {
+        // Create new post
+        post = PostModel(
+          postId: _uuid.v4(),
+          userId: userId,
+          postType: _selectedPostType.value.value,
+          content: contentController.text.trim(),
+          media: mediaPaths,
+          likes: [],
+          commentCount: 0,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          isDisabled: false,
+        );
+      }
+
       await _postRepository.savePost(post);
 
-      // Success feedback
+      FLoaders.stopLoading();
       Get.back();
-      Get.snackbar(
-        'Success',
-        'Post created successfully!',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
+      FLoaders.successSnackBar(
+        title: 'Success',
+        message: isEditMode ? 'Post updated successfully!' : 'Post created successfully!',
       );
 
-      // Clear form
       _clearForm();
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to create community: $e',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
+      FLoaders.stopLoading();
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to ${isEditMode ? "update" : "create"} post: $e',
       );
     } finally {
       _isPosting.value = false;
     }
   }
 
-  /// Upload media files to Firebase Storage
-  Future<List<String>> _uploadMediaFiles(String userId) async {
-    try {
-      List<String> uploadedUrls = [];
-
-      for (var mediaFile in _mediaFiles) {
-        String? url;
-
-        if (mediaFile.type == MediaType.image) {
-          url = await _uploadImage(mediaFile.file, userId);
-        } else if (mediaFile.type == MediaType.video) {
-          url = await _uploadVideo(mediaFile.file, userId);
-        }
-
-        if (url != null) {
-          uploadedUrls.add(url);
-        }
-      }
-
-      return uploadedUrls;
-    } catch (e) {
-      throw 'Failed to upload media files: $e';
-    }
-  }
-
-  /// Upload image to Firebase Storage
+  /// Upload image to Firebase Storage and return storage path
   Future<String?> _uploadImage(File imageFile, String userId) async {
     try {
       final fileName = '${_uuid.v4()}.webp';
@@ -373,16 +499,14 @@ class CreatePostController extends GetxController {
         ),
       );
 
-      final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-
-      return downloadUrl;
+      await uploadTask;
+      return fileName;
     } catch (e) {
       throw 'Failed to upload image: $e';
     }
   }
 
-  /// Upload video to Firebase Storage
+  /// Upload video to Firebase Storage and return storage path
   Future<String?> _uploadVideo(File videoFile, String userId) async {
     try {
       final fileName = '${_uuid.v4()}.mp4';
@@ -400,10 +524,8 @@ class CreatePostController extends GetxController {
         ),
       );
 
-      final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-
-      return downloadUrl;
+      await uploadTask;
+      return fileName;
     } catch (e) {
       throw 'Failed to upload video: $e';
     }
@@ -416,17 +538,25 @@ class CreatePostController extends GetxController {
       media.dispose();
     }
     _mediaFiles.clear();
-    _selectedPostType.value = 'tip';
+    _selectedPostType.value = PostType.tip;
+    _isEditMode.value = false;
+    _editingPost.value = null;
+    _originalMediaPaths.clear();
+    _removedMediaPaths.clear();
   }
 
-  /// Get current user ID (placeholder - implement with your auth service)
-  String _getCurrentUserId() {
-    // TODO: Implement with your authentication service
-    return 'current_user_id';
-  }
+  /// 当用户取消编辑时，重新加载原始数据
+  void reloadOriginalMedia() {
+    if (isEditMode && editingPost != null) {
+      // 清除当前媒体文件
+      for (var media in _mediaFiles) {
+        media.dispose();
+      }
+      _mediaFiles.clear();
+      _removedMediaPaths.clear();
 
-  /// Validate content length
-  bool validateContentLength() {
-    return contentController.text.length <= maxContentLength;
+      // 重新加载原始媒体
+      _initializeEditMode(editingPost!);
+    }
   }
 }

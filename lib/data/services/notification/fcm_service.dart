@@ -1,20 +1,16 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'dart:convert';
-
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../../features/event/models/event_model.dart';
 import '../../../features/event/screens/event_detail/event_detail.dart';
 import '../../repositories/event/event_repository.dart';
 
 class FCMService {
-  // 单例模式确保全局唯一实例
   static final FCMService _instance = FCMService._internal();
   factory FCMService() => _instance;
   FCMService._internal();
@@ -25,14 +21,14 @@ class FCMService {
   late FlutterLocalNotificationsPlugin _localNotifications;
 
   static const String _lastUserIdKey = 'last_known_user_id';
+  static const String _scheduledRemindersKey = 'scheduled_reminders';
 
-  // 初始化 FCM
+  /// Initialize FCM
   Future<void> initialize() async {
     try {
-      // 初始化本地通知
       await _initializeLocalNotifications();
 
-      // 请求通知权限
+      // Request notification permission
       NotificationSettings settings = await _messaging.requestPermission(
         alert: true,
         badge: true,
@@ -45,13 +41,13 @@ class FCMService {
 
       print('Notification permission granted: ${settings.authorizationStatus}');
 
-      // 获取并保存 FCM token
+      // Get and save FCM token
       await _getAndSaveFCMToken();
 
-      // 设置消息处理回调
+      // Setup message handlers
       _setupMessageHandlers();
 
-      // 监听登录/登出状态
+      // Setup auth state listener
       _setupAuthStateListener();
 
       print('FCM Service initialized successfully for Event Reminders');
@@ -60,24 +56,20 @@ class FCMService {
     }
   }
 
-  // 初始化本地通知
+  /// Initialize local notifications
   Future<void> _initializeLocalNotifications() async {
     _localNotifications = FlutterLocalNotificationsPlugin();
 
-    // Android 通知配置
     const AndroidInitializationSettings androidSettings =
     AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS 通知配置
-    const DarwinInitializationSettings iosSettings =
-    DarwinInitializationSettings(
+    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
 
-    const InitializationSettings initializationSettings =
-    InitializationSettings(
+    const InitializationSettings initializationSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
@@ -89,21 +81,18 @@ class FCMService {
       },
     );
 
-    // 创建事件提醒通知渠道 (Android)
     await _createNotificationChannels();
   }
 
-  // 创建通知渠道
+  /// Create notification channels
   Future<void> _createNotificationChannels() async {
-    // 事件提醒渠道
     const AndroidNotificationChannel eventRemindersChannel =
     AndroidNotificationChannel(
-      'event_reminders', // channelId
-      'Event Reminders', // channelName
+      'event_reminders',
+      'Event Reminders',
       description: 'Notifications for upcoming event reminders',
       importance: Importance.high,
       playSound: true,
-      sound: const RawResourceAndroidNotificationSound('notification'),
     );
 
     await _localNotifications
@@ -112,7 +101,7 @@ class FCMService {
         ?.createNotificationChannel(eventRemindersChannel);
   }
 
-  // 处理通知点击响应
+  /// Handle notification response
   void _handleNotificationResponse(NotificationResponse response) {
     Map<String, dynamic>? payloadMap;
     if (response.payload != null) {
@@ -125,13 +114,12 @@ class FCMService {
     _handleNotificationClick(payloadMap);
   }
 
-  // 解析 payload 字符串
+  /// Parse payload string
   Map<String, dynamic>? _parsePayloadString(String payload) {
     try {
       if (payload.startsWith('{') && payload.endsWith('}')) {
         return json.decode(payload) as Map<String, dynamic>;
       } else {
-        // 处理查询字符串格式
         final Map<String, dynamic> result = {};
         final pairs = payload.split('&');
         for (final pair in pairs) {
@@ -148,7 +136,7 @@ class FCMService {
     }
   }
 
-  // 获取并保存 FCM token
+  /// Get and save FCM token
   Future<void> _getAndSaveFCMToken() async {
     try {
       String? token = await _messaging.getToken();
@@ -160,7 +148,6 @@ class FCMService {
         print('Failed to get FCM token');
       }
 
-      // 监听 token 刷新
       _messaging.onTokenRefresh.listen((newToken) {
         _saveTokenToFirestore(newToken);
         print('FCM Token refreshed: $newToken');
@@ -170,7 +157,7 @@ class FCMService {
     }
   }
 
-  // 保存 token 到 Firestore
+  /// Save token to Firestore
   Future<void> _saveTokenToFirestore(String token) async {
     try {
       String? userId = _getCurrentUserId();
@@ -183,8 +170,6 @@ class FCMService {
         }, SetOptions(merge: true));
 
         print('FCM token saved successfully for user $userId');
-
-        // 保存用户ID到本地存储
         await _saveUserId(userId);
       } else {
         print('No user logged in, token not saved to Firestore');
@@ -194,7 +179,7 @@ class FCMService {
     }
   }
 
-  // 获取当前用户ID
+  /// Get current user ID
   String? _getCurrentUserId() {
     try {
       return _auth.currentUser?.uid;
@@ -204,21 +189,18 @@ class FCMService {
     }
   }
 
-  // 设置消息处理回调
+  /// Setup message handlers
   void _setupMessageHandlers() {
-    // 处理前台消息
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('Received foreground message: ${message.notification?.title}');
       showLocalNotification(message);
     });
 
-    // 处理后台消息点击
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       print('App opened from background: ${message.notification?.title}');
       _handleNotificationClick(message.data);
     });
 
-    // 处理终止状态消息点击
     FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
       if (message != null) {
         print('App opened from terminated state: ${message.notification?.title}');
@@ -227,23 +209,21 @@ class FCMService {
     });
   }
 
-  // 设置认证状态监听
+  /// Setup auth state listener
   void _setupAuthStateListener() {
     _auth.authStateChanges().listen((User? user) async {
       if (user != null) {
-        // 用户登录，重新获取并保存 token
         print('User logged in, refreshing FCM token for user: ${user.uid}');
         await _saveUserId(user.uid);
         await _getAndSaveFCMToken();
       } else {
-        // 用户登出
         print('User logged out, clearing local user data');
         await _clearTokensOnLogout();
       }
     });
   }
 
-  // 保存用户ID到本地存储
+  /// Save user ID to local storage
   Future<void> _saveUserId(String userId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -254,7 +234,7 @@ class FCMService {
     }
   }
 
-  // 从本地存储获取最后一次已知的用户ID
+  /// Get last known user ID
   Future<String?> _getLastKnownUserId() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -265,7 +245,7 @@ class FCMService {
     }
   }
 
-  // 清理本地存储的用户ID
+  /// Clear saved user ID
   Future<void> _clearSavedUserId() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -276,20 +256,18 @@ class FCMService {
     }
   }
 
-  // 登出时清理token
+  /// Clear tokens on logout
   Future<void> _clearTokensOnLogout() async {
     try {
       final lastKnownUserId = await _getLastKnownUserId();
 
       if (lastKnownUserId != null) {
-        // 清理 Firestore 中的 token
         await _firestore.collection('users').doc(lastKnownUserId).update({
           'fcmTokens': FieldValue.delete(),
           'lastLogout': FieldValue.serverTimestamp(),
         });
         print('FCM tokens cleared for user $lastKnownUserId on logout');
 
-        // 清理本地存储的用户ID
         await _clearSavedUserId();
       } else {
         print('No known user ID to clear tokens');
@@ -299,36 +277,28 @@ class FCMService {
     }
   }
 
-  // 显示本地通知
+  /// Show local notification
   Future<void> showLocalNotification(RemoteMessage message) async {
     final String? type = message.data['type'];
 
-    // 根据通知类型选择不同的渠道和配置
     String channelId = 'event_reminders';
     String channelName = 'Event Reminders';
-    String? sound;
 
     if (type == 'event_reminder') {
       channelId = 'event_reminders';
       channelName = 'Event Reminders';
-    } else if (type == 'payment_reminder') {
-      channelId = 'payment_reminders';
-      channelName = 'Payment Reminders';
     }
 
-    // Android 通知配置
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       channelId,
       channelName,
       channelDescription: 'Notifications for $channelName',
       importance: Importance.high,
       playSound: true,
-      sound: sound != null ? RawResourceAndroidNotificationSound(sound) : null,
       styleInformation: const BigTextStyleInformation(''),
     );
 
-    // iOS 通知配置
-    final DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
@@ -342,7 +312,7 @@ class FCMService {
 
     try {
       await _localNotifications.show(
-        message.hashCode, // 使用消息哈希作为通知ID
+        message.hashCode,
         message.notification?.title ?? 'Event Reminder',
         message.notification?.body ?? 'You have an upcoming event!',
         details,
@@ -354,30 +324,24 @@ class FCMService {
     }
   }
 
-  // 处理通知点击
+  /// Handle notification click
   void _handleNotificationClick(Map<String, dynamic>? data) {
     if (data != null) {
       final type = data['type'];
       final eventId = data['eventId'];
-      final reminderId = data['reminderId'];
-      final registrationId = data['registrationId'];
       final userId = data['userId'];
 
       print('Notification clicked - Type: $type, Event ID: $eventId, User ID: $userId');
 
-      // 验证通知属于当前用户
       final currentUserId = _getCurrentUserId();
       if (userId != null && currentUserId != null && userId != currentUserId) {
-        print('Notification does not belong to current user. Expected: $currentUserId, Got: $userId');
+        print(
+            'Notification does not belong to current user. Expected: $currentUserId, Got: $userId');
         return;
       }
 
-      // 根据通知类型导航到相应页面
       if (type == 'event_reminder' && eventId != null) {
         _navigateToEventDetails(eventId);
-      } else if (type == 'payment_reminder' && data['invoiceId'] != null) {
-        // 如果有支付提醒，可以在这里处理
-        _navigateToPaymentDetails(data['invoiceId']);
       } else {
         print('Unknown notification type or missing data: $type');
       }
@@ -386,27 +350,61 @@ class FCMService {
     }
   }
 
-  // 导航到事件详情页面
+  /// Navigate to event details
   void _navigateToEventDetails(String eventId) {
     try {
-      // 使用 GetX 导航到事件详情页面，使用 EventRepository 获取 Event 对象
-      Get.to(() => EventDetailScreenWrapper(eventId: eventId));
+      Get.to(() => _EventDetailScreenWrapper(eventId: eventId));
       print('Navigated to event details for event: $eventId');
     } catch (e) {
       print('Error navigating to event details: $e');
     }
   }
 
-  // 导航到支付详情页面（如果需要）
-  void _navigateToPaymentDetails(String invoiceId) {
-    // 这里可以添加支付详情页面的导航逻辑
-    print('Would navigate to payment details for invoice: $invoiceId');
-    // Get.to(() => PaymentDetailScreen(invoiceId: invoiceId));
+  // ==================== Public Methods ====================
+
+  /// Schedule event reminder (called when user enables reminder)
+  Future<void> scheduleEventReminder({
+    required String userId,
+    required String eventId,
+    required String eventTitle,
+    required String eventLocation,
+    required DateTime remindAt,
+    required String reminderId,
+    required String registrationId,
+  }) async {
+    try {
+      // Save scheduled reminder info to Firestore for Cloud Function to process
+      await _firestore.collection('scheduledReminders').doc(reminderId).set({
+        'userId': userId,
+        'eventId': eventId,
+        'eventTitle': eventTitle,
+        'eventLocation': eventLocation,
+        'remindAt': Timestamp.fromDate(remindAt),
+        'reminderId': reminderId,
+        'registrationId': registrationId,
+        'type': 'event_reminder',
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      print('Event reminder scheduled: $reminderId for event: $eventTitle at $remindAt');
+    } catch (e) {
+      print('Error scheduling event reminder: $e');
+      throw 'Failed to schedule event reminder';
+    }
   }
 
-  // ==================== 公共方法 ====================
+  /// Cancel event reminder
+  Future<void> cancelEventReminder(String reminderId) async {
+    try {
+      await _firestore.collection('scheduledReminders').doc(reminderId).delete();
+      print('Event reminder cancelled: $reminderId');
+    } catch (e) {
+      print('Error cancelling event reminder: $e');
+    }
+  }
 
-  // 获取当前 FCM token（用于调试）
+  /// Get current FCM token
   Future<String?> getCurrentToken() async {
     try {
       return await _messaging.getToken();
@@ -416,17 +414,12 @@ class FCMService {
     }
   }
 
-  // 手动保存 token（如果需要）
-  Future<void> manuallySaveToken() async {
-    await _getAndSaveFCMToken();
-  }
-
-  // 检查通知权限状态
+  /// Get notification settings
   Future<NotificationSettings> getNotificationSettings() async {
     return await _messaging.getNotificationSettings();
   }
 
-  // 订阅主题（如果需要）
+  /// Subscribe to topic
   Future<void> subscribeToTopic(String topic) async {
     try {
       await _messaging.subscribeToTopic(topic);
@@ -436,7 +429,7 @@ class FCMService {
     }
   }
 
-  // 取消订阅主题
+  /// Unsubscribe from topic
   Future<void> unsubscribeFromTopic(String topic) async {
     try {
       await _messaging.unsubscribeFromTopic(topic);
@@ -446,7 +439,7 @@ class FCMService {
     }
   }
 
-  // 清理所有注册的 tokens（用户登出时调用）
+  /// Clear all tokens
   Future<void> clearTokens() async {
     try {
       String? userId = _getCurrentUserId();
@@ -461,46 +454,18 @@ class FCMService {
       print('Error clearing FCM tokens: $e');
     }
   }
-
-  // 获取 APNs token（iOS 专用）
-  Future<String?> getAPNsToken() async {
-    try {
-      return await _messaging.getAPNSToken();
-    } catch (e) {
-      print('Error getting APNs token: $e');
-      return null;
-    }
-  }
-
-  // 检查是否已初始化
-  bool get isInitialized => _localNotifications != null;
-
-  // 打印调试信息
-  Future<void> printDebugInfo() async {
-    final token = await getCurrentToken();
-    final settings = await getNotificationSettings();
-
-    print('=== FCM Service Debug Info ===');
-    print('FCM Token: $token');
-    print('Notification Settings: $settings');
-    print('Current User ID: ${_getCurrentUserId()}');
-    print('Last Known User ID: ${await _getLastKnownUserId()}');
-    print('Is Initialized: $isInitialized');
-    print('==============================');
-  }
 }
 
-// ==================== Event Detail Screen Wrapper ====================
-
-/// Wrapper widget that fetches the Event object and passes it to EventDetailsScreen
-class EventDetailScreenWrapper extends StatelessWidget {
+/// Wrapper widget for event details screen
+class _EventDetailScreenWrapper extends StatelessWidget {
   final String eventId;
-  final EventRepository eventRepository = Get.find<EventRepository>();
 
-  EventDetailScreenWrapper({super.key, required this.eventId});
+  const _EventDetailScreenWrapper({required this.eventId});
 
   @override
   Widget build(BuildContext context) {
+    final eventRepository = Get.find<EventRepository>();
+
     return StreamBuilder<Event>(
       stream: eventRepository.getEventById(eventId),
       builder: (context, snapshot) {

@@ -107,6 +107,12 @@ class HomeController extends GetxController {
     autoSlideTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (slides.isEmpty) return;
 
+      // 检查 PageController 是否已附加到 PageView
+      if (!pageController.hasClients) {
+        timer.cancel(); // 如果 PageController 未附加，停止定时器
+        return;
+      }
+
       int nextIndex = (currentSlideIndex.value + 1) % slides.length;
 
       // Use pageController to animate to next slide
@@ -118,7 +124,7 @@ class HomeController extends GetxController {
     });
   }
 
-// Stop auto slideshow
+  // Stop auto slideshow
   void stopAutoSlideshow() {
     autoSlideTimer?.cancel();
     autoSlideTimer = null;

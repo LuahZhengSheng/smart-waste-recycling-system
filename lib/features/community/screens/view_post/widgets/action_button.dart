@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 

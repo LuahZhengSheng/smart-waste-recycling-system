@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fyp/common/widgets/appbar/appbar.dart';
 import 'package:fyp/features/community/controllers/posts/post_controller.dart';
-import 'package:fyp/features/community/models/post_model.dart';
+import 'package:fyp/features/community/models/post_enums.dart';
+import 'package:fyp/features/community/screens/create_post/create_post.dart';
+import 'package:fyp/features/community/screens/my_post/my_post.dart';
 import 'package:fyp/features/community/screens/view_post/widgets/post_list.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
@@ -9,8 +11,7 @@ import 'package:fyp/utils/helpers/helper_functions.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 
-import '../create_post/create_post.dart';
-import '../my_post/my_post.dart';
+import '../common_post_widgets/common_post_widgets.dart';
 
 class PostsScreen extends StatelessWidget {
   const PostsScreen({super.key});
@@ -21,11 +22,12 @@ class PostsScreen extends StatelessWidget {
     final dark = FHelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: dark ? FColors.dark : FColors.light,
+      backgroundColor: dark ? FColors.communityDarkBackground : FColors.light,
       appBar: FAppBar(
-        title: Text('Community'),
+        title: const Text('Community'),
         centerTitle: false,
         showBackArrow: false,
+        backgroundColor: dark ? FColors.communityDarkBackground : FColors.white,
         titleIcon: Iconsax.messages_2,
         actionButtonText: 'My Posts',
         actionButtonIcon: Iconsax.user,
@@ -34,20 +36,20 @@ class PostsScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // Modern Tab Bar with Pills Design
+            // Modern Tab Bar
             Container(
-              color: dark ? FColors.dark : FColors.white,
+              color: dark ? FColors.communityDarkBackground : FColors.white,
               padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace, vertical: 12),
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1),
+                  color: dark ? FColors.communityDarkSurface : FColors.grey.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: TabBar(
                   controller: controller.tabController,
                   labelColor: FColors.white,
-                  unselectedLabelColor: dark ? FColors.darkGrey : FColors.textSecondary,
+                  unselectedLabelColor: dark ? FColors.darkTextSecondary : FColors.textSecondary,
                   indicator: BoxDecoration(
                     color: FColors.primary,
                     borderRadius: BorderRadius.circular(10),
@@ -79,10 +81,10 @@ class PostsScreen extends StatelessWidget {
               ),
             ),
 
-            // Search Bar and Filter Button Row
+            // Search Bar and Filter Button
             Container(
               padding: const EdgeInsets.fromLTRB(FSizes.defaultSpace, 8, FSizes.defaultSpace, 8),
-              color: dark ? FColors.dark : FColors.white,
+              color: dark ? FColors.communityDarkBackground : FColors.white,
               child: Row(
                 children: [
                   // Search Bar
@@ -90,20 +92,24 @@ class PostsScreen extends StatelessWidget {
                     child: Container(
                       height: 50,
                       decoration: BoxDecoration(
-                        color: dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1),
+                        color: dark ? FColors.communityDarkSurface : FColors.grey.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: TextField(
                         onChanged: (value) => controller.setSearchQuery(value),
+                        style: TextStyle(
+                          color: dark ? FColors.darkText : FColors.black,
+                          fontSize: 14,
+                        ),
                         decoration: InputDecoration(
                           hintText: "Search posts, topics...",
                           hintStyle: TextStyle(
-                            color: dark ? FColors.darkGrey : FColors.textSecondary,
+                            color: dark ? FColors.darkTextSecondary : FColors.textSecondary,
                             fontSize: 14,
                           ),
                           prefixIcon: Icon(
                             Iconsax.search_normal_1,
-                            color: dark ? FColors.darkGrey : FColors.textSecondary,
+                            color: dark ? FColors.darkTextSecondary : FColors.textSecondary,
                             size: 20,
                           ),
                           border: InputBorder.none,
@@ -112,10 +118,6 @@ class PostsScreen extends StatelessWidget {
                             vertical: FSizes.md,
                           ),
                         ),
-                        style: TextStyle(
-                          color: dark ? FColors.white : FColors.black,
-                          fontSize: 14,
-                        ),
                       ),
                     ),
                   ),
@@ -123,7 +125,7 @@ class PostsScreen extends StatelessWidget {
 
                   // Time Filter Button
                   Obx(() {
-                    final isFiltered = controller.selectedTimeFilter.value != 'All Time';
+                    final isFiltered = controller.selectedTimeFilter.value != TimeFilter.allTime;
                     return Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -135,12 +137,12 @@ class PostsScreen extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: isFiltered
                                 ? FColors.primary.withOpacity(0.1)
-                                : (dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1)),
+                                : (dark ? FColors.communityDarkSurface : FColors.grey.withOpacity(0.1)),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isFiltered
                                   ? FColors.primary
-                                  : (dark ? FColors.darkGrey.withOpacity(0.3) : FColors.grey.withOpacity(0.2)),
+                                  : (dark ? FColors.communityDarkBorder : FColors.grey.withOpacity(0.2)),
                               width: 1.5,
                             ),
                           ),
@@ -151,12 +153,12 @@ class PostsScreen extends StatelessWidget {
                                 _getTimeFilterIcon(controller.selectedTimeFilter.value),
                                 color: isFiltered
                                     ? FColors.primary
-                                    : (dark ? FColors.darkGrey : FColors.textSecondary),
+                                    : (dark ? FColors.darkTextSecondary : FColors.textSecondary),
                                 size: 20,
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                controller.selectedTimeFilter.value,
+                                controller.selectedTimeFilter.value.displayName,
                                 style: TextStyle(
                                   color: isFiltered
                                       ? FColors.primary
@@ -170,7 +172,7 @@ class PostsScreen extends StatelessWidget {
                                 Iconsax.arrow_down_1,
                                 color: isFiltered
                                     ? FColors.primary
-                                    : (dark ? FColors.darkGrey : FColors.textSecondary),
+                                    : (dark ? FColors.darkTextSecondary : FColors.textSecondary),
                                 size: 16,
                               ),
                             ],
@@ -189,7 +191,7 @@ class PostsScreen extends StatelessWidget {
               color: dark ? FColors.black : FColors.grey.withOpacity(0.05),
             ),
 
-            // Posts List - 修复 TabBarView 布局问题
+            // Posts List
             Expanded(
               child: TabBarView(
                 controller: controller.tabController,
@@ -232,11 +234,23 @@ class PostsScreen extends StatelessWidget {
     );
   }
 
-  // 修复：将 TabBarView 的内容提取为单独的方法
   Widget _buildTabContent(PostsController controller, bool dark, BuildContext context) {
     return Obx(() {
+      if (controller.isLoading.value) {
+        return ListView(
+          padding: const EdgeInsets.all(FSizes.defaultSpace),
+          children: List.generate(3, (index) => const FPostSkeleton()),
+        );
+      }
+
       if (controller.filteredPosts.isEmpty) {
-        return _buildEmptyState(context, dark);
+        return FEmptyState(
+          icon: Iconsax.message_search,
+          title: 'No posts found',
+          subtitle: 'Try adjusting your filters or be the first to post!',
+          actionText: 'Create Post',
+          onActionPressed: () => Get.to(() => const CreatePostScreen()),
+        );
       }
 
       return FPostsList(
@@ -246,15 +260,15 @@ class PostsScreen extends StatelessWidget {
     });
   }
 
-  IconData _getTimeFilterIcon(String filter) {
+  IconData _getTimeFilterIcon(TimeFilter filter) {
     switch (filter) {
-      case 'Today':
+      case TimeFilter.today:
         return Iconsax.sun_1;
-      case 'This Week':
+      case TimeFilter.thisWeek:
         return Iconsax.calendar_1;
-      case 'This Month':
+      case TimeFilter.thisMonth:
         return Iconsax.calendar;
-      case 'This Year':
+      case TimeFilter.thisYear:
         return Iconsax.calendar_2;
       default:
         return Iconsax.clock;
@@ -268,7 +282,7 @@ class PostsScreen extends StatelessWidget {
       isScrollControlled: true,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: dark ? FColors.darkerGrey : FColors.white,
+          color: dark ? FColors.communityDarkSurface : FColors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.symmetric(vertical: 24),
@@ -295,7 +309,7 @@ class PostsScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Iconsax.filter,
                       color: FColors.primary,
                       size: 24,
@@ -317,13 +331,9 @@ class PostsScreen extends StatelessWidget {
               // Filter Options
               Obx(() => Column(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildTimeFilterOption('All Time', controller, dark, context),
-                  _buildTimeFilterOption('Today', controller, dark, context),
-                  _buildTimeFilterOption('This Week', controller, dark, context),
-                  _buildTimeFilterOption('This Month', controller, dark, context),
-                  _buildTimeFilterOption('This Year', controller, dark, context),
-                ],
+                children: TimeFilter.values
+                    .map((filter) => _buildTimeFilterOption(filter, controller, dark, context))
+                    .toList(),
               )),
 
               const SizedBox(height: 12),
@@ -334,7 +344,7 @@ class PostsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTimeFilterOption(String filter, PostsController controller, bool dark, BuildContext context) {
+  Widget _buildTimeFilterOption(TimeFilter filter, PostsController controller, bool dark, BuildContext context) {
     final isSelected = controller.selectedTimeFilter.value == filter;
 
     return Material(
@@ -342,7 +352,7 @@ class PostsScreen extends StatelessWidget {
       child: InkWell(
         onTap: () {
           controller.setTimeFilter(filter);
-          Navigator.pop(context);
+          // 移除 Navigator.pop(context) 以实现实时更新
         },
         child: Container(
           padding: const EdgeInsets.symmetric(
@@ -350,9 +360,7 @@ class PostsScreen extends StatelessWidget {
             vertical: 16,
           ),
           decoration: BoxDecoration(
-            color: isSelected
-                ? FColors.primary.withOpacity(0.1)
-                : Colors.transparent,
+            color: isSelected ? FColors.primary.withOpacity(0.1) : Colors.transparent,
           ),
           child: Row(
             children: [
@@ -361,283 +369,36 @@ class PostsScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isSelected
                       ? FColors.primary.withOpacity(0.2)
-                      : (dark ? FColors.darkGrey.withOpacity(0.2) : FColors.grey.withOpacity(0.2)),
+                      : (dark ? FColors.communityDarkBorder : FColors.grey.withOpacity(0.2)),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   _getTimeFilterIcon(filter),
                   color: isSelected
                       ? FColors.primary
-                      : (dark ? FColors.darkGrey : FColors.textSecondary),
+                      : (dark ? FColors.darkTextSecondary : FColors.textSecondary),
                   size: 20,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
-                  filter,
+                  filter.displayName,
                   style: TextStyle(
-                    color: isSelected
-                        ? FColors.primary
-                        : (dark ? FColors.white : FColors.black),
+                    color: isSelected ? FColors.primary : (dark ? FColors.white : FColors.black),
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     fontSize: 15,
                   ),
                 ),
               ),
               if (isSelected)
-                Icon(
+                const Icon(
                   Iconsax.tick_circle5,
                   color: FColors.primary,
                   size: 24,
                 ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context, bool dark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(FSizes.defaultSpace * 2),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: FColors.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Iconsax.message_search,
-                size: 64,
-                color: FColors.primary.withOpacity(0.5),
-              ),
-            ),
-            const SizedBox(height: FSizes.spaceBtwItems),
-            Text(
-              'No posts found',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: dark ? FColors.white : FColors.black,
-              ),
-            ),
-            const SizedBox(height: FSizes.sm),
-            Text(
-              'Try adjusting your filters or be the first to post!',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: dark ? FColors.darkGrey : FColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ViewPostScreen extends StatelessWidget {
-  final String postId;
-  const ViewPostScreen({super.key, required this.postId});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('View Post')),
-      body: Center(child: Text('View Post Screen: $postId')),
-    );
-  }
-}
-
-class EditPostScreen extends StatelessWidget {
-  final PostModel post;
-  const EditPostScreen({super.key, required this.post});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Edit Post')),
-      body: Center(child: Text('Edit Post Screen: ${post.postId}')),
-    );
-  }
-}
-
-class FPostInput extends StatelessWidget {
-  const FPostInput({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(FSizes.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(FSizes.md),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
-            ),
-            child: GestureDetector(
-              onTap: () {
-                Get.to(() => const CreatePostScreen());
-              },
-              child: Text(
-                "What's on your mind?",
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: FSizes.spaceBtwItems),
-          FCustomButton(
-            text: 'My Post',
-            backgroundColor: const Color(0xFF4CAF50),
-            textColor: Colors.white,
-            onPressed: () {
-              Get.to(() => const MyPostsScreen());
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class FCustomButton extends StatelessWidget {
-  final String text;
-  final Color? backgroundColor;
-  final Color? textColor;
-  final VoidCallback? onPressed;
-  final double? width;
-  final double? height;
-  final double? fontSize;
-  final IconData? icon;
-  final bool isOutlined;
-  final double? borderRadius;
-
-  const FCustomButton({
-    super.key,
-    required this.text,
-    this.backgroundColor,
-    this.textColor,
-    this.onPressed,
-    this.width,
-    this.height,
-    this.fontSize,
-    this.icon,
-    this.isOutlined = false,
-    this.borderRadius,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = FHelperFunctions.isDarkMode(context);
-
-    final effectiveBackgroundColor = backgroundColor ??
-        (isOutlined ? Colors.transparent : FColors.primary);
-
-    final effectiveTextColor = textColor ??
-        (isOutlined ? FColors.primary : FColors.white);
-
-    return SizedBox(
-      width: width,
-      height: height ?? 36,
-      child: isOutlined
-          ? OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: effectiveTextColor,
-          side: BorderSide(color: effectiveTextColor),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(
-              borderRadius ?? FSizes.borderRadiusSm * 2,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: FSizes.sm,
-            vertical: FSizes.xs,
-          ),
-        ),
-        onPressed: onPressed,
-        icon: icon != null
-            ? Icon(icon, size: FSizes.iconXs)
-            : const SizedBox.shrink(),
-        label: Text(
-          text,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: effectiveTextColor,
-            fontWeight: FontWeight.w500,
-            fontSize: fontSize ?? 12,
-          ),
-        ),
-      )
-          : ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: effectiveBackgroundColor,
-          foregroundColor: effectiveTextColor,
-          elevation: 0,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(
-              borderRadius ?? FSizes.borderRadiusSm * 2,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: FSizes.sm,
-            vertical: FSizes.xs,
-          ),
-        ),
-        onPressed: onPressed,
-        icon: icon != null
-            ? Icon(icon, size: FSizes.iconXs)
-            : const SizedBox.shrink(),
-        label: Text(
-          text,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: effectiveTextColor,
-            fontWeight: FontWeight.w500,
-            fontSize: fontSize ?? 12,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class FCustomTag extends StatelessWidget {
-  final String text;
-  final Color backgroundColor;
-  final Color textColor;
-
-  const FCustomTag({
-    super.key,
-    required this.text,
-    required this.backgroundColor,
-    required this.textColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: FSizes.sm,
-        vertical: FSizes.xs,
-      ),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(FSizes.borderRadiusSm * 2),
-      ),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: textColor,
-          fontWeight: FontWeight.w500,
         ),
       ),
     );

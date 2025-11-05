@@ -26,8 +26,8 @@ class Reply {
       'userId': userId,
       'content': content,
       'likes': likes,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
+      'createdAt': FieldValue.serverTimestamp(), // Use server timestamp
+      'updatedAt': FieldValue.serverTimestamp(), // Use server timestamp
     };
   }
 
@@ -44,6 +44,25 @@ class Reply {
       likes: List<String>.from(data['likes'] ?? []),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  /// Copy with method for updates
+  Reply copyWith({
+    String? replyId,
+    String? userId,
+    String? content,
+    List<String>? likes,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Reply(
+      replyId: replyId ?? this.replyId,
+      userId: userId ?? this.userId,
+      content: content ?? this.content,
+      likes: likes ?? this.likes,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

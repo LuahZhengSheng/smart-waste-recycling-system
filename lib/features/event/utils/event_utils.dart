@@ -5,7 +5,6 @@ import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/sizes.dart';
 import '../../../utils/helpers/helper_functions.dart';
 import '../../../utils/popups/loaders.dart';
-import '../controllers/event_controller.dart';
 import '../models/event_model.dart';
 import '../models/event_enums.dart';
 import '../models/geopoint_model.dart';
@@ -19,13 +18,13 @@ class EventUtils {
   static Color getEventColor(String title) {
     final lowerTitle = title.toLowerCase();
     if (lowerTitle.contains('waste') || lowerTitle.contains('pollution')) {
-      return const Color(0xFFFFE5E5);
+      return FColors.eventWasteColor;
     } else if (lowerTitle.contains('conference') || lowerTitle.contains('international')) {
-      return const Color(0xFFE5E5FF);
+      return FColors.eventConferenceColor;
     } else if (lowerTitle.contains('leadership') || lowerTitle.contains('women')) {
-      return const Color(0xFFE5F5FF);
+      return FColors.eventLeadershipColor;
     } else if (lowerTitle.contains('kids') || lowerTitle.contains('parents')) {
-      return const Color(0xFFE5F0FF);
+      return FColors.eventKidsColor;
     } else {
       return FColors.primaryBackground;
     }
@@ -35,13 +34,13 @@ class EventUtils {
   static Color getEventIconColor(String title) {
     final lowerTitle = title.toLowerCase();
     if (lowerTitle.contains('waste') || lowerTitle.contains('pollution')) {
-      return const Color(0xFFFF6B6B);
+      return FColors.eventWasteIcon;
     } else if (lowerTitle.contains('conference') || lowerTitle.contains('international')) {
-      return const Color(0xFF6B6BFF);
+      return FColors.eventConferenceIcon;
     } else if (lowerTitle.contains('leadership') || lowerTitle.contains('women')) {
-      return const Color(0xFF9B6BFF);
+      return FColors.eventLeadershipIcon;
     } else if (lowerTitle.contains('kids') || lowerTitle.contains('parents')) {
-      return const Color(0xFF6B9BFF);
+      return FColors.eventKidsIcon;
     } else {
       return FColors.primary;
     }
@@ -55,16 +54,16 @@ class EventUtils {
 
     if (lowerTitle.contains('waste') || lowerTitle.contains('pollution')) {
       iconData = Iconsax.trash;
-      iconColor = const Color(0xFFFF6B6B);
+      iconColor = FColors.eventWasteIcon;
     } else if (lowerTitle.contains('conference') || lowerTitle.contains('international')) {
       iconData = Iconsax.global;
-      iconColor = const Color(0xFF6B6BFF);
+      iconColor = FColors.eventConferenceIcon;
     } else if (lowerTitle.contains('leadership') || lowerTitle.contains('women')) {
       iconData = Iconsax.crown;
-      iconColor = const Color(0xFF9B6BFF);
+      iconColor = FColors.eventLeadershipIcon;
     } else if (lowerTitle.contains('kids') || lowerTitle.contains('parents')) {
       iconData = Iconsax.people;
-      iconColor = const Color(0xFF6B9BFF);
+      iconColor = FColors.eventKidsIcon;
     } else {
       iconData = Iconsax.calendar;
       iconColor = FColors.primary;
@@ -87,15 +86,6 @@ class EventUtils {
     }
   }
 
-  /// Get status color based on event state (for Event model)
-  static Color getEventStatusColor(Event event) {
-    if (event.hasEnded) return FColors.completed;
-    if (event.isRegistrationClosed) return FColors.warning;
-    if (event.isFullyBooked) return FColors.error;
-    if (event.isRegistrationOpen) return FColors.success;
-    return FColors.darkGrey;
-  }
-
   /// Get status icon based on event state
   static IconData getStatusIcon(AttendanceStatus status) {
     switch (status) {
@@ -108,15 +98,6 @@ class EventUtils {
       case AttendanceStatus.cancelled:
         return Iconsax.close_circle;
     }
-  }
-
-  /// Get status icon based on event state (for Event model)
-  static IconData getEventStatusIcon(Event event) {
-    if (event.hasEnded) return Iconsax.close_circle;
-    if (event.isRegistrationClosed) return Iconsax.lock;
-    if (event.isFullyBooked) return Iconsax.user_remove;
-    if (event.isRegistrationOpen) return Iconsax.tick_circle;
-    return Iconsax.info_circle;
   }
 
   // ==================== Event Status Utilities ====================
@@ -133,7 +114,6 @@ class EventUtils {
     } else if (event.startDateTime.isAfter(now)) {
       return AttendanceStatus.upcoming;
     } else {
-      // Event is currently ongoing
       return AttendanceStatus.ongoing;
     }
   }
@@ -153,7 +133,6 @@ class EventUtils {
     } else if (eventDate == today.subtract(const Duration(days: 1))) {
       return 'Yesterday';
     } else {
-      // Format as "MMM dd" (e.g., "Dec 25")
       final month = _getMonthAbbreviation(dateTime.month);
       return '$month ${dateTime.day}';
     }
@@ -170,21 +149,11 @@ class EventUtils {
 
   /// Get month abbreviation
   static String _getMonthAbbreviation(int month) {
-    switch (month) {
-      case 1: return 'Jan';
-      case 2: return 'Feb';
-      case 3: return 'Mar';
-      case 4: return 'Apr';
-      case 5: return 'May';
-      case 6: return 'Jun';
-      case 7: return 'Jul';
-      case 8: return 'Aug';
-      case 9: return 'Sep';
-      case 10: return 'Oct';
-      case 11: return 'Nov';
-      case 12: return 'Dec';
-      default: return '';
-    }
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
   }
 
   // ==================== Button Utilities ====================
@@ -215,9 +184,7 @@ class EventUtils {
 
   /// Check if user can register for event
   static bool canRegister(Event event, bool isRegistered) {
-    return !isRegistered &&
-        event.isRegistrationOpen &&
-        !event.isFullyBooked;
+    return !isRegistered && event.isRegistrationOpen && !event.isFullyBooked;
   }
 
   // ==================== Time Filter Utilities ====================
@@ -242,18 +209,12 @@ class EventUtils {
 
   /// Share event details
   static void shareEvent(Event event) {
-    FLoaders.customToast(
-      message: 'Event sharing coming soon!',
-    );
-    // TODO: Implement share functionality
+    FLoaders.customToast(message: 'Event sharing coming soon!');
   }
 
   /// Launch email app
   static Future<void> launchEmail(String email) async {
-    final Uri emailUri = Uri(
-      scheme: 'mailto',
-      path: email,
-    );
+    final Uri emailUri = Uri(scheme: 'mailto', path: email);
 
     try {
       if (await canLaunchUrl(emailUri)) {
@@ -274,10 +235,7 @@ class EventUtils {
 
   /// Launch phone dialer
   static Future<void> launchPhone(String phone) async {
-    final Uri phoneUri = Uri(
-      scheme: 'tel',
-      path: phone,
-    );
+    final Uri phoneUri = Uri(scheme: 'tel', path: phone);
 
     try {
       if (await canLaunchUrl(phoneUri)) {
@@ -296,10 +254,10 @@ class EventUtils {
     }
   }
 
-  /// Open location in Google Maps
+  /// Open location in Google Maps with navigation
   static Future<void> openInGoogleMaps(GeoPointModel geoPoint) async {
     final Uri mapsUri = Uri.parse(
-        'https://www.google.com/maps/search/?api=1&query=${geoPoint.latitude},${geoPoint.longitude}'
+        'https://www.google.com/maps/dir/?api=1&destination=${geoPoint.latitude},${geoPoint.longitude}&travelmode=driving'
     );
 
     try {
@@ -308,7 +266,7 @@ class EventUtils {
       } else {
         FLoaders.errorSnackBar(
           title: 'Error',
-          message: 'Could not open maps',
+          message: 'Could not open Google Maps',
         );
       }
     } catch (e) {
@@ -322,9 +280,7 @@ class EventUtils {
   // ==================== Lightbox Utilities ====================
 
   /// Show poster in lightbox
-  static void showPosterLightbox(BuildContext context, Event event) {
-    final dark = FHelperFunctions.isDarkMode(context);
-
+  static void showPosterLightbox(BuildContext context, Event event, String? posterUrl) {
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.9),
@@ -333,7 +289,6 @@ class EventUtils {
         insetPadding: const EdgeInsets.all(FSizes.defaultSpace),
         child: Stack(
           children: [
-            // Poster Content
             Center(
               child: Container(
                 constraints: BoxConstraints(
@@ -351,58 +306,32 @@ class EventUtils {
                     ),
                   ],
                 ),
-                child: Stack(
-                  children: [
-                    // Background gradient
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            getEventColor(event.title),
-                            getEventColor(event.title).withOpacity(0.7),
-                          ],
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: posterUrl != null && posterUrl.isNotEmpty
+                      ? Image.network(
+                    posterUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                              : null,
+                          color: FColors.primary,
                         ),
-                      ),
-                    ),
-
-                    // Event icon
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(40),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: buildEventIcon(event.title, size: 80),
-                          ),
-                          const SizedBox(height: FSizes.spaceBtwItems),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
-                            child: Text(
-                              event.title,
-                              style: const TextStyle(
-                                color: FColors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return _buildDefaultPoster(event);
+                    },
+                  )
+                      : _buildDefaultPoster(event),
                 ),
               ),
             ),
-
-            // Close button
             Positioned(
               top: FSizes.defaultSpace,
               right: FSizes.defaultSpace,
@@ -420,6 +349,50 @@ class EventUtils {
                     size: 24,
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build default poster when image is not available
+  static Widget _buildDefaultPoster(Event event) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            getEventColor(event.title),
+            getEventColor(event.title).withOpacity(0.7),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(40),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: buildEventIcon(event.title, size: 80),
+            ),
+            const SizedBox(height: FSizes.spaceBtwItems),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
+              child: Text(
+                event.title,
+                style: const TextStyle(
+                  color: FColors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ],

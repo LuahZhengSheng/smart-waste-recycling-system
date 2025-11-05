@@ -8,8 +8,10 @@ import '../../../utils/constants/colors.dart';
 import '../../../utils/popups/loaders.dart';
 import '../models/event_enums.dart';
 import '../models/event_model.dart';
+import '../utils/event_utils.dart';
 
-class MyEventsController extends GetxController with GetSingleTickerProviderStateMixin {
+class MyEventsController extends GetxController
+    with GetSingleTickerProviderStateMixin {
   static MyEventsController get instance => Get.find();
 
   // Repositories
@@ -30,6 +32,10 @@ class MyEventsController extends GetxController with GetSingleTickerProviderStat
   // Time filter
   final selectedTimeFilter = TimeFilter.allTime.obs;
 
+  // Event poster URLs cache
+  final eventPosterUrls = <String, String?>{}.obs;
+  final isLoadingPoster = <String, bool>{}.obs;
+
   // Stream subscriptions
   StreamSubscription<List<Event>>? _eventsSubscription;
   StreamSubscription<Map<String, bool>>? _cancelledSubscription;
@@ -43,7 +49,6 @@ class MyEventsController extends GetxController with GetSingleTickerProviderStat
       _filterEventsByTab();
     });
 
-    // 延迟加载数据，确保 Widget 构建完成
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadMyEvents();
     });
@@ -62,7 +67,6 @@ class MyEventsController extends GetxController with GetSingleTickerProviderStat
     try {
       final userId = _authRepo.authUser?.uid;
       if (userId == null) {
-        // 延迟显示 SnackBar，避免构建过程中调用
         Future.delayed(Duration.zero, () {
           FLoaders.errorSnackBar(
             title: 'Error',
@@ -72,43 +76,51 @@ class MyEventsController extends GetxController with GetSingleTickerProviderStat
         return;
       }
 
-      // 延迟显示 Loading，避免构建过程中调用
       Future.delayed(Duration.zero, () {
         FLoaders.showLoading('Loading your events...');
       });
 
       // Listen to registered events
-      _eventsSubscription = eventRegistrationRepository.getUserRegisteredEvents(userId).listen(
-            (events) {
-          registeredEvents.value = events;
-          _filterEventsByTab();
+      _eventsSubscription =
+          eventRegistrationRepository.getUserRegisteredEvents(userId).listen(
+                (events) {
+              registeredEvents.value = events;
 
-          // Stop loading after first data
-          if (FLoaders.stopLoading != null) {
-            Future.delayed(Duration.zero, () {
-              FLoaders.stopLoading();
-            });
-          }
-        },
-        onError: (error) {
-          Future.delayed(Duration.zero, () {
-            FLoaders.stopLoading();
-            FLoaders.errorSnackBar(
-              title: 'Error',
-              message: 'Failed to load events: ${error.toString()}',
-            );
-          });
-        },
-      );
+              // Load poster URLs for all events
+              for (final event in events) {
+                if (event.poster.isNotEmpty) {
+                  _loadEventPoster(event.eventId, event.poster);
+                }
+              }
+
+              _filterEventsByTab();
+
+              if (FLoaders.stopLoading != null) {
+                Future.delayed(Duration.zero, () {
+                  FLoaders.stopLoading();
+                });
+              }
+            },
+            onError: (error) {
+              Future.delayed(Duration.zero, () {
+                FLoaders.stopLoading();
+                FLoaders.errorSnackBar(
+                  title: 'Error',
+                  message: 'Failed to load events: ${error.toString()}',
+                );
+              });
+            },
+          );
 
       // Listen to cancelled registrations
-      _cancelledSubscription = eventRegistrationRepository.getUserCancelledRegistrations(userId).listen(
+      _cancelledSubscription = eventRegistrationRepository
+          .getUserCancelledRegistrations(userId)
+          .listen(
             (cancelledMap) {
           cancelledEventIds.value = cancelledMap;
           _filterEventsByTab();
         },
         onError: (error) {
-          // Silently handle cancelled registrations errors
           print('Error loading cancelled registrations: $error');
         },
       );
@@ -120,6 +132,22 @@ class MyEventsController extends GetxController with GetSingleTickerProviderStat
           message: 'Failed to load events: ${e.toString()}',
         );
       });
+    }
+  }
+
+  /// Load event poster from Firebase Storage
+  Future<void> _loadEventPoster(String eventId, String posterFileName) async {
+    if (eventPosterUrls.containsKey(eventId)) return;
+
+    try {
+      isLoadingPoster[eventId] = true;
+      final url = await eventRepository.getEventPosterUrl(posterFileName);
+      eventPosterUrls[eventId] = url;
+    } catch (e) {
+      print('Error loading poster for event $eventId: $e');
+      eventPosterUrls[eventId] = null;
+    } finally {
+      isLoadingPoster[eventId] = false;
     }
   }
 
@@ -136,20 +164,27 @@ class MyEventsController extends GetxController with GetSingleTickerProviderStat
         filteredEvents.value = events;
         break;
       case 1: // Upcoming
-        filteredEvents.value = events.where((event) =>
-        !event.hasStarted && !_isEventCancelled(event.eventId)).toList();
+        filteredEvents.value = events
+            .where((event) =>
+        !event.hasStarted && !_isEventCancelled(event.eventId))
+            .toList();
         break;
       case 2: // Ongoing
-        filteredEvents.value = events.where((event) =>
-        event.hasStarted && !event.hasEnded && !_isEventCancelled(event.eventId)).toList();
+        filteredEvents.value = events
+            .where((event) =>
+        event.hasStarted &&
+            !event.hasEnded &&
+            !_isEventCancelled(event.eventId))
+            .toList();
         break;
       case 3: // Completed
-        filteredEvents.value = events.where((event) =>
-        event.hasEnded && !_isEventCancelled(event.eventId)).toList();
+        filteredEvents.value = events
+            .where((event) => event.hasEnded && !_isEventCancelled(event.eventId))
+            .toList();
         break;
       case 4: // Cancelled
-        filteredEvents.value = events.where((event) =>
-            _isEventCancelled(event.eventId)).toList();
+        filteredEvents.value =
+            events.where((event) => _isEventCancelled(event.eventId)).toList();
         break;
     }
 
@@ -178,7 +213,8 @@ class MyEventsController extends GetxController with GetSingleTickerProviderStat
         final endOfWeek = startOfWeek.add(const Duration(days: 6));
         return events.where((event) {
           return event.startDateTime.isAfter(startOfWeek) &&
-              event.startDateTime.isBefore(endOfWeek.add(const Duration(days: 1)));
+              event.startDateTime
+                  .isBefore(endOfWeek.add(const Duration(days: 1)));
         }).toList();
 
       case TimeFilter.thisMonth:
@@ -217,7 +253,8 @@ class MyEventsController extends GetxController with GetSingleTickerProviderStat
       // Show confirmation dialog
       final confirmed = await FLoaders.showConfirmationDialog(
         title: 'Cancel Registration',
-        message: 'Are you sure you want to cancel your registration for this event?',
+        message:
+        'Are you sure you want to cancel your registration for this event?',
         confirmText: 'Yes, Cancel',
         cancelText: 'No',
         confirmColor: FColors.error,
@@ -257,17 +294,23 @@ class MyEventsController extends GetxController with GetSingleTickerProviderStat
       case 0: // All
         return events.length;
       case 1: // Upcoming
-        return events.where((event) =>
-        !event.hasStarted && !_isEventCancelled(event.eventId)).length;
+        return events
+            .where((event) =>
+        !event.hasStarted && !_isEventCancelled(event.eventId))
+            .length;
       case 2: // Ongoing
-        return events.where((event) =>
-        event.hasStarted && !event.hasEnded && !_isEventCancelled(event.eventId)).length;
+        return events
+            .where((event) =>
+        event.hasStarted &&
+            !event.hasEnded &&
+            !_isEventCancelled(event.eventId))
+            .length;
       case 3: // Completed
-        return events.where((event) =>
-        event.hasEnded && !_isEventCancelled(event.eventId)).length;
+        return events
+            .where((event) => event.hasEnded && !_isEventCancelled(event.eventId))
+            .length;
       case 4: // Cancelled
-        return events.where((event) =>
-            _isEventCancelled(event.eventId)).length;
+        return events.where((event) => _isEventCancelled(event.eventId)).length;
       default:
         return 0;
     }
@@ -276,5 +319,10 @@ class MyEventsController extends GetxController with GetSingleTickerProviderStat
   /// Check if event registration is cancelled
   bool _isEventCancelled(String eventId) {
     return cancelledEventIds[eventId] ?? false;
+  }
+
+  /// Refresh events
+  Future<void> refreshEvents() async {
+    _loadMyEvents();
   }
 }

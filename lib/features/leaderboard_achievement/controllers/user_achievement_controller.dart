@@ -1,15 +1,32 @@
+import 'dart:async';
 import 'package:get/get.dart';
+import 'package:fyp/data/repositories/authentication/authentication_repository.dart';
+import 'package:fyp/utils/constants/enums.dart';
 
-import '../models/achievement_level_model.dart';
-import '../models/achievement_model.dart';
+import '../../../data/repositories/achievement/achievement_repostory.dart';
+import '../../../data/repositories/achievement/user_achievement_repository.dart';
+import '../models/achievement_enums.dart';
 import '../models/user_achievement_model.dart';
 
-class MyAchievementsController extends GetxController {
-  static MyAchievementsController get instance => Get.find();
+class UserAchievementController extends GetxController {
+  static UserAchievementController get instance => Get.find();
 
-  // Observable list of user achievements
-  var userAchievements = <UserAchievementModel>[].obs;
-  var isLoading = false.obs;
+  final UserAchievementRepository _userAchievementRepo =
+      Get.put(UserAchievementRepository());
+  final AchievementRepository _achievementRepo =
+      Get.put(AchievementRepository());
+  final _authRepo = AuthenticationRepository.instance;
+
+  // Observable data
+  final RxList<UserAchievement> userAchievements = <UserAchievement>[].obs;
+  final RxBool isLoading = false.obs;
+  final RxString error = ''.obs;
+
+  // Track level changes for animations
+  final RxMap<String, int> previousLevels = <String, int>{}.obs;
+  final RxMap<String, bool> levelUpAnimations = <String, bool>{}.obs;
+
+  StreamSubscription? _achievementsSubscription;
 
   @override
   void onInit() {
@@ -17,125 +34,127 @@ class MyAchievementsController extends GetxController {
     fetchUserAchievements();
   }
 
-  /// Fetch user achievements (mock data for now)
-  Future<void> fetchUserAchievements() async {
+  @override
+  void onClose() {
+    _achievementsSubscription?.cancel();
+    super.onClose();
+  }
+
+  /// Fetch user achievements with real-time updates
+  void fetchUserAchievements() {
     try {
       isLoading.value = true;
+      error.value = '';
 
-      // Simulate API delay
-      await Future.delayed(const Duration(seconds: 1));
+      final userId = _authRepo.authUser?.uid;
+      if (userId == null) {
+        error.value = 'User not authenticated';
+        isLoading.value = false;
+        return;
+      }
 
-      // Mock data
-      userAchievements.value = [
-        UserAchievementModel(
-          userAchievementId: '1',
-          userId: 'user123',
-          currentLevel: 1,
-          progress: 17,
-          updatedAt: DateTime.now(),
-          achievement: AchievementModel(
-            achievementId: 'ach1',
-            title: 'Sort & Scan Waste 50 Times',
-            category: 'Scanning',
-            maxLevel: 3,
-            createdAt: DateTime.now(),
-            achievementLevels: [
-              AchievementLevelModel(
-                achievementLevelId: 'level1',
-                level: 1,
-                unlockCriteria: 50,
-                description: 'Scan and sort waste 50 times to unlock this achievement.',
-                badgeImage: '🔒',
-              ),
-            ],
-          ),
-        ),
-        UserAchievementModel(
-          userAchievementId: '2',
-          userId: 'user123',
-          currentLevel: 1,
-          progress: 8,
-          updatedAt: DateTime.now(),
-          achievement: AchievementModel(
-            achievementId: 'ach2',
-            title: 'Recycle 20 Times',
-            category: 'Recycling',
-            maxLevel: 3,
-            createdAt: DateTime.now(),
-            achievementLevels: [
-              AchievementLevelModel(
-                achievementLevelId: 'level2',
-                level: 1,
-                unlockCriteria: 20,
-                description: 'Recycle items 20 times to help save the environment.',
-                badgeImage: '🏅',
-              ),
-            ],
-          ),
-        ),
-        UserAchievementModel(
-          userAchievementId: '3',
-          userId: 'user123',
-          currentLevel: 3,
-          progress: 100,
-          updatedAt: DateTime.now(),
-          achievement: AchievementModel(
-            achievementId: 'ach3',
-            title: 'Eco Warrior',
-            category: 'Special',
-            maxLevel: 3,
-            createdAt: DateTime.now(),
-            achievementLevels: [
-              AchievementLevelModel(
-                achievementLevelId: 'level3',
-                level: 3,
-                unlockCriteria: 100,
-                description: 'Complete all environmental challenges to become an Eco Warrior.',
-                badgeImage: '🏆',
-              ),
-            ],
-          ),
-        ),
-        UserAchievementModel(
-          userAchievementId: '4',
-          userId: 'user123',
-          currentLevel: 0,
-          progress: 5,
-          updatedAt: DateTime.now(),
-          achievement: AchievementModel(
-            achievementId: 'ach4',
-            title: 'Green Champion',
-            category: 'Community',
-            maxLevel: 3,
-            createdAt: DateTime.now(),
-            achievementLevels: [
-              AchievementLevelModel(
-                achievementLevelId: 'level4',
-                level: 1,
-                unlockCriteria: 20,
-                description: 'Participate in 20 community green events.',
-                badgeImage: '🌟',
-              ),
-            ],
-          ),
-        ),
-      ];
-    } finally {
+      _achievementsSubscription?.cancel();
+      _achievementsSubscription =
+          _userAchievementRepo.getUserAchievementsStream(userId).listen(
+        (achievements) {
+          _handleAchievementsUpdate(achievements);
+          isLoading.value = false;
+        },
+        onError: (e) {
+          error.value = 'Failed to fetch achievements: $e';
+          isLoading.value = false;
+        },
+      );
+    } catch (e) {
+      error.value = 'Error: $e';
       isLoading.value = false;
     }
   }
 
-  /// Get total completed achievements
-  int get completedCount => userAchievements
-      .where((achievement) => achievement.isCompleted())
-      .length;
+  /// Handle achievements update and check for level changes
+  void _handleAchievementsUpdate(List<UserAchievement> newAchievements) {
+    for (final newAchievement in newAchievements) {
+      final achievementId = newAchievement.achievement.achievementId;
+      final newLevel = newAchievement.currentLevel;
 
-  /// Get total achievements
+      // Check if this is an existing achievement with a level change
+      final oldAchievement = userAchievements.firstWhereOrNull(
+        (a) => a.achievement.achievementId == achievementId,
+      );
+
+      if (oldAchievement != null) {
+        final oldLevel = oldAchievement.currentLevel;
+
+        // Level up detected
+        if (newLevel > oldLevel) {
+          previousLevels[achievementId] = oldLevel;
+          levelUpAnimations[achievementId] = true;
+
+          // Reset animation flag after 2 seconds
+          Future.delayed(const Duration(seconds: 2), () {
+            levelUpAnimations[achievementId] = false;
+          });
+        }
+      } else {
+        // New achievement, store initial level
+        previousLevels[achievementId] = newLevel;
+      }
+    }
+
+    userAchievements.value = newAchievements;
+  }
+
+  /// Get achievements grouped by category
+  Map<AchievementCategory, List<UserAchievement>> get achievementsByCategory {
+    final Map<AchievementCategory, List<UserAchievement>> grouped = {};
+
+    for (final userAchievement in userAchievements) {
+      final category = AchievementCategory.fromString(
+        userAchievement.achievement.category,
+      );
+
+      if (!grouped.containsKey(category)) {
+        grouped[category] = [];
+      }
+
+      grouped[category]!.add(userAchievement);
+    }
+
+    return grouped;
+  }
+
+  /// Get total completed achievements count
+  int get completedCount =>
+      userAchievements.where((achievement) => achievement.isCompleted()).length;
+
+  /// Get total achievements count
   int get totalCount => userAchievements.length;
 
-  /// Get progress percentage for overall achievements
+  /// Get overall completion percentage
   double get overallProgress {
     if (totalCount == 0) return 0;
     return completedCount / totalCount;
+  }
+
+  /// Get achievements by status
+  List<UserAchievement> getAchievementsByStatus(AchievementStatus status) {
+    return userAchievements
+        .where((achievement) => achievement.status == status)
+        .toList();
+  }
+
+  /// Check if achievement recently leveled up
+  bool hasRecentLevelUp(String achievementId) {
+    return levelUpAnimations[achievementId] ?? false;
+  }
+
+  /// Get previous level for achievement
+  int? getPreviousLevel(String achievementId) {
+    return previousLevels[achievementId];
+  }
+
+  /// Refresh achievements
+  Future<void> refreshAchievements() async {
+    fetchUserAchievements();
   }
 }

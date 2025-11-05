@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:fyp/common/widgets/appbar/appbar.dart';
 import 'package:fyp/features/community/controllers/posts/comment_controller.dart';
 import 'package:fyp/features/community/controllers/posts/reply_controller.dart';
+import 'package:fyp/features/community/models/comment_model.dart';
 import 'package:fyp/features/community/models/reply_model.dart';
 import 'package:fyp/features/community/screens/comments/widgets/comment_card.dart';
+import 'package:fyp/features/community/screens/common_post_widgets/common_post_widgets.dart';
+import 'package:fyp/utils/constants/colors.dart';
+import 'package:fyp/utils/constants/sizes.dart';
+import 'package:fyp/utils/helpers/helper_functions.dart';
+import 'package:fyp/utils/popups/loaders.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:fyp/features/community/models/comment_model.dart';
-import 'package:fyp/utils/constants/sizes.dart';
-import 'package:fyp/common/widgets/appbar/appbar.dart';
+import '../../../../../utils/formatters/formatter.dart';
 
-// Comment Replies Screen
-class CommentRepliesScreen extends StatelessWidget {
+class CommentRepliesScreen extends StatefulWidget {
   final String postId;
   final Comment comment;
   final bool autoFocusReply;
@@ -23,276 +27,184 @@ class CommentRepliesScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final commentController = Get.put(CommentController());
-    final repliesController = Get.put(ReplyController());
+  State<CommentRepliesScreen> createState() => _CommentRepliesScreenState();
+}
 
-    // Initialize with comment data and auto focus if needed
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      commentController.initialize(comment, postId: postId);
-      repliesController.initialize(postId, comment.commentId, autoFocus: autoFocusReply);
+class _CommentRepliesScreenState extends State<CommentRepliesScreen> {
+  final _commentController = Get.put(CommentController());
+  final _repliesController = Get.put(ReplyController());
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    // Initialize comment controller first
+    await _commentController.initialize(widget.comment, postId: widget.postId);
+
+    // Then initialize replies controller
+    await _repliesController.initialize(
+      widget.postId,
+      widget.comment.commentId,
+      autoFocus: widget.autoFocusReply,
+    );
+
+    setState(() {
+      _isInitialized = true;
     });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: Colors.white, // 改为白色
-      appBar: const FAppBar(
-        title: Text('Replies'),
+      backgroundColor: dark ? FColors.communityDarkBackground : FColors.white,
+      appBar: FAppBar(
+        title: const Text('Replies'),
         showBackArrow: true,
+        backgroundColor: dark ? FColors.communityDarkBackground : FColors.white,
       ),
-      body: Column(
-        children: [
-          // Main content with refresh indicator
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => repliesController.refreshReplies(),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Container(
-                  color: Colors.white, // 改为白色
-                  child: Column(
-                    children: [
-                      // Original comment using unified FCommentCard
-                      FCommentCard(
-                        comment: comment,
-                        postId: postId,
-                        isInRepliesScreen: true,
-                        isOriginalComment: true,
-                      ),
-
-                      // Divider
-                      Container(
-                        height: 1,
-                        color: Colors.grey[200],
-                        margin: const EdgeInsets.symmetric(horizontal: FSizes.md),
-                      ),
-
-                      // Replies list
-                      FRepliesList(replies: repliesController.replies),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Write reply input at bottom
-          const FWriteReplyInput(),
-        ],
-      ),
-    );
-  }
-}
-
-// Write Reply Input Widget
-class FWriteReplyInput extends StatelessWidget {
-  const FWriteReplyInput({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final commentController = Get.find<CommentController>();
-    final repliesController = Get.find<ReplyController>();
-
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.only(
-        left: FSizes.md,
-        right: FSizes.md,
-        top: FSizes.sm,
-        bottom: MediaQuery.of(context).padding.bottom + FSizes.sm,
-      ),
-      child: Row(
-        children: [
-          // User avatar
-          CircleAvatar(
-            radius: 16,
-            backgroundImage: NetworkImage(
-              commentController.getUserAvatar(commentController.getCurrentUserId()),
-            ),
-          ),
-
-          const SizedBox(width: FSizes.sm),
-
-          // Input field
-          Expanded(
-            child: Obx(() => TextField(
-              controller: repliesController.replyController,
-              focusNode: repliesController.replyFocusNode,
-              enabled: !repliesController.isSubmitting.value,
-              decoration: InputDecoration(
-                hintText: 'Write a reply...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: repliesController.isSubmitting.value
-                    ? Colors.grey[200]
-                    : Colors.grey[100],
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: FSizes.md,
-                  vertical: FSizes.sm,
-                ),
-                suffixIcon: repliesController.isSubmitting.value
-                    ? const Padding(
-                  padding: EdgeInsets.all(12.0),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-                    : null,
-              ),
-              maxLines: null,
-              minLines: 1,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _handleSubmit(repliesController),
-            )),
-          ),
-
-          const SizedBox(width: FSizes.sm),
-
-          // Send button - FIXED: 使用 isReplyValid 来更新颜色
-          Obx(() {
-            final isValid = repliesController.isReplyValid.value;
-            final isSubmitting = repliesController.isSubmitting.value;
-
-            return GestureDetector(
-              onTap: isValid && !isSubmitting
-                  ? () => _handleSubmit(repliesController)
-                  : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _getSendButtonColor(isValid, isSubmitting),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(
-                  _getSendButtonIcon(isSubmitting),
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  void _handleSubmit(ReplyController controller) {
-    if (controller.isReplyValid.value && !controller.isSubmitting.value) {
-      controller.submitReply();
-    }
-  }
-
-  Color _getSendButtonColor(bool isValid, bool isSubmitting) {
-    if (isSubmitting) {
-      return Colors.grey[400]!;
-    } else if (isValid) {
-      return const Color(0xFF4CAF50); // 青色
-    } else {
-      return Colors.grey[300]!;
-    }
-  }
-
-  IconData _getSendButtonIcon(bool isSubmitting) {
-    if (isSubmitting) {
-      return Icons.hourglass_empty;
-    } else {
-      return Icons.send;
-    }
-  }
-}
-
-// Replies List Widget
-class FRepliesList extends StatelessWidget {
-  final RxList<Reply> replies;
-
-  const FRepliesList({
-    super.key,
-    required this.replies,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final repliesController = Get.find<ReplyController>();
-
-    return Obx(() {
-      // Show loading indicator for initial load
-      if (repliesController.isLoading.value && replies.isEmpty) {
-        return const Center(
-          child: Padding(
-            padding: EdgeInsets.all(FSizes.defaultSpace),
-            child: CircularProgressIndicator(),
-          ),
-        );
-      }
-
-      // Show empty state
-      if (replies.isEmpty && !repliesController.isLoading.value) {
-        return Container(
-          padding: const EdgeInsets.all(FSizes.defaultSpace),
-          color: Colors.white, // 改为白色
-          child: const Center(
+      body: Obx(() {
+        // Show full screen loading while initializing or loading user data
+        if (!_isInitialized ||
+            _repliesController.isLoading.value ||
+            _commentController.isLoadingUserData.value) {
+          return Center(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Iconsax.message_text,
-                  size: 48,
-                  color: Colors.grey,
+                CircularProgressIndicator(
+                  color: FColors.primary,
+                  backgroundColor: dark ? FColors.communityDarkBorder : FColors.grey.withOpacity(0.2),
                 ),
-                SizedBox(height: FSizes.sm),
+                const SizedBox(height: FSizes.md),
                 Text(
-                  'No replies yet',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 16,
-                  ),
-                ),
-                SizedBox(height: FSizes.xs),
-                Text(
-                  'Be the first to reply!',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 14,
+                  'Loading...',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: dark ? FColors.darkTextSecondary : FColors.textSecondary,
                   ),
                 ),
               ],
             ),
-          ),
+          );
+        }
+
+        // Show content when loaded
+        return Column(
+          children: [
+            // Main content
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _repliesController.refreshReplies(),
+                color: FColors.primary,
+                backgroundColor: dark ? FColors.communityDarkSurface : FColors.white,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Container(
+                    color: dark ? FColors.communityDarkBackground : FColors.white,
+                    child: Column(
+                      children: [
+                        // Original comment
+                        FCommentCard(
+                          comment: widget.comment,
+                          postId: widget.postId,
+                          isInRepliesScreen: true,
+                          isOriginalComment: true,
+                        ),
+
+                        // Divider
+                        Container(
+                          height: 1,
+                          color: dark ? FColors.communityDarkDivider : FColors.grey.withOpacity(0.2),
+                          margin: const EdgeInsets.symmetric(horizontal: FSizes.md),
+                        ),
+
+                        // Replies list
+                        _RepliesList(),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Write reply input
+            Obx(() => FInputField(
+              controller: _repliesController.replyController,
+              focusNode: _repliesController.replyFocusNode,
+              isEnabled: !_repliesController.isSubmitting.value,
+              isSubmitting: _repliesController.isSubmitting.value,
+              hintText: 'Write a reply...',
+              isEditMode: _repliesController.isEditMode.value,
+              onSubmit: () {
+                if (_repliesController.isEditMode.value) {
+                  _repliesController.saveEdit();
+                } else {
+                  _repliesController.submitReply();
+                }
+              },
+              onCancel: () => _repliesController.cancelEdit(),
+              isComment: false, // 明确标记这是回复输入框
+            )),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+/// Replies list widget
+class _RepliesList extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final repliesController = Get.find<ReplyController>();
+    final dark = FHelperFunctions.isDarkMode(context);
+
+    return Obx(() {
+      // Empty state
+      if (repliesController.replies.isEmpty) {
+        return const FEmptyState(
+          icon: Iconsax.message_text,
+          title: 'No replies yet',
+          subtitle: 'Be the first to reply!',
         );
       }
 
-      // Show replies list
+      // Replies list
       return Container(
-        color: Colors.white, // 改为白色
+        color: dark ? FColors.communityDarkBackground : FColors.white,
         child: Column(
-          children: replies.map((reply) => FReplyCard(reply: reply)).toList(),
+          children: repliesController.replies
+              .map((reply) => _ReplyCard(reply: reply))
+              .toList(),
         ),
       );
     });
   }
 }
 
-// Individual Reply Card
-class FReplyCard extends StatelessWidget {
+/// Individual Reply Card
+class _ReplyCard extends StatelessWidget {
   final Reply reply;
 
-  const FReplyCard({super.key, required this.reply});
+  const _ReplyCard({required this.reply});
 
   @override
   Widget build(BuildContext context) {
     final commentController = Get.find<CommentController>();
     final repliesController = Get.find<ReplyController>();
+    final dark = FHelperFunctions.isDarkMode(context);
+    final currentUserId = commentController.getCurrentUserId();
 
     return GestureDetector(
-      onLongPress: () => _showReplyContextMenu(context, commentController, repliesController),
+      onLongPress: () => _showReplyContextMenu(context, commentController, repliesController, dark),
       child: Container(
-        color: Colors.white, // 改为白色
-        margin: const EdgeInsets.only(left: FSizes.lg), // Indent for replies
+        color: dark ? FColors.communityDarkBackground : FColors.white,
+        margin: const EdgeInsets.only(left: FSizes.lg),
         padding: const EdgeInsets.symmetric(
           horizontal: FSizes.md,
           vertical: FSizes.sm,
@@ -300,14 +212,8 @@ class FReplyCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // User avatar (smaller for replies)
-            CircleAvatar(
-              radius: 14,
-              backgroundImage: NetworkImage(
-                commentController.getUserAvatar(reply.userId),
-              ),
-            ),
-
+            // User avatar
+            FUserAvatar(userId: reply.userId, radius: 14),
             const SizedBox(width: FSizes.md),
 
             // Reply content
@@ -316,35 +222,12 @@ class FReplyCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // User name and time
-                  Row(
-                    children: [
-                      Text(
-                        commentController.getUserName(reply.userId),
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: FSizes.md),
-                      Text(
-                        commentController.formatTimeAgo(reply.createdAt),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      // Show edited indicator if reply was edited
-                      if (reply.updatedAt.isAfter(reply.createdAt.add(const Duration(minutes: 1)))) ...[
-                        const SizedBox(width: FSizes.xs),
-                        Text(
-                          '(edited)',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[500],
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                    ],
+                  FUserInfoRow(
+                    userId: reply.userId,
+                    createdAt: reply.createdAt,
+                    updatedAt: reply.updatedAt,
+                    formatTimeAgo: FFormatter.formatTimeAgo,
                   ),
-
                   const SizedBox(height: FSizes.md),
 
                   // Reply content
@@ -352,59 +235,25 @@ class FReplyCard extends StatelessWidget {
                     reply.content,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       height: 1.3,
+                      color: dark ? FColors.darkText : FColors.textPrimary,
                     ),
                   ),
-
                   const SizedBox(height: FSizes.md),
 
-                  // Action buttons
-                  Row(
-                    children: [
-                      // Like button with count
-                      GestureDetector(
-                        onTap: () => repliesController.toggleReplyLike(reply.replyId),
-                        child: Row(
-                          children: [
-                            Obx(() {
-                              final currentUserId = commentController.getCurrentUserId();
-                              final currentReply = repliesController.replies.firstWhere(
-                                    (r) => r.replyId == reply.replyId,
-                                orElse: () => reply,
-                              );
-                              final isLiked = currentReply.likes.contains(currentUserId);
+                  // Like button
+                  Obx(() {
+                    final currentReply = repliesController.replies.firstWhere(
+                          (r) => r.replyId == reply.replyId,
+                      orElse: () => reply,
+                    );
+                    final isLiked = currentReply.likes.contains(currentUserId);
 
-                              return Icon(
-                                isLiked ? Iconsax.like_15 : Iconsax.like_1,
-                                size: 16,
-                                color: isLiked
-                                    ? const Color(0xFF4CAF50)
-                                    : Colors.grey[600],
-                              );
-                            }),
-                            const SizedBox(width: 4),
-                            Obx(() {
-                              final currentReply = repliesController.replies.firstWhere(
-                                    (r) => r.replyId == reply.replyId,
-                                orElse: () => reply,
-                              );
-                              if (currentReply.likes.isEmpty) {
-                                return const SizedBox.shrink();
-                              }
-                              return Text(
-                                currentReply.likes.length.toString(),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
-                              );
-                            }),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    return FLikeButton(
+                      likes: currentReply.likes,
+                      isLiked: isLiked,
+                      onTap: () => repliesController.toggleReplyLike(reply.replyId),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -414,101 +263,21 @@ class FReplyCard extends StatelessWidget {
     );
   }
 
-  void _showReplyContextMenu(BuildContext context, CommentController commentController, ReplyController repliesController) {
+  void _showReplyContextMenu(
+      BuildContext context,
+      CommentController commentController,
+      ReplyController repliesController,
+      bool dark,
+      ) {
     final canModify = repliesController.canModifyReply(reply);
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white, // 改为白色
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(FSizes.defaultSpace),
-        color: Colors.white, // 改为白色
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: FSizes.md),
-
-            // Copy text option (always available)
-            ListTile(
-              leading: const Icon(Iconsax.copy),
-              title: const Text('Copy Text'),
-              onTap: () {
-                Navigator.pop(context);
-                repliesController.copyReplyText(reply.content);
-              },
-            ),
-
-            // Owner-only options
-            if (canModify) ...[
-              ListTile(
-                leading: const Icon(Iconsax.edit_2),
-                title: const Text('Edit Reply'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditReplyDialog(context, repliesController);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Iconsax.trash, color: Colors.red),
-                title: const Text('Delete Reply', style: TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  repliesController.deleteReply(reply.replyId);
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showEditReplyDialog(BuildContext context, ReplyController controller) {
-    final editController = TextEditingController(text: reply.content);
-
-    Get.dialog(
-      AlertDialog(
-        backgroundColor: Colors.white, // 改为白色
-        title: const Text('Edit Reply'),
-        content: TextField(
-          controller: editController,
-          maxLines: null,
-          decoration: const InputDecoration(
-            hintText: 'Edit your reply...',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final newContent = editController.text.trim();
-              if (newContent.isNotEmpty && newContent != reply.content) {
-                controller.editReply(reply.replyId, newContent);
-                Get.back();
-              } else {
-                Get.back();
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
+    FLoaders.showBottomSheet(
+      FContextMenuBottomSheet(
+        content: reply.content,
+        canModify: canModify,
+        onCopy: () => repliesController.copyReplyText(reply.content),
+        onEdit: canModify ? () => repliesController.startEdit(reply) : null,
+        onDelete: canModify ? () => repliesController.deleteReply(reply) : null,
       ),
     );
   }

@@ -11,7 +11,7 @@ class RecyclingActivity {
   String supportImage;
   int pointsEarned;
   DateTime createdAt;
-  String status; // 'pending', 'approved', 'rejected', 'completed'
+  String status;
 
   /// Constructor
   RecyclingActivity({

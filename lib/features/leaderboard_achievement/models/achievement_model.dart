@@ -2,15 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'achievement_level_model.dart';
 
-class AchievementModel {
+class Achievement {
   final String achievementId;
   final String title;
   final String category;
   final int maxLevel;
   final DateTime createdAt;
-  final List<AchievementLevelModel> achievementLevels;
+  final List<AchievementLevel> achievementLevels;
 
-  AchievementModel({
+  Achievement({
     required this.achievementId,
     required this.title,
     required this.category,
@@ -20,8 +20,8 @@ class AchievementModel {
   });
 
   /// Empty Achievement
-  static AchievementModel empty() {
-    return AchievementModel(
+  static Achievement empty() {
+    return Achievement(
       achievementId: '',
       title: '',
       category: '',
@@ -44,18 +44,18 @@ class AchievementModel {
   }
 
   /// From Snapshot
-  factory AchievementModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
+  factory Achievement.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
     final data = document.data();
-    if (data == null) return AchievementModel.empty();
+    if (data == null) return Achievement.empty();
 
     // 将 Timestamp 转换为 DateTime
     Timestamp getTimestamp(String fieldName) => data[fieldName] ?? Timestamp.fromDate(DateTime(0));
 
     // 处理 achievementLevels 数组
     List<dynamic> levelsData = data['achievementLevels'] ?? [];
-    List<AchievementLevelModel> levelsList = levelsData.map((levelMap) => AchievementLevelModel.fromMap(levelMap)).toList();
+    List<AchievementLevel> levelsList = levelsData.map((levelMap) => AchievementLevel.fromMap(levelMap)).toList();
 
-    return AchievementModel(
+    return Achievement(
       achievementId: document.id, // 从文档ID获取
       title: data['title'] ?? '',
       category: data['category'] ?? '',
@@ -65,7 +65,7 @@ class AchievementModel {
     );
   }
 
-  factory AchievementModel.fromMap(Map<String, dynamic> map) {
+  factory Achievement.fromMap(Map<String, dynamic> map) {
     // 将 Timestamp 转换为 DateTime
     DateTime getDateTime(dynamic timestamp) {
       if (timestamp is Timestamp) {
@@ -79,9 +79,9 @@ class AchievementModel {
 
     // 处理 achievementLevels 数组
     List<dynamic> levelsData = map['achievementLevels'] ?? [];
-    List<AchievementLevelModel> levelsList = levelsData.map((levelMap) => AchievementLevelModel.fromMap(levelMap)).toList();
+    List<AchievementLevel> levelsList = levelsData.map((levelMap) => AchievementLevel.fromMap(levelMap)).toList();
 
-    return AchievementModel(
+    return Achievement(
       achievementId: map['achievementId'] ?? '',
       title: map['title'] ?? '',
       category: map['category'] ?? '',
@@ -92,15 +92,15 @@ class AchievementModel {
   }
 
   /// CopyWith method for easy updates
-  AchievementModel copyWith({
+  Achievement copyWith({
     String? achievementId,
     String? title,
     String? category,
     int? maxLevel,
     DateTime? createdAt,
-    List<AchievementLevelModel>? achievementLevels,
+    List<AchievementLevel>? achievementLevels,
   }) {
-    return AchievementModel(
+    return Achievement(
       achievementId: achievementId ?? this.achievementId,
       title: title ?? this.title,
       category: category ?? this.category,

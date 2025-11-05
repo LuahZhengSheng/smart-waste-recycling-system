@@ -9,8 +9,8 @@ import '../../../../utils/helpers/helper_functions.dart';
 class AchievementDetailsController extends GetxController {
   // Observables
   final RxBool isLoading = false.obs;
-  final Rx<AchievementModel?> achievement = Rx<AchievementModel?>(null);
-  final RxList<UserAchievementModel> userAchievements = <UserAchievementModel>[].obs;
+  final Rx<Achievement?> achievement = Rx<Achievement?>(null);
+  final RxList<UserAchievement> userAchievements = <UserAchievement>[].obs;
   final RxMap<int, List<UserModel>> levelUsers = <int, List<UserModel>>{}.obs;
   final RxMap<int, int> levelUserCounts = <int, int>{}.obs;
   final RxInt totalUsersWithAchievement = 0.obs;
@@ -19,12 +19,12 @@ class AchievementDetailsController extends GetxController {
   void onInit() {
     super.onInit();
     final args = Get.arguments;
-    if (args != null && args is AchievementModel) {
+    if (args != null && args is Achievement) {
       loadAchievementDetails(args);
     }
   }
 
-  void loadAchievementDetails(AchievementModel achievementModel) async {
+  void loadAchievementDetails(Achievement achievementModel) async {
     try {
       isLoading.value = true;
       achievement.value = achievementModel;
@@ -49,12 +49,12 @@ class AchievementDetailsController extends GetxController {
     userAchievements.value = _generateMockUserAchievements();
   }
 
-  List<UserAchievementModel> _generateMockUserAchievements() {
+  List<UserAchievement> _generateMockUserAchievements() {
     final now = DateTime.now();
     final achievementModel = achievement.value!;
 
     // Generate mock users with different achievement levels
-    List<UserAchievementModel> mockData = [];
+    List<UserAchievement> mockData = [];
 
     // Simulate different completion rates for each level
     for (int level = 1; level <= achievementModel.maxLevel; level++) {
@@ -62,12 +62,12 @@ class AchievementDetailsController extends GetxController {
 
       for (int i = 0; i < userCountForLevel; i++) {
         final user = _generateMockUser(i, level);
-        mockData.add(UserAchievementModel(
+        mockData.add(UserAchievement(
           userAchievementId: 'ua_${achievementModel.achievementId}_${level}_$i',
-          currentLevel: level,
           progress: _calculateProgressForLevel(level, achievementModel),
           updatedAt: now.subtract(Duration(days: i + (level * 5))),
           achievement: achievementModel, userId: '',
+          currentLevel: 1,
         ));
       }
     }
@@ -117,7 +117,7 @@ class AchievementDetailsController extends GetxController {
     return (baseCount * (dropoffRate * (maxLevel - level + 1))).round();
   }
 
-  int _calculateProgressForLevel(int level, AchievementModel achievement) {
+  int _calculateProgressForLevel(int level, Achievement achievement) {
     final levelData = achievement.achievementLevels
         .firstWhereOrNull((l) => l.level == level);
     return levelData?.unlockCriteria ?? 0;
