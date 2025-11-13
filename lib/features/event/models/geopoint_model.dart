@@ -30,14 +30,6 @@ class GeoPointModel {
     );
   }
 
-  /// Creates GeoPointModel instance from Firebase DocumentSnapshot
-  factory GeoPointModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
-    if (snapshot.data() != null) {
-      return GeoPointModel.fromJson(snapshot.data()!);
-    }
-    return GeoPointModel.empty();
-  }
-
   /// Converts GeoPointModel instance to JSON map
   Map<String, dynamic> toJson() {
     return {

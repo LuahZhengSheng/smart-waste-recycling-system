@@ -22,10 +22,10 @@ class MyRewardPointsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(RewardPointsController());
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0A0E21) : const Color(0xFFF8FAFC),
+      backgroundColor: dark ? FColors.dark : FColors.light,
       appBar: FAppBar(
         showBackArrow: true,
         title: Text("My Reward Points"),
@@ -43,7 +43,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                 Text(
                   'Loading...',
                   style: TextStyle(
-                    color: isDark ? FColors.white : FColors.textPrimary,
+                    color: dark ? FColors.white : FColors.textPrimary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -55,21 +55,21 @@ class MyRewardPointsScreen extends StatelessWidget {
         return RefreshIndicator(
           onRefresh: controller.refreshData,
           color: FColors.primary,
-          backgroundColor: isDark ? const Color(0xFF1A1F36) : Colors.white,
+          backgroundColor: dark ? FColors.dark : FColors.light,
           child: Column(
             children: [
               // Compact Points Summary Card
-              _buildCompactPointsCard(controller, isDark),
+              _buildCompactPointsCard(controller, dark),
 
               // Modern Tab Bar
-              _buildModernTabBar(controller, isDark),
+              _buildModernTabBar(controller, dark),
 
               // Date Filter Row
-              _buildDateFilterRow(controller, isDark, context),
+              _buildDateFilterRow(controller, dark, context),
 
               // Tab Bar View
               Expanded(
-                child: _buildTabBarView(controller, isDark),
+                child: _buildTabBarView(controller, dark),
               ),
             ],
           ),
@@ -78,7 +78,7 @@ class MyRewardPointsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCompactPointsCard(RewardPointsController controller, bool isDark) {
+  Widget _buildCompactPointsCard(RewardPointsController controller, bool dark) {
     return Obx(() => Container(
       margin: const EdgeInsets.all(FSizes.defaultSpace),
       padding: const EdgeInsets.symmetric(horizontal: FSizes.xl, vertical: FSizes.lg),
@@ -161,15 +161,15 @@ class MyRewardPointsScreen extends StatelessWidget {
     ));
   }
 
-  Widget _buildModernTabBar(RewardPointsController controller, bool isDark) {
+  Widget _buildModernTabBar(RewardPointsController controller, bool dark) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: isDark
-            ? const Color(0xFF1A1F36).withOpacity(0.6)
-            : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
+        color: dark
+            ? FColors.darkerGrey
+            : FColors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: TabBar(
         controller: controller.tabController,
@@ -189,9 +189,9 @@ class MyRewardPointsScreen extends StatelessWidget {
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         labelColor: FColors.white,
-        unselectedLabelColor: isDark
-            ? FColors.white.withOpacity(0.6)
-            : const Color(0xFF718096),
+        unselectedLabelColor: dark
+            ? FColors.darkGrey
+            : FColors.textSecondary,
         labelStyle: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 13,
@@ -211,7 +211,7 @@ class MyRewardPointsScreen extends StatelessWidget {
 
   Widget _buildDateFilterRow(
       RewardPointsController controller,
-      bool isDark,
+      bool dark,
       BuildContext context,
       ) {
     return Obx(() {
@@ -234,20 +234,18 @@ class MyRewardPointsScreen extends StatelessWidget {
           onTap: () => controller.showDateFilterBottomSheet(context),
           borderRadius: BorderRadius.circular(12),
           child: Container(
+            constraints: BoxConstraints(
+              minHeight: 52, // 设置最小高度
+            ),
             padding: const EdgeInsets.symmetric(
               horizontal: FSizes.md,
-              vertical: FSizes.sm,
+              vertical: FSizes.md, // 保持适当的垂直padding
             ),
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF1A1F36).withOpacity(0.6)
-                  : Colors.white,
+              color: dark
+                  ? FColors.darkerGrey
+                  : FColors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark
-                    ? FColors.darkGrey.withOpacity(0.3)
-                    : FColors.grey.withOpacity(0.2),
-              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -261,7 +259,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                 Text(
                   displayText,
                   style: TextStyle(
-                    color: isDark ? FColors.white : FColors.textPrimary,
+                    color: dark ? FColors.white : FColors.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -269,7 +267,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                 const SizedBox(width: FSizes.xs),
                 Icon(
                   Iconsax.arrow_down_1,
-                  color: isDark ? FColors.darkGrey : FColors.textSecondary,
+                  color: dark ? FColors.darkGrey : FColors.textSecondary,
                   size: 16,
                 ),
               ],
@@ -280,26 +278,26 @@ class MyRewardPointsScreen extends StatelessWidget {
     });
   }
 
-  Widget _buildTabBarView(RewardPointsController controller, bool isDark) {
+  Widget _buildTabBarView(RewardPointsController controller, bool dark) {
     return TabBarView(
       controller: controller.tabController,
       children: [
-        _buildTransactionsList(controller, isDark),
-        _buildTransactionsList(controller, isDark),
-        _buildTransactionsList(controller, isDark),
+        _buildTransactionsList(controller, dark),
+        _buildTransactionsList(controller, dark),
+        _buildTransactionsList(controller, dark),
       ],
     );
   }
 
   Widget _buildTransactionsList(
       RewardPointsController controller,
-      bool isDark,
+      bool dark,
       ) {
     return Obx(() {
       final items = controller.currentTabItems;
 
       if (items.isEmpty) {
-        return _buildEmptyState(isDark);
+        return _buildEmptyState(dark);
       }
 
       return ListView.builder(
@@ -315,14 +313,14 @@ class MyRewardPointsScreen extends StatelessWidget {
             if (type == 'earning') {
               return _buildEarningCard(
                 item['data'] as RecyclingActivity,
-                isDark,
+                dark,
                 index,
                 controller,
               );
             } else {
               return _buildSpendingCard(
                 item['data'] as RedemptionModel,
-                isDark,
+                dark,
                 index,
                 controller,
               );
@@ -331,7 +329,7 @@ class MyRewardPointsScreen extends StatelessWidget {
             // Earning tab
             return _buildEarningCard(
               item as RecyclingActivity,
-              isDark,
+              dark,
               index,
               controller,
             );
@@ -339,7 +337,7 @@ class MyRewardPointsScreen extends StatelessWidget {
             // Spending tab
             return _buildSpendingCard(
               item as RedemptionModel,
-              isDark,
+              dark,
               index,
               controller,
             );
@@ -351,7 +349,7 @@ class MyRewardPointsScreen extends StatelessWidget {
 
   Widget _buildEarningCard(
       RecyclingActivity activity,
-      bool isDark,
+      bool dark,
       int index,
       RewardPointsController controller,
       ) {
@@ -378,15 +376,10 @@ class MyRewardPointsScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(FSizes.md),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF1A1F36).withOpacity(0.8)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDark
-                        ? FColors.darkGrey.withOpacity(0.3)
-                        : FColors.grey.withOpacity(0.2),
-                  ),
+                  color: dark
+                      ? FColors.darkerGrey
+                      : FColors.white,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
@@ -399,7 +392,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? FColors.white : FColors.textPrimary,
+                              color: dark ? FColors.white : FColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: FSizes.xs),
@@ -408,7 +401,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                               Icon(
                                 Iconsax.calendar,
                                 size: 12,
-                                color: isDark
+                                color: dark
                                     ? FColors.white.withOpacity(0.5)
                                     : FColors.textSecondary,
                               ),
@@ -417,7 +410,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                                 '${FFormatter.formatDate(activity.createdAt)} • ${_formatTime(activity.createdAt)}',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark
+                                  color: dark
                                       ? FColors.white.withOpacity(0.6)
                                       : FColors.textSecondary,
                                 ),
@@ -430,7 +423,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                               Icon(
                                 Iconsax.weight,
                                 size: 12,
-                                color: isDark
+                                color: dark
                                     ? FColors.white.withOpacity(0.5)
                                     : FColors.textSecondary,
                               ),
@@ -439,7 +432,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                                 '${activity.weight.toStringAsFixed(1)} kg • ${activity.wasteObject}',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: isDark
+                                  color: dark
                                       ? FColors.white.withOpacity(0.6)
                                       : FColors.textSecondary,
                                 ),
@@ -466,7 +459,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                           'Pts',
                           style: TextStyle(
                             fontSize: 11,
-                            color: isDark
+                            color: dark
                                 ? FColors.white.withOpacity(0.6)
                                 : FColors.textSecondary,
                             fontWeight: FontWeight.w500,
@@ -486,7 +479,7 @@ class MyRewardPointsScreen extends StatelessWidget {
 
   Widget _buildSpendingCard(
       RedemptionModel redemption,
-      bool isDark,
+      bool dark,
       int index,
       RewardPointsController controller,
       ) {
@@ -516,15 +509,10 @@ class MyRewardPointsScreen extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(FSizes.md),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF1A1F36).withOpacity(0.8)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDark
-                        ? FColors.darkGrey.withOpacity(0.3)
-                        : FColors.grey.withOpacity(0.2),
-                  ),
+                  color: dark
+                      ? FColors.darkerGrey
+                      : FColors.white,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
@@ -537,7 +525,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? FColors.white : FColors.textPrimary,
+                              color: dark ? FColors.white : FColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: FSizes.xs),
@@ -546,7 +534,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                               Icon(
                                 Iconsax.calendar,
                                 size: 12,
-                                color: isDark
+                                color: dark
                                     ? FColors.white.withOpacity(0.5)
                                     : FColors.textSecondary,
                               ),
@@ -555,7 +543,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                                 '${FFormatter.formatDate(redemption.createdAt)} • ${_formatTime(redemption.createdAt)}',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: isDark
+                                  color: dark
                                       ? FColors.white.withOpacity(0.6)
                                       : FColors.textSecondary,
                                 ),
@@ -582,7 +570,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                           'Pts',
                           style: TextStyle(
                             fontSize: 11,
-                            color: isDark
+                            color: dark
                                 ? FColors.white.withOpacity(0.6)
                                 : FColors.textSecondary,
                             fontWeight: FontWeight.w500,
@@ -600,7 +588,7 @@ class MyRewardPointsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState(bool isDark) {
+  Widget _buildEmptyState(bool dark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -629,7 +617,7 @@ class MyRewardPointsScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: isDark ? FColors.white : FColors.textPrimary,
+              color: dark ? FColors.white : FColors.textPrimary,
             ),
           ),
           const SizedBox(height: FSizes.sm),
@@ -637,7 +625,7 @@ class MyRewardPointsScreen extends StatelessWidget {
             'Your transaction history will appear here',
             style: TextStyle(
               fontSize: 13,
-              color: isDark
+              color: dark
                   ? FColors.white.withOpacity(0.6)
                   : FColors.textSecondary,
             ),

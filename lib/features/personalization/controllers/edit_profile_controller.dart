@@ -249,18 +249,41 @@ class EditProfileController extends GetxController {
         }
       }
 
-      // Update user data
+      // 修复：确保 profileImg 只存储文件名，而不是完整 URL
+      String? profileImgFileName;
+      if (currentUser.profileImg != null && currentUser.profileImg!.isNotEmpty) {
+        // 如果已经是文件名（不包含 http），直接使用
+        if (!currentUser.profileImg!.startsWith('http')) {
+          profileImgFileName = currentUser.profileImg;
+        } else {
+          // 如果是完整 URL，提取文件名
+          profileImgFileName = _extractFileNameFromUrl(currentUser.profileImg!);
+          if (kDebugMode) {
+            print('Extracted filename from URL: $profileImgFileName');
+          }
+        }
+      }
+
+      // Update user data - 确保只存储文件名
       final updatedUser = currentUser.copyWith(
         username: newUsername,
         phoneNo: newPhoneNumber.isEmpty ? null : newPhoneNumber,
         gender: newGender,
         dob: selectedDate,
+        profileImg: profileImgFileName, // 只存储文件名
       );
+
+      if (kDebugMode) {
+        print('=== Profile Update Debug ===');
+        print('Original profileImg: ${currentUser.profileImg}');
+        print('Extracted filename: $profileImgFileName');
+        print('Updated user profileImg: ${updatedUser.profileImg}');
+      }
 
       // Save to Firestore
       await userRepository.updateUserDetails(updatedUser);
 
-      // 更新本地用户数据
+      // 更新本地用户数据 - 但要确保本地数据也只存储文件名
       profileController.user.value = updatedUser;
 
       isLoading.value = false;
@@ -279,6 +302,94 @@ class EditProfileController extends GetxController {
         title: 'Update Failed',
         message: e.toString(),
       );
+    }
+  }
+
+  /// 从 URL 中提取文件名 - 优化版本
+  String? _extractFileNameFromUrl(String url) {
+    try {
+      if (kDebugMode) {
+        print('=== _extractFileNameFromUrl Debug Start ===');
+        print('Input URL: $url');
+      }
+
+      final uri = Uri.parse(url);
+      final pathSegments = uri.pathSegments;
+
+      if (kDebugMode) {
+        print('URI pathSegments: $pathSegments');
+        print('Path segments count: ${pathSegments.length}');
+      }
+
+      if (pathSegments.isNotEmpty) {
+        // Firebase Storage URL 固定格式: /v0/b/bucket/o/profile_images/filename?alt=media
+        // pathSegments: ['v0', 'b', 'bucket', 'o', 'profile_images', 'filename']
+
+        // 方法1：直接根据固定位置获取（更高效）
+        if (pathSegments.length >= 6) {
+          final result = pathSegments[5];
+          if (kDebugMode) {
+            print('✅ Method 1 (Fixed Position) - Result: $result');
+          }
+          return result;
+        }
+
+        // 方法2：查找包含 profile_images 的路径段
+        for (int i = 0; i < pathSegments.length; i++) {
+          final segment = pathSegments[i];
+          if (segment.contains('profile_images/')) {
+            if (kDebugMode) {
+              print('🔍 Method 2 - Found segment with profile_images/: $segment (index: $i)');
+            }
+            // 分割路径段获取文件名
+            final segments = segment.split('profile_images/');
+            if (kDebugMode) {
+              print('   Split segments: $segments');
+            }
+            if (segments.length >= 2) {
+              final result = segments[1];
+              if (kDebugMode) {
+                print('✅ Method 2 (Split profile_images/) - Result: $result');
+              }
+              return result;
+            }
+          }
+        }
+
+        // 方法3：查找 profile_images 的位置
+        final profileImagesIndex = pathSegments.indexOf('profile_images');
+        if (kDebugMode) {
+          print('🔍 Method 3 - profile_images index: $profileImagesIndex');
+        }
+        if (profileImagesIndex != -1 && profileImagesIndex + 1 < pathSegments.length) {
+          final result = pathSegments[profileImagesIndex + 1];
+          if (kDebugMode) {
+            print('✅ Method 3 (profile_images index) - Result: $result');
+          }
+          return result;
+        }
+
+        // 备用方案：获取最后一个路径段
+        final result = pathSegments.last;
+        if (kDebugMode) {
+          print('✅ Method 4 (Last segment) - Result: $result');
+        }
+        return result;
+      }
+
+      if (kDebugMode) {
+        print('❌ No path segments found');
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error extracting filename from URL: $e');
+      }
+      return null;
+    } finally {
+      if (kDebugMode) {
+        print('=== _extractFileNameFromUrl Debug End ===');
+      }
     }
   }
 

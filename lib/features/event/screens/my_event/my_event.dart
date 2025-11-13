@@ -24,19 +24,7 @@ class MyEventsScreen extends StatelessWidget {
       backgroundColor: dark ? FColors.dark : FColors.light,
       appBar: FAppBar(
         showBackArrow: true,
-        backgroundColor: dark ? FColors.dark : FColors.white,
-        title: Row(
-          children: [
-            Text(
-              'My Events',
-              style: TextStyle(
-                color: dark ? FColors.white : FColors.black,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
+        title: const Text('My Events'),
       ),
       body: SafeArea(
         child: Column(

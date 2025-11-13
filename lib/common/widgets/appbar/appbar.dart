@@ -18,13 +18,14 @@ class FAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.backgroundColor,
     this.titleColor,
     this.centerTitle = true,
-    this.titleWidget, // 新增：支持自定义标题widget
-    this.titleIcon, // 新增：标题图标
-    this.titleIconColor, // 新增：标题图标颜色
-    this.actionButton, // 新增：通用action按钮
-    this.actionButtonText, // 新增：action按钮文字
-    this.actionButtonIcon, // 新增：action按钮图标
-    this.onActionButtonPressed, // 新增：action按钮点击回调
+    this.titleWidget,
+    this.titleIcon,
+    this.titleIconColor,
+    this.actionButton,
+    this.actionButtonText,
+    this.actionButtonIcon,
+    this.onActionButtonPressed,
+    this.elevation,
   });
 
   final Widget? title;
@@ -36,13 +37,14 @@ class FAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Color? backgroundColor;
   final Color? titleColor;
   final bool centerTitle;
-  final Widget? titleWidget; // 自定义标题widget
-  final IconData? titleIcon; // 标题图标
-  final Color? titleIconColor; // 标题图标颜色
-  final Widget? actionButton; // 通用action按钮
-  final String? actionButtonText; // action按钮文字
-  final IconData? actionButtonIcon; // action按钮图标
-  final VoidCallback? onActionButtonPressed; // action按钮点击回调
+  final Widget? titleWidget;
+  final IconData? titleIcon;
+  final Color? titleIconColor;
+  final Widget? actionButton;
+  final String? actionButtonText;
+  final IconData? actionButtonIcon;
+  final VoidCallback? onActionButtonPressed;
+  final double? elevation;
 
   @override
   Widget build(BuildContext context) {
@@ -52,11 +54,12 @@ class FAppBar extends StatelessWidget implements PreferredSizeWidget {
       padding: const EdgeInsets.symmetric(horizontal: FSizes.md),
       child: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: backgroundColor ?? (dark ? Colors.black : Colors.white),
+        backgroundColor: backgroundColor ?? (dark ? FColors.communityDarkBackground : Colors.white),
         centerTitle: centerTitle,
+        elevation: elevation,
         leading: showBackArrow
             ? IconButton(
-          onPressed: () => Get.back(),
+          onPressed: leadingOnPressed ?? () => Get.back(),
           icon: Icon(
             Iconsax.arrow_left_2,
             color: backArrowColor ?? (dark ? Colors.white : Colors.black),

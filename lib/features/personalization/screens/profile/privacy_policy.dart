@@ -10,10 +10,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: isDark ? FColors.dark : FColors.light,
+      backgroundColor: dark ? FColors.dark : FColors.light,
       appBar: FAppBar(
         title: Text(
           'Privacy Policy',
@@ -89,7 +89,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   Text(
                     'Your Privacy Matters to Us',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: isDark ? FColors.textSecondary : FColors.darkerGrey,
+                      color: dark ? FColors.textSecondary : FColors.darkerGrey,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -97,7 +97,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: FSizes.md, vertical: FSizes.xs),
                     decoration: BoxDecoration(
-                      color: isDark ? FColors.darkContainer : FColors.white,
+                      color: dark ? FColors.darkContainer : FColors.white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: FColors.primary.withOpacity(0.2),
@@ -234,7 +234,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   Text(
                     'We\'re here to help! If you have any questions about this privacy policy or how we handle your data, please don\'t hesitate to reach out.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: isDark ? FColors.textSecondary : FColors.textPrimary,
+                      color: dark ? FColors.textSecondary : FColors.textPrimary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -270,7 +270,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(FSizes.lg),
               decoration: BoxDecoration(
-                color: isDark ? FColors.darkContainer : FColors.lightContainer,
+                color: dark ? FColors.darkContainer : FColors.lightContainer,
                 borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
               ),
               child: Column(
@@ -297,7 +297,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   Text(
                     'We are committed to protecting your privacy and being transparent about our data practices. This policy may be updated periodically to reflect changes in our practices or applicable laws.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isDark ? FColors.darkGrey : FColors.darkerGrey,
+                      color: dark ? FColors.darkGrey : FColors.darkerGrey,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -305,7 +305,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   Text(
                     '© 2024 EcoRecycle. All rights reserved.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isDark ? FColors.darkGrey : FColors.darkerGrey,
+                      color: dark ? FColors.darkGrey : FColors.darkerGrey,
                       fontSize: 11,
                     ),
                     textAlign: TextAlign.center,
@@ -326,13 +326,13 @@ class PrivacyPolicyScreen extends StatelessWidget {
         required String content,
         required Color iconColor,
       }) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: FSizes.md),
       decoration: BoxDecoration(
-        color: isDark ? FColors.darkContainer : FColors.white,
+        color: dark ? FColors.darkContainer : FColors.white,
         borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
         boxShadow: [
           BoxShadow(
@@ -342,7 +342,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
           ),
         ],
         border: Border.all(
-          color: isDark ? FColors.darkGrey.withOpacity(0.1) : FColors.grey.withOpacity(0.2),
+          color: dark ? FColors.darkGrey.withOpacity(0.1) : FColors.grey.withOpacity(0.2),
         ),
       ),
       child: Column(
@@ -395,7 +395,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
               content,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 height: 1.6,
-                color: isDark ? FColors.textSecondary : FColors.textPrimary,
+                color: dark ? FColors.textSecondary : FColors.textPrimary,
               ),
             ),
           ),
@@ -410,12 +410,12 @@ class PrivacyPolicyScreen extends StatelessWidget {
         required String title,
         required String content,
       }) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Container(
       padding: const EdgeInsets.all(FSizes.sm),
       decoration: BoxDecoration(
-        color: isDark ? FColors.darkContainer : FColors.white,
+        color: dark ? FColors.darkContainer : FColors.white,
         borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
         border: Border.all(
           color: FColors.primary.withOpacity(0.2),
@@ -436,7 +436,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             content,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               fontSize: 10,
-              color: isDark ? FColors.darkGrey : FColors.darkerGrey,
+              color: dark ? FColors.darkGrey : FColors.darkerGrey,
             ),
             textAlign: TextAlign.center,
           ),

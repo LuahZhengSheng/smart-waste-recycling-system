@@ -32,7 +32,7 @@ class NavigationMenu extends StatelessWidget {
           onDestinationSelected: (index) {
             // 在切换页面之前，如果当前是相机页面，释放相机
             if (controller.selectedIndex.value == 2) {
-              final cameraController = Get.find<ScanSortCameraController>();
+              final cameraController = Get.put(ScanSortCameraController());
               cameraController.disposeCameraForPage();
             }
 
@@ -40,7 +40,7 @@ class NavigationMenu extends StatelessWidget {
 
             // 如果切换到相机页面，初始化相机
             if (index == 2) {
-              final cameraController = Get.find<ScanSortCameraController>();
+              final cameraController = Get.put(ScanSortCameraController());
               cameraController.initializeCameraForPage();
             }
           },

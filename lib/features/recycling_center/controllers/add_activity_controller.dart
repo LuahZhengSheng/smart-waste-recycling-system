@@ -1,14 +1,17 @@
 import 'dart:io';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:fyp/features/personalization/models/recycle_activity_model.dart';
 
-import '../../personalization/models/recycle_activity_model.dart';
+import '../../../utils/popups/loaders.dart';
+import '../../../utils/helpers/image_compressor.dart';
 import '../models/waste_category_model.dart';
 
 class AddActivityFormController extends GetxController {
   final bool isEditing;
   final RecyclingActivity? existingActivity;
-  final RxList<WasteCategory> wasteCategories;
+  final List<WasteCategory> wasteCategories;
 
   AddActivityFormController({
     required this.isEditing,
@@ -24,9 +27,19 @@ class AddActivityFormController extends GetxController {
   // Observables
   final Rx<WasteCategory?> selectedCategory = Rx<WasteCategory?>(null);
   final Rx<File?> selectedImage = Rx<File?>(null);
-  final RxString selectedImagePath = ''.obs;
+  final RxString uploadedImageFileName = ''.obs;
   final RxInt calculatedPoints = 0.obs;
   final RxBool isLoading = false.obs;
+
+  // Computed property to check if there's an existing image
+  RxBool get hasExistingImage => RxBool(uploadedImageFileName.value.isNotEmpty && !uploadedImageFileName.value.startsWith('temp_'));
+
+  // Image picker
+  final ImagePicker _imagePicker = ImagePicker();
+
+  // Image validation constants
+  static const int maxImageSizeInBytes = 10 * 1024 * 1024; // 10MB
+  static const List<String> allowedFormats = ['jpg', 'jpeg', 'png', 'webp', 'heic'];
 
   @override
   void onInit() {
@@ -43,31 +56,43 @@ class AddActivityFormController extends GetxController {
     super.onClose();
   }
 
-  /// Populate fields when editing
   void _populateFields() {
     if (existingActivity != null) {
       wasteObjectController.text = existingActivity!.wasteObject;
       weightController.text = existingActivity!.weight.toString();
-      selectedImagePath.value = existingActivity!.supportImage;
+
+      // Debug existing activity data
+      print('Existing activity supportImage: ${existingActivity!.supportImage}');
+      print('Existing activity wasteObject: ${existingActivity!.wasteObject}');
+      print('Existing activity weight: ${existingActivity!.weight}');
+
+      // Set the uploaded image filename - this is crucial for edit mode
+      // Only set if it's not a temporary filename
+      if (existingActivity!.supportImage.isNotEmpty && !existingActivity!.supportImage.startsWith('temp_')) {
+        uploadedImageFileName.value = existingActivity!.supportImage;
+        print('Set uploadedImageFileName to: ${uploadedImageFileName.value}');
+      } else {
+        print('Existing image is temporary, ignoring: ${existingActivity!.supportImage}');
+        uploadedImageFileName.value = '';
+      }
+
       calculatedPoints.value = existingActivity!.pointsEarned;
 
-      // Find and select the category
       final category = wasteCategories.firstWhereOrNull(
             (cat) => cat.categoryId == existingActivity!.wasteCategoryId,
       );
       if (category != null) {
         selectedCategory.value = category;
+        print('Set category to: ${category.name}');
       }
     }
   }
 
-  /// Select waste category
   void selectCategory(WasteCategory category) {
     selectedCategory.value = category;
     calculatePoints();
   }
 
-  /// Calculate points based on weight and category
   void calculatePoints() {
     final weight = double.tryParse(weightController.text) ?? 0.0;
 
@@ -81,142 +106,7 @@ class AddActivityFormController extends GetxController {
     calculatedPoints.value = totalPoints;
   }
 
-  /// Pick image from gallery or camera
-  void pickImage() async {
-    try {
-      // Mock image selection - replace with actual image picker
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Mock image path
-      selectedImagePath.value = 'mock_image_path.jpg';
-
-      Get.snackbar(
-        'Success',
-        'Image selected successfully!',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
-
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to pick image: $e');
-    }
-  }
-
-  /// Remove selected image
-  void removeImage() {
-    selectedImage.value = null;
-    selectedImagePath.value = '';
-  }
-
-  /// Validate waste object input
-  String? validateWasteObject(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Please describe the waste item';
-    }
-    if (value.trim().length < 3) {
-      return 'Description must be at least 3 characters';
-    }
-    return null;
-  }
-
-  /// Validate weight input
-  String? validateWeight(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Please enter weight';
-    }
-
-    final weight = double.tryParse(value.trim());
-    if (weight == null) {
-      return 'Please enter a valid number';
-    }
-
-    if (weight <= 0) {
-      return 'Weight must be greater than 0';
-    }
-
-    if (weight > 1000) {
-      return 'Weight cannot exceed 1000 kg';
-    }
-
-    return null;
-  }
-
-  /// Validate category selection
-  String? validateCategory() {
-    if (selectedCategory.value == null) {
-      return 'Please select a waste category';
-    }
-    return null;
-  }
-
-  /// Validate image selection
-  String? validateImage() {
-    if (selectedImagePath.value.isEmpty) {
-      return 'Please upload a support image';
-    }
-    return null;
-  }
-
-  /// Validate entire form
-  bool validateForm() {
-    bool isValid = true;
-    String errorMessage = '';
-
-    // Validate form fields
-    if (!formKey.currentState!.validate()) {
-      isValid = false;
-    }
-
-    // Validate category
-    if (selectedCategory.value == null) {
-      isValid = false;
-      errorMessage = 'Please select a waste category';
-    }
-
-    // Validate image
-    if (selectedImagePath.value.isEmpty) {
-      isValid = false;
-      errorMessage = 'Please upload a support image';
-    }
-
-    if (!isValid && errorMessage.isNotEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        errorMessage,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
-
-    return isValid;
-  }
-
-  /// Create recycling activity from form data
-  RecyclingActivity createActivity(String userId, String centerStaffId) {
-    return RecyclingActivity.createNew(
-      userId: userId,
-      centerStaffId: centerStaffId,
-      wasteObject: wasteObjectController.text.trim(),
-      wasteCategoryId: selectedCategory.value!.categoryId,
-      weight: double.parse(weightController.text.trim()),
-      supportImage: selectedImagePath.value,
-      customPoints: calculatedPoints.value,
-    );
-  }
-
-  /// Reset form
-  void resetForm() {
-    formKey.currentState?.reset();
-    wasteObjectController.clear();
-    weightController.clear();
-    selectedCategory.value = null;
-    selectedImage.value = null;
-    selectedImagePath.value = '';
-    calculatedPoints.value = 0;
-  }
-
-  /// Show image selection dialog
-  void showImageSourceDialog() {
+  void pickImage() {
     Get.dialog(
       AlertDialog(
         title: const Text('Select Image Source'),
@@ -245,132 +135,247 @@ class AddActivityFormController extends GetxController {
     );
   }
 
-  /// Pick image from camera
-  void _pickImageFromCamera() async {
+  Future<void> _pickImageFromCamera() async {
     try {
-      // Mock camera capture - replace with actual camera functionality
-      await Future.delayed(const Duration(milliseconds: 800));
-
-      selectedImagePath.value = 'camera_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      Get.snackbar(
-        'Success',
-        'Photo captured successfully!',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
       );
 
+      if (image != null) {
+        await _validateAndSetImage(File(image.path));
+      }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to capture photo: $e');
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to capture photo: $e',
+      );
     }
   }
 
-  /// Pick image from gallery
-  void _pickImageFromGallery() async {
+  Future<void> _pickImageFromGallery() async {
     try {
-      // Mock gallery selection - replace with actual gallery functionality
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      selectedImagePath.value = 'gallery_image_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      Get.snackbar(
-        'Success',
-        'Image selected from gallery!',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
       );
 
+      if (image != null) {
+        await _validateAndSetImage(File(image.path));
+      }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to select image: $e');
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to select image: $e',
+      );
     }
   }
 
-  /// Check if form has unsaved changes
+  Future<void> _validateAndSetImage(File imageFile) async {
+    // Validate format
+    if (!ImageCompressor.isValidImageFormat(imageFile)) {
+      FLoaders.errorSnackBar(
+        title: 'Invalid Format',
+        message: 'Please select a valid image format (JPG, PNG, WEBP, HEIC)',
+      );
+      return;
+    }
+
+    // Validate size
+    final fileSize = await imageFile.length();
+    if (fileSize > maxImageSizeInBytes) {
+      FLoaders.errorSnackBar(
+        title: 'File Too Large',
+        message: 'Image size must be less than 10MB',
+      );
+      return;
+    }
+
+    // Check if already has image (limit to 1)
+    if (selectedImage.value != null || uploadedImageFileName.value.isNotEmpty) {
+      FLoaders.warningSnackBar(
+        title: 'Replace Image',
+        message: 'Replacing existing image',
+      );
+    }
+
+    selectedImage.value = imageFile;
+    uploadedImageFileName.value = ''; // Clear old filename when selecting new one
+
+    FLoaders.customToast(message: 'Image selected successfully!');
+  }
+
+  void removeImage() {
+    selectedImage.value = null;
+    uploadedImageFileName.value = '';
+
+    FLoaders.warningSnackBar(
+      title: 'Image Removed',
+      message: 'Please select a new image',
+    );
+  }
+
+  String? validateWasteObject(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please describe the waste item';
+    }
+    if (value.trim().length < 3) {
+      return 'Description must be at least 3 characters';
+    }
+    return null;
+  }
+
+  String? validateWeight(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter weight';
+    }
+
+    final weight = double.tryParse(value.trim());
+    if (weight == null) {
+      return 'Please enter a valid number';
+    }
+
+    if (weight <= 0) {
+      return 'Weight must be greater than 0';
+    }
+
+    if (weight > 1000) {
+      return 'Weight cannot exceed 1000 kg';
+    }
+
+    return null;
+  }
+
+  bool validateForm() {
+    bool isValid = true;
+    String errorMessage = '';
+
+    if (!formKey.currentState!.validate()) {
+      isValid = false;
+    }
+
+    if (selectedCategory.value == null) {
+      isValid = false;
+      errorMessage = 'Please select a waste category';
+    }
+
+    if (selectedImage.value == null && uploadedImageFileName.value.isEmpty) {
+      isValid = false;
+      errorMessage = 'Please upload a support image';
+    }
+
+    if (!isValid && errorMessage.isNotEmpty) {
+      FLoaders.errorSnackBar(
+        title: 'Validation Error',
+        message: errorMessage,
+      );
+    }
+
+    return isValid;
+  }
+
+  /// Create recycling activity (image will be uploaded later during submission)
+  RecyclingActivity createActivity(String userId, String centerStaffId) {
+    // In edit mode, preserve the existing image filename if no new image is selected
+    String supportImage;
+
+    if (isEditing && existingActivity != null) {
+      // If we have a new image selected, we'll upload it later
+      // If no new image is selected, keep the existing image filename
+      if (selectedImage.value != null) {
+        // New image selected - use temporary identifier
+        supportImage = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+      } else {
+        // No new image - preserve the existing image filename
+        supportImage = existingActivity!.supportImage;
+        print('Preserving existing image: $supportImage');
+      }
+    } else {
+      // New activity - use temporary identifier
+      supportImage = uploadedImageFileName.value.isNotEmpty && !uploadedImageFileName.value.startsWith('temp_')
+          ? uploadedImageFileName.value
+          : 'temp_${DateTime.now().millisecondsSinceEpoch}';
+    }
+
+    // Create activity
+    final activity = RecyclingActivity.createNew(
+      userId: userId,
+      centerStaffId: centerStaffId,
+      wasteObject: wasteObjectController.text.trim(),
+      wasteCategoryId: selectedCategory.value!.categoryId,
+      weight: double.parse(weightController.text.trim()),
+      supportImage: supportImage,
+      customPoints: calculatedPoints.value,
+    );
+
+    print('Created activity with supportImage: $supportImage');
+    return activity;
+  }
+
+  /// Get the selected image file (for upload during submission)
+  File? getImageFile() {
+    return selectedImage.value;
+  }
+
+  /// Get the URL for existing image in edit mode
+  String getExistingImageUrl(String userId) {
+    if (uploadedImageFileName.value.isEmpty) {
+      print('uploadedImageFileName is empty');
+      return '';
+    }
+
+    // Don't try to generate URL for temporary files
+    if (uploadedImageFileName.value.startsWith('temp_')) {
+      print('Skipping temporary image: ${uploadedImageFileName.value}');
+      return '';
+    }
+
+    // Construct the Firebase Storage URL
+    final imageUrl = 'https://firebasestorage.googleapis.com/v0/b/fir-82ffd.appspot.com/o/recycling_activities%2F$userId%2F${Uri.encodeComponent(uploadedImageFileName.value)}?alt=media';
+
+    print('Generated image URL: $imageUrl');
+    print('User ID: $userId');
+    print('Filename: ${uploadedImageFileName.value}');
+
+    return imageUrl;
+  }
+
+  void resetForm() {
+    formKey.currentState?.reset();
+    wasteObjectController.clear();
+    weightController.clear();
+    selectedCategory.value = null;
+    selectedImage.value = null;
+    uploadedImageFileName.value = '';
+    calculatedPoints.value = 0;
+  }
+
   bool get hasUnsavedChanges {
     if (isEditing && existingActivity != null) {
       return wasteObjectController.text != existingActivity!.wasteObject ||
           weightController.text != existingActivity!.weight.toString() ||
-          selectedCategory.value?.categoryId != existingActivity!.wasteCategoryId ||
-          selectedImagePath.value != existingActivity!.supportImage;
+          selectedCategory.value?.categoryId !=
+              existingActivity!.wasteCategoryId ||
+          selectedImage.value != null;
     } else {
       return wasteObjectController.text.isNotEmpty ||
           weightController.text.isNotEmpty ||
           selectedCategory.value != null ||
-          selectedImagePath.value.isNotEmpty;
+          selectedImage.value != null;
     }
   }
 
-  /// Show unsaved changes dialog
-  void showUnsavedChangesDialog(VoidCallback onConfirm) {
-    if (!hasUnsavedChanges) {
-      onConfirm();
-      return;
-    }
-
-    Get.dialog(
-      AlertDialog(
-        title: const Text('Unsaved Changes'),
-        content: const Text('You have unsaved changes. Are you sure you want to leave?'),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Get.back();
-              onConfirm();
-            },
-            child: const Text('Leave'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Get category display name with icon
   String getCategoryDisplayName() {
     if (selectedCategory.value == null) return 'Select Category';
     return selectedCategory.value!.name;
   }
 
-  /// Get estimated processing time based on category
-  String getEstimatedProcessingTime() {
-    if (selectedCategory.value == null) return '';
-
-    switch (selectedCategory.value!.name.toLowerCase()) {
-      case 'electronics':
-        return '3-5 business days';
-      case 'plastic':
-        return '1-2 business days';
-      case 'paper':
-        return '1 business day';
-      case 'glass':
-        return '2-3 business days';
-      case 'metal':
-        return '2-4 business days';
-      default:
-        return '1-3 business days';
-    }
-  }
-
-  /// Get recycling tips for selected category
   String getRecyclingTips() {
     if (selectedCategory.value == null) return '';
-
-    switch (selectedCategory.value!.name.toLowerCase()) {
-      case 'electronics':
-        return 'Remove batteries and personal data before recycling';
-      case 'plastic':
-        return 'Clean containers and remove labels when possible';
-      case 'paper':
-        return 'Keep paper dry and remove any plastic parts';
-      case 'glass':
-        return 'Rinse containers and separate by color if possible';
-      case 'metal':
-        return 'Clean cans and remove any food residue';
-      default:
-        return 'Follow local recycling guidelines';
-    }
+    return selectedCategory.value!.disposalMethodWithEmoji;
   }
 }

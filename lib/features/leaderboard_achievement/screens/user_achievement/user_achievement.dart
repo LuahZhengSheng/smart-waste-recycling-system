@@ -5,9 +5,9 @@ import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 import 'package:fyp/common/widgets/appbar/appbar.dart';
 
+import '../../../recycling_center/screens/center_test.dart';
 import '../../controllers/user_achievement_controller.dart';
 import '../leaderboard/leaderboard.dart';
-import '../test.dart';
 import 'widgets/achievement_card.dart';
 
 class MyAchievementsScreen extends StatelessWidget {
@@ -23,8 +23,6 @@ class MyAchievementsScreen extends StatelessWidget {
       appBar: FAppBar(
         showBackArrow: true,
         title: const Text('My Achievements'),
-        backArrowColor: dark ? FColors.white : FColors.black,
-        titleColor: dark ? FColors.white : FColors.textPrimary,
       ),
       body: Obx(() {
         if (controller.isLoading.value && controller.userAchievements.isEmpty) {
@@ -69,6 +67,8 @@ class MyAchievementsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const SizedBox(height: FSizes.spaceBtwSections),
+
                 // Header Section
                 _buildHeaderSection(context, dark, controller),
 
@@ -95,13 +95,13 @@ class MyAchievementsScreen extends StatelessWidget {
         gradient: LinearGradient(
           colors: dark
               ? [
-            FColors.primary.withOpacity(0.2),
-            FColors.accent.withOpacity(0.1)
-          ]
+                  FColors.primary.withOpacity(0.2),
+                  FColors.accent.withOpacity(0.1)
+                ]
               : [
-            FColors.primary.withOpacity(0.1),
-            FColors.accent.withOpacity(0.05)
-          ],
+                  FColors.primary.withOpacity(0.1),
+                  FColors.accent.withOpacity(0.05)
+                ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -138,7 +138,7 @@ class MyAchievementsScreen extends StatelessWidget {
               const SizedBox(width: FSizes.md),
               InkWell(
                 onTap: () => Get.to(() => const LeaderboardScreen()),
-                // onTap: () => Get.to(() => const AddAchievementScreen()),
+                // onTap: () => Get.to(() => const RecyclingCenterManagementScreen()),
                 borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
                 child: Container(
                   padding: const EdgeInsets.all(FSizes.md),
@@ -193,7 +193,8 @@ class MyAchievementsScreen extends StatelessWidget {
                     backgroundColor: dark
                         ? FColors.darkGrey.withOpacity(0.3)
                         : FColors.grey.withOpacity(0.3),
-                    valueColor: const AlwaysStoppedAnimation<Color>(FColors.primary),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(FColors.primary),
                     minHeight: 8,
                   ),
                 ),
@@ -287,7 +288,8 @@ class MyAchievementsScreen extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: FColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+                        borderRadius:
+                            BorderRadius.circular(FSizes.borderRadiusLg),
                       ),
                       child: Text(
                         '${achievements.length}',
@@ -321,8 +323,10 @@ class MyAchievementsScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: FSizes.md),
                 child: Column(
                   children: achievements.map((userAchievement) {
-                    final achievementId = userAchievement.achievement.achievementId;
-                    final hasLevelUp = controller.hasRecentLevelUp(achievementId);
+                    final achievementId =
+                        userAchievement.achievement.achievementId;
+                    final hasLevelUp =
+                        controller.hasRecentLevelUp(achievementId);
 
                     return AchievementCard(
                       userAchievement: userAchievement,

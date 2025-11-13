@@ -21,7 +21,7 @@ class PostsController extends GetxController with SingleGetTickerProviderMixin {
   // Reactive variables
   final selectedTimeFilter = TimeFilter.allTime.obs;
   final searchQuery = ''.obs;
-  final isLoading = false.obs;
+  final isLoading = true.obs; // 初始设为 true
 
   // Posts streams for different tabs
   final allPosts = <PostModel>[].obs;
@@ -31,6 +31,9 @@ class PostsController extends GetxController with SingleGetTickerProviderMixin {
 
   // Combined filtered posts for current tab
   final filteredPosts = <PostModel>[].obs;
+
+  // 添加一个标志来跟踪是否已经收到数据
+  final _hasReceivedInitialData = false.obs;
 
   @override
   void onInit() {
@@ -51,19 +54,41 @@ class PostsController extends GetxController with SingleGetTickerProviderMixin {
   /// Initialize posts streams
   void _initializePosts() {
     try {
+      // 设置初始加载状态
+      isLoading.value = true;
+      _hasReceivedInitialData.value = false;
+
       // 监听所有相关列表的变化
       ever(allPosts, (_) => _filterPosts());
-      ever(tipPosts, (_) => _filterPosts());
-      ever(questionPosts, (_) => _filterPosts());
-      ever(discussionPosts, (_) => _filterPosts());
 
       _postRepository.getAllPostsStream().listen((posts) {
+        // 标记已经收到初始数据
+        _hasReceivedInitialData.value = true;
+
         allPosts.assignAll(posts);
         _categorizePosts(posts);
+
+        // 数据加载完成后，停止加载状态
+        isLoading.value = false;
       }, onError: (error) {
+        // 出错时也停止加载状态
+        _hasReceivedInitialData.value = true;
+        isLoading.value = false;
         FLoaders.errorSnackBar(title: 'Error', message: error.toString());
       });
+
+      // 添加超时保护，防止一直显示loading
+      Future.delayed(const Duration(seconds: 10), () {
+        if (!_hasReceivedInitialData.value) {
+          _hasReceivedInitialData.value = true;
+          isLoading.value = false;
+          FLoaders.errorSnackBar(title: 'Timeout', message: 'Failed to load posts');
+        }
+      });
     } catch (e) {
+      // 出错时停止加载状态
+      _hasReceivedInitialData.value = true;
+      isLoading.value = false;
       FLoaders.errorSnackBar(title: 'Error', message: e.toString());
     }
   }
@@ -95,9 +120,8 @@ class PostsController extends GetxController with SingleGetTickerProviderMixin {
 
   /// Filter posts based on current tab, search query and time filter
   void _filterPosts() {
-    if (isLoading.value) return;
-
-    isLoading.value = true;
+    // 如果还在初始加载中，不进行过滤
+    if (isLoading.value && !_hasReceivedInitialData.value) return;
 
     try {
       List<PostModel> sourcePosts;
@@ -135,8 +159,6 @@ class PostsController extends GetxController with SingleGetTickerProviderMixin {
       filteredPosts.assignAll(sourcePosts);
     } catch (e) {
       FLoaders.errorSnackBar(title: 'Error', message: e.toString());
-    } finally {
-      isLoading.value = false;
     }
   }
 
@@ -166,7 +188,7 @@ class PostsController extends GetxController with SingleGetTickerProviderMixin {
             post.createdAt.isAfter(now.subtract(const Duration(days: 365))))
             .toList();
       case TimeFilter.allTime:
-      return posts;
+        return posts;
     }
   }
 
@@ -250,10 +272,11 @@ class PostsController extends GetxController with SingleGetTickerProviderMixin {
     try {
       isLoading.value = true;
       await Future.delayed(const Duration(seconds: 1));
+      // 重新初始化数据
+      _initializePosts();
     } catch (e) {
-      FLoaders.errorSnackBar(title: 'Error', message: e.toString());
-    } finally {
       isLoading.value = false;
+      FLoaders.errorSnackBar(title: 'Error', message: e.toString());
     }
   }
 }

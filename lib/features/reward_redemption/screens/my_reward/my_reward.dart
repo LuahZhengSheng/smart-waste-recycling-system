@@ -12,6 +12,8 @@ import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 import 'package:fyp/utils/popups/loaders.dart';
 
+import '../../../../common/widgets/appbar/appbar.dart';
+
 class MyRewardsScreen extends StatelessWidget {
   const MyRewardsScreen({super.key});
 
@@ -20,102 +22,79 @@ class MyRewardsScreen extends StatelessWidget {
     final controller = Get.put(MyRewardsController());
     final dark = FHelperFunctions.isDarkMode(context);
 
-    return Scaffold(
-      backgroundColor: dark ? FColors.dark : FColors.light,
-      appBar: AppBar(
-        backgroundColor: dark ? FColors.dark : FColors.white,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Get.back(),
-          icon: Icon(
-            Iconsax.arrow_left,
-            color: dark ? FColors.white : FColors.black,
-          ),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: dark ? FColors.dark : FColors.light,
+        appBar: FAppBar(
+          showBackArrow: true,
+          title: const Text('My Rewards'),
         ),
-        title: Row(
+        body: Column(
           children: [
+            /// Tab Bar
             Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: FColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: FSizes.defaultSpace,
+                vertical: 12,
               ),
-              child: const Icon(
-                Iconsax.ticket,
-                color: FColors.primary,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              "My Rewards",
-              style: TextStyle(
-                color: dark ? FColors.white : FColors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: FSizes.defaultSpace,
-              vertical: 12,
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: dark
-                    ? FColors.darkerGrey
-                    : FColors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TabBar(
-                controller: controller.tabController,
-                labelColor: FColors.white,
-                unselectedLabelColor: dark
-                    ? FColors.darkGrey
-                    : FColors.textSecondary,
-                indicator: BoxDecoration(
-                  color: FColors.primary,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: FColors.primary.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: dark
+                      ? FColors.darkerGrey
+                      : FColors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TabBar(
+                  controller: controller.tabController,
+                  labelColor: FColors.white,
+                  unselectedLabelColor: dark
+                      ? FColors.darkGrey
+                      : FColors.textSecondary,
+                  indicator: BoxDecoration(
+                    color: FColors.primary,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: FColors.primary.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                  tabs: const [
+                    Tab(text: 'Active'),
+                    Tab(text: 'Expired'),
                   ],
                 ),
-                indicatorSize: TabBarIndicatorSize.tab,
-                dividerColor: Colors.transparent,
-                labelStyle: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-                unselectedLabelStyle: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14,
-                ),
-                tabs: const [
-                  Tab(text: 'Active'),
-                  Tab(text: 'Expired'),
-                ],
               ),
             ),
-          ),
-        ),
-      ),
-      body: RefreshIndicator(
-        color: FColors.primary,
-        onRefresh: controller.refreshData,
-        child: TabBarView(
-          controller: controller.tabController,
-          children: [
-            _buildActiveTab(controller, dark),
-            _buildExpiredTab(controller, dark),
+
+            /// Tab Bar View
+            Expanded(
+              child: RefreshIndicator(
+                color: FColors.primary,
+                onRefresh: controller.refreshData,
+                child: TabBarView(
+                  controller: controller.tabController,
+                  children: [
+                    _buildActiveTab(controller, dark),
+                    _buildExpiredTab(controller, dark),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

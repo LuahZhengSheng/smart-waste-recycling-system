@@ -17,7 +17,10 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
   final _myPosts = <PostModel>[].obs;
   final _filteredPosts = <PostModel>[].obs;
   final _selectedFilter = Rx<PostType?>(null); // 修改：使用 nullable 类型
-  final _isLoading = false.obs;
+  final _isLoading = true.obs; // 初始设为 true
+
+  // 添加标志来跟踪是否已经收到数据
+  final _hasReceivedData = false.obs;
 
   // Filter list using enum - 第一个是 null 表示 "All"
   final List<PostType?> filters = [
@@ -76,6 +79,7 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
   /// Load user's posts from Firestore
   Future<void> loadMyPosts() async {
     _isLoading.value = true;
+    _hasReceivedData.value = false;
 
     try {
       final currentUserId = getCurrentUserId();
@@ -88,24 +92,37 @@ class MyPostsController extends GetxController with GetSingleTickerProviderState
 
       // Listen to the stream and update posts
       postsStream.listen((posts) {
+        _hasReceivedData.value = true;
         _myPosts.assignAll(posts);
         _applyFilters();
+        _isLoading.value = false;
       }, onError: (error) {
+        _hasReceivedData.value = true;
+        _isLoading.value = false;
         FLoaders.errorSnackBar(
           title: 'Error',
           message: 'Failed to load your posts: $error',
         );
       });
+
+      // 添加超时保护
+      Future.delayed(const Duration(seconds: 10), () {
+        if (!_hasReceivedData.value) {
+          _hasReceivedData.value = true;
+          _isLoading.value = false;
+          FLoaders.errorSnackBar(
+            title: 'Timeout',
+            message: 'Failed to load your posts',
+          );
+        }
+      });
     } catch (e) {
+      _hasReceivedData.value = true;
+      _isLoading.value = false;
       FLoaders.errorSnackBar(
         title: 'Error',
         message: 'Failed to load your posts: $e',
       );
-    } finally {
-      // Delay hiding loading to ensure smooth UI transition
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _isLoading.value = false;
-      });
     }
   }
 

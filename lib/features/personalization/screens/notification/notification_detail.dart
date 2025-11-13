@@ -9,10 +9,10 @@ class NotificationDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final NotificationModel notification = Get.arguments as NotificationModel;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? FColors.dark : FColors.primaryBackground,
+      backgroundColor: dark ? FColors.dark : FColors.primaryBackground,
       body: CustomScrollView(
         slivers: [
           // Modern SliverAppBar with gradient
@@ -21,14 +21,14 @@ class NotificationDetailScreen extends StatelessWidget {
             floating: false,
             pinned: true,
             elevation: 0,
-            backgroundColor: isDark ? FColors.dark : FColors.white,
+            backgroundColor: dark ? FColors.dark : FColors.white,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: isDark
+                    colors: dark
                         ? [
                       FColors.accent.withOpacity(0.1),
                       FColors.primary.withOpacity(0.05),
@@ -45,14 +45,14 @@ class NotificationDetailScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? FColors.textWhite : FColors.textPrimary,
+                  color: dark ? FColors.textWhite : FColors.textPrimary,
                 ),
               ),
             ),
             leading: Container(
               margin: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isDark
+                color: dark
                     ? FColors.lightContainer.withOpacity(0.1)
                     : FColors.white.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(12),
@@ -67,7 +67,7 @@ class NotificationDetailScreen extends StatelessWidget {
               child: IconButton(
                 icon: Icon(
                   Icons.arrow_back_ios_rounded,
-                  color: isDark ? FColors.textWhite : FColors.textPrimary,
+                  color: dark ? FColors.textWhite : FColors.textPrimary,
                   size: 18,
                 ),
                 onPressed: () => Get.back(),
@@ -77,7 +77,7 @@ class NotificationDetailScreen extends StatelessWidget {
               Container(
                 margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isDark
+                  color: dark
                       ? FColors.lightContainer.withOpacity(0.1)
                       : FColors.white.withOpacity(0.9),
                   borderRadius: BorderRadius.circular(12),
@@ -92,9 +92,9 @@ class NotificationDetailScreen extends StatelessWidget {
                 child: PopupMenuButton<String>(
                   icon: Icon(
                     Icons.more_vert_rounded,
-                    color: isDark ? FColors.textWhite : FColors.textPrimary,
+                    color: dark ? FColors.textWhite : FColors.textPrimary,
                   ),
-                  color: isDark ? FColors.lightContainer : FColors.white,
+                  color: dark ? FColors.lightContainer : FColors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -129,7 +129,7 @@ class NotificationDetailScreen extends StatelessWidget {
                   ],
                   onSelected: (value) {
                     if (value == 'delete') {
-                      _showDeleteConfirmation(context, notification, isDark);
+                      _showDeleteConfirmation(context, notification, dark);
                     }
                   },
                 ),
@@ -147,11 +147,11 @@ class NotificationDetailScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: isDark ? FColors.lightContainer.withOpacity(0.1) : FColors.white,
+                      color: dark ? FColors.lightContainer.withOpacity(0.1) : FColors.white,
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: isDark
+                          color: dark
                               ? Colors.black.withOpacity(0.2)
                               : Colors.black.withOpacity(0.05),
                           blurRadius: 20,
@@ -210,7 +210,7 @@ class NotificationDetailScreen extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.w700,
-                                      color: isDark ? FColors.textWhite : FColors.textPrimary,
+                                      color: dark ? FColors.textWhite : FColors.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -218,7 +218,7 @@ class NotificationDetailScreen extends StatelessWidget {
                                     _formatDate(notification.createdAt),
                                     style: TextStyle(
                                       fontSize: 14,
-                                      color: isDark ? FColors.darkGrey : FColors.textSecondary,
+                                      color: dark ? FColors.darkGrey : FColors.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -297,11 +297,11 @@ class NotificationDetailScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: isDark ? FColors.lightContainer.withOpacity(0.1) : FColors.white,
+                      color: dark ? FColors.lightContainer.withOpacity(0.1) : FColors.white,
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: isDark
+                          color: dark
                               ? Colors.black.withOpacity(0.2)
                               : Colors.black.withOpacity(0.05),
                           blurRadius: 20,
@@ -332,7 +332,7 @@ class NotificationDetailScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? FColors.textWhite : FColors.textPrimary,
+                                color: dark ? FColors.textWhite : FColors.textPrimary,
                               ),
                             ),
                           ],
@@ -342,7 +342,7 @@ class NotificationDetailScreen extends StatelessWidget {
                           notification.message,
                           style: TextStyle(
                             fontSize: 16,
-                            color: isDark ? FColors.textSecondary : FColors.textPrimary,
+                            color: dark ? FColors.textSecondary : FColors.textPrimary,
                             height: 1.6,
                             letterSpacing: 0.2,
                           ),
@@ -357,11 +357,11 @@ class NotificationDetailScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: isDark ? FColors.lightContainer.withOpacity(0.1) : FColors.white,
+                        color: dark ? FColors.lightContainer.withOpacity(0.1) : FColors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: isDark
+                            color: dark
                                 ? Colors.black.withOpacity(0.2)
                                 : Colors.black.withOpacity(0.05),
                             blurRadius: 20,
@@ -392,7 +392,7 @@ class NotificationDetailScreen extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,
-                                  color: isDark ? FColors.textWhite : FColors.textPrimary,
+                                  color: dark ? FColors.textWhite : FColors.textPrimary,
                                 ),
                               ),
                             ],
@@ -401,12 +401,12 @@ class NotificationDetailScreen extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: isDark
+                              color: dark
                                   ? FColors.dark.withOpacity(0.3)
                                   : FColors.lightContainer,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: isDark
+                                color: dark
                                     ? FColors.borderPrimary.withOpacity(0.2)
                                     : FColors.borderPrimary,
                                 width: 1,
@@ -436,7 +436,7 @@ class NotificationDetailScreen extends StatelessWidget {
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
-                                          color: isDark ? FColors.textWhite : FColors.textPrimary,
+                                          color: dark ? FColors.textWhite : FColors.textPrimary,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -444,7 +444,7 @@ class NotificationDetailScreen extends StatelessWidget {
                                         '2.2 MB',
                                         style: TextStyle(
                                           fontSize: 14,
-                                          color: isDark ? FColors.darkGrey : FColors.textSecondary,
+                                          color: dark ? FColors.darkGrey : FColors.textSecondary,
                                         ),
                                       ),
                                     ],
@@ -477,11 +477,11 @@ class NotificationDetailScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: isDark ? FColors.lightContainer.withOpacity(0.1) : FColors.white,
+                        color: dark ? FColors.lightContainer.withOpacity(0.1) : FColors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: isDark
+                            color: dark
                                 ? Colors.black.withOpacity(0.2)
                                 : Colors.black.withOpacity(0.05),
                             blurRadius: 20,
@@ -497,7 +497,7 @@ class NotificationDetailScreen extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? FColors.textWhite : FColors.textPrimary,
+                              color: dark ? FColors.textWhite : FColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -704,12 +704,12 @@ class NotificationDetailScreen extends StatelessWidget {
   }
 }
 
-void _showDeleteConfirmation(BuildContext context, NotificationModel notification, bool isDark) {
+void _showDeleteConfirmation(BuildContext context, NotificationModel notification, bool dark) {
   showDialog(
     context: context,
     builder: (BuildContext context) {
       return AlertDialog(
-        backgroundColor: isDark ? FColors.lightContainer : FColors.white,
+        backgroundColor: dark ? FColors.lightContainer : FColors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
@@ -731,7 +731,7 @@ void _showDeleteConfirmation(BuildContext context, NotificationModel notificatio
             Text(
               'Delete Notification',
               style: TextStyle(
-                color: isDark ? FColors.textWhite : FColors.textPrimary,
+                color: dark ? FColors.textWhite : FColors.textPrimary,
                 fontWeight: FontWeight.w600,
                 fontSize: 18,
               ),
@@ -741,7 +741,7 @@ void _showDeleteConfirmation(BuildContext context, NotificationModel notificatio
         content: Text(
           'Are you sure you want to delete this notification? This action cannot be undone.',
           style: TextStyle(
-            color: isDark ? FColors.textSecondary : FColors.textSecondary,
+            color: dark ? FColors.textSecondary : FColors.textSecondary,
             height: 1.5,
           ),
         ),
@@ -757,7 +757,7 @@ void _showDeleteConfirmation(BuildContext context, NotificationModel notificatio
             child: Text(
               'Cancel',
               style: TextStyle(
-                color: isDark ? FColors.textSecondary : FColors.textSecondary,
+                color: dark ? FColors.textSecondary : FColors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),

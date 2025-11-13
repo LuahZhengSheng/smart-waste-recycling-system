@@ -16,7 +16,7 @@ class PostDetailsController extends GetxController {
   // Observable variables
   final _post = Rx<PostModel?>(null);
   final _comments = <Comment>[].obs;
-  final _isLoading = false.obs;
+  final _isLoading = true.obs; // 初始设为 true
   final _commentSortType = CommentSortType.newestFirst.obs; // 默认改为 newestFirst
 
   // Stream subscriptions
@@ -25,6 +25,10 @@ class PostDetailsController extends GetxController {
 
   // Current post ID
   String _currentPostId = '';
+
+  // 添加标志来跟踪是否已经收到数据
+  final _hasReceivedPostData = false.obs;
+  final _hasReceivedCommentsData = false.obs;
 
   // Getters
   Rx<PostModel> get post => _post.value != null
@@ -60,17 +64,23 @@ class PostDetailsController extends GetxController {
   Future<void> loadPostDetails(String postId) async {
     _isLoading.value = true;
     _currentPostId = postId;
+    _hasReceivedPostData.value = false;
+    _hasReceivedCommentsData.value = false;
 
     try {
       // Subscribe to post stream
       _postSubscription?.cancel();
       _postSubscription = postRepository.getPostByIdStream(postId).listen(
             (post) {
+          _hasReceivedPostData.value = true;
           if (post != null) {
             _post.value = post;
           }
+          _checkIfDataLoaded();
         },
         onError: (error) {
+          _hasReceivedPostData.value = true;
+          _checkIfDataLoaded();
           FLoaders.errorSnackBar(
             title: 'Error',
             message: 'Failed to load post: $error',
@@ -82,21 +92,46 @@ class PostDetailsController extends GetxController {
       _commentsSubscription?.cancel();
       _commentsSubscription = commentRepository.getCommentsStream(postId).listen(
             (commentsList) {
+          _hasReceivedCommentsData.value = true;
           _comments.assignAll(commentsList);
+          _checkIfDataLoaded();
         },
         onError: (error) {
+          _hasReceivedCommentsData.value = true;
+          _checkIfDataLoaded();
           FLoaders.errorSnackBar(
             title: 'Error',
             message: 'Failed to load comments: $error',
           );
         },
       );
+
+      // 添加超时保护
+      Future.delayed(const Duration(seconds: 10), () {
+        if (_isLoading.value) {
+          _hasReceivedPostData.value = true;
+          _hasReceivedCommentsData.value = true;
+          _isLoading.value = false;
+          FLoaders.errorSnackBar(
+            title: 'Timeout',
+            message: 'Failed to load post details',
+          );
+        }
+      });
     } catch (e) {
+      _hasReceivedPostData.value = true;
+      _hasReceivedCommentsData.value = true;
+      _isLoading.value = false;
       FLoaders.errorSnackBar(
         title: 'Error',
         message: 'Failed to load post details: $e',
       );
-    } finally {
+    }
+  }
+
+  /// 检查是否所有数据都已加载完成
+  void _checkIfDataLoaded() {
+    if (_hasReceivedPostData.value && _hasReceivedCommentsData.value) {
       _isLoading.value = false;
     }
   }
@@ -138,5 +173,4 @@ class PostDetailsController extends GetxController {
   String getCurrentUserId() {
     return AuthenticationRepository.instance.authUser?.uid ?? '';
   }
-
 }

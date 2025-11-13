@@ -6,8 +6,8 @@ class EmissionModel {
   final String category;
   final Map<String, dynamic> inputs;
   final double emissionValue;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final DateTime createdAt; // 存储 UTC 时间
+  final DateTime updatedAt; // 存储 UTC 时间
 
   const EmissionModel({
     required this.emissionId,
@@ -20,8 +20,25 @@ class EmissionModel {
   });
 
   // 从 Firebase DocumentSnapshot 创建 EmissionModel
-  factory EmissionModel.fromFirestore(DocumentSnapshot doc) {
+  factory EmissionModel.fromSnapshot(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // 直接读取 ServerTime (UTC)
+    DateTime createdAt;
+    if (data['createdAt'] is Timestamp) {
+      createdAt = (data['createdAt'] as Timestamp).toDate();
+    } else {
+      // 降级方案：使用当前 UTC 时间
+      createdAt = DateTime.now().toUtc();
+    }
+
+    DateTime updatedAt;
+    if (data['updatedAt'] is Timestamp) {
+      updatedAt = (data['updatedAt'] as Timestamp).toDate();
+    } else {
+      // 降级方案：使用当前 UTC 时间
+      updatedAt = DateTime.now().toUtc();
+    }
 
     return EmissionModel(
       emissionId: doc.id,
@@ -29,38 +46,61 @@ class EmissionModel {
       category: data['category'] ?? '',
       inputs: Map<String, dynamic>.from(data['inputs'] ?? {}),
       emissionValue: (data['emissionValue'] ?? 0.0).toDouble(),
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: createdAt, // 存储 UTC 时间
+      updatedAt: updatedAt, // 存储 UTC 时间
     );
   }
 
   // 从 Map 创建 EmissionModel
   factory EmissionModel.fromMap(Map<String, dynamic> map) {
+    DateTime createdAt;
+    if (map['createdAt'] is Timestamp) {
+      createdAt = (map['createdAt'] as Timestamp).toDate();
+    } else {
+      // 使用当前 UTC 时间
+      createdAt = DateTime.now().toUtc();
+    }
+
+    DateTime updatedAt;
+    if (map['updatedAt'] is Timestamp) {
+      updatedAt = (map['updatedAt'] as Timestamp).toDate();
+    } else {
+      // 使用当前 UTC 时间
+      updatedAt = DateTime.now().toUtc();
+    }
+
     return EmissionModel(
       emissionId: map['emissionId'] ?? '',
       userId: map['userId'] ?? '',
       category: map['category'] ?? '',
       inputs: Map<String, dynamic>.from(map['inputs'] ?? {}),
       emissionValue: (map['emissionValue'] ?? 0.0).toDouble(),
-      createdAt: map['createdAt'] is Timestamp
-          ? (map['createdAt'] as Timestamp).toDate()
-          : DateTime.tryParse(map['createdAt'] ?? '') ?? DateTime.now(),
-      updatedAt: map['updatedAt'] is Timestamp
-          ? (map['updatedAt'] as Timestamp).toDate()
-          : DateTime.tryParse(map['updatedAt'] ?? '') ?? DateTime.now(),
+      createdAt: createdAt, // 存储 UTC 时间
+      updatedAt: updatedAt, // 存储 UTC 时间
     );
   }
 
   // 转换为 Map (用于 Firebase 存储)
   Map<String, dynamic> toMap() {
-    return {
+    final map = {
       'userId': userId,
       'category': category,
       'inputs': inputs,
       'emissionValue': emissionValue,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
     };
+
+    // 使用 ServerTime 存储 UTC 时间
+    if (emissionId.isEmpty) {
+      // 新文档：使用 ServerTime
+      map['createdAt'] = FieldValue.serverTimestamp();
+      map['updatedAt'] = FieldValue.serverTimestamp();
+    } else {
+      // 现有文档：保持原有的 UTC 时间
+      map['createdAt'] = Timestamp.fromDate(createdAt);
+      map['updatedAt'] = Timestamp.fromDate(updatedAt);
+    }
+
+    return map;
   }
 
   // 转换为 JSON (包含所有字段)
@@ -99,7 +139,7 @@ class EmissionModel {
 
   // 更新 updatedAt 时间戳
   EmissionModel updateTimestamp() {
-    return copyWith(updatedAt: DateTime.now());
+    return copyWith(updatedAt: DateTime.now().toUtc());
   }
 
   // 添加或更新 inputs 中的特定字段
@@ -108,7 +148,7 @@ class EmissionModel {
     newInputs[key] = value;
     return copyWith(
       inputs: newInputs,
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.now().toUtc(),
     );
   }
 
@@ -118,7 +158,7 @@ class EmissionModel {
     newInputs.remove(key);
     return copyWith(
       inputs: newInputs,
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.now().toUtc(),
     );
   }
 
@@ -126,7 +166,7 @@ class EmissionModel {
   EmissionModel recalculateEmission(double newEmissionValue) {
     return copyWith(
       emissionValue: newEmissionValue,
-      updatedAt: DateTime.now(),
+      updatedAt: DateTime.now().toUtc(),
     );
   }
 
@@ -143,18 +183,29 @@ class EmissionModel {
     return '$category: ${emissionValue.toStringAsFixed(2)} kg CO2e';
   }
 
-  // 检查是否为今天创建的记录
-  bool get isCreatedToday {
-    final now = DateTime.now();
-    return createdAt.year == now.year &&
-        createdAt.month == now.month &&
-        createdAt.day == now.day;
+  // 显示为马来西亚时间 (UTC+8)
+  DateTime get displayCreatedAt {
+    return createdAt.add(const Duration(hours: 8));
   }
 
-  // 检查是否在指定日期范围内
+  DateTime get displayUpdatedAt {
+    return updatedAt.add(const Duration(hours: 8));
+  }
+
+  // 检查是否为今天创建的记录 (使用马来西亚时间)
+  bool get isCreatedToday {
+    final now = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final createdMalaysia = displayCreatedAt;
+    return createdMalaysia.year == now.year &&
+        createdMalaysia.month == now.month &&
+        createdMalaysia.day == now.day;
+  }
+
+  // 检查是否在指定日期范围内 (使用马来西亚时间)
   bool isInDateRange(DateTime startDate, DateTime endDate) {
-    return createdAt.isAfter(startDate.subtract(const Duration(days: 1))) &&
-        createdAt.isBefore(endDate.add(const Duration(days: 1)));
+    final createdMalaysia = displayCreatedAt;
+    return createdMalaysia.isAfter(startDate.subtract(const Duration(days: 1))) &&
+        createdMalaysia.isBefore(endDate.add(const Duration(days: 1)));
   }
 
   @override
@@ -217,8 +268,8 @@ class EmissionModel {
       category: '',
       inputs: {},
       emissionValue: 0.0,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: DateTime.now().toUtc(), // 使用 UTC 时间
+      updatedAt: DateTime.now().toUtc(), // 使用 UTC 时间
     );
   }
 
@@ -229,7 +280,7 @@ class EmissionModel {
     required Map<String, dynamic> inputs,
     required double emissionValue,
   }) {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc(); // 使用 UTC 时间
     return EmissionModel(
       emissionId: '', // Firebase 会自动生成
       userId: userId,

@@ -1,5 +1,5 @@
+// reminder_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../../utils/helpers/helper_functions.dart';
 
 /// Model representing a reminder for event registration
@@ -8,8 +8,8 @@ class Reminder {
   final String registrationId;
   final String title;
   final String message;
-  final DateTime remindAt;
-  final DateTime createdAt;
+  final Timestamp remindAt;  // 使用 Timestamp 存储 UTC 时间
+  final Timestamp createdAt; // 使用 Timestamp 存储 UTC 时间
   final bool isSent;
 
   const Reminder({
@@ -28,8 +28,8 @@ class Reminder {
     registrationId: '',
     title: '',
     message: '',
-    remindAt: DateTime.now(),
-    createdAt: DateTime.now(),
+    remindAt: Timestamp.now(),
+    createdAt: Timestamp.now(),
     isSent: false,
   );
 
@@ -40,23 +40,23 @@ class Reminder {
       registrationId: json['registrationId'] ?? '',
       title: json['title'] ?? '',
       message: json['message'] ?? '',
-      remindAt: DateTime.parse(json['remindAt'] ?? DateTime.now().toIso8601String()),
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+      remindAt: _parseTimestamp(json['remindAt']),
+      createdAt: _parseTimestamp(json['createdAt']),
       isSent: json['isSent'] ?? false,
     );
   }
 
-  /// Creates Reminder instance from Firebase Documentdoc
+  /// Creates Reminder instance from Firebase Document
   factory Reminder.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     if (doc.data() != null) {
       final data = doc.data()!;
       return Reminder(
-        reminderId: doc.id,
+        reminderId: doc.id,  // 使用文档 ID 作为 reminderId
         registrationId: data['registrationId'] ?? '',
         title: data['title'] ?? '',
         message: data['message'] ?? '',
-        remindAt: (data['remindAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        remindAt: data['remindAt'] as Timestamp? ?? Timestamp.now(),
+        createdAt: data['createdAt'] as Timestamp? ?? Timestamp.now(),
         isSent: data['isSent'] ?? false,
       );
     }
@@ -70,20 +70,54 @@ class Reminder {
       'registrationId': registrationId,
       'title': title,
       'message': message,
-      'remindAt': remindAt.toIso8601String(),
-      'createdAt': createdAt.toIso8601String(),
+      'remindAt': remindAt,
+      'createdAt': createdAt,
       'isSent': isSent,
     };
   }
 
-  /// Returns formatted remind date
-  String get formattedRemindAt {
-    return FHelperFunctions.getFormattedDate(remindAt, format: 'dd MMM yyyy, HH:mm');
+  /// Converts Reminder instance to Firestore map (使用 server timestamp)
+  Map<String, dynamic> toFirestore() {
+    return {
+      'registrationId': registrationId,
+      'title': title,
+      'message': message,
+      'remindAt': remindAt,
+      'createdAt': FieldValue.serverTimestamp(), // 使用 server timestamp
+      'isSent': isSent,
+    };
   }
 
-  /// Returns formatted creation date
+  /// 解析时间戳的辅助方法
+  static Timestamp _parseTimestamp(dynamic timestamp) {
+    if (timestamp is Timestamp) {
+      return timestamp;
+    } else if (timestamp is String) {
+      return Timestamp.fromDate(DateTime.parse(timestamp).toUtc());
+    } else if (timestamp is int) {
+      return Timestamp.fromMillisecondsSinceEpoch(timestamp);
+    }
+    return Timestamp.now();
+  }
+
+  // ==================== Getter Methods ====================
+
+  /// 获取本地时间的 DateTime（用于显示）
+  DateTime get remindAtLocal => remindAt.toDate().toLocal();
+  DateTime get createdAtLocal => createdAt.toDate().toLocal();
+
+  /// 获取 UTC 时间的 DateTime
+  DateTime get remindAtUtc => remindAt.toDate().toUtc();
+  DateTime get createdAtUtc => createdAt.toDate().toUtc();
+
+  /// Returns formatted remind date (使用本地时间显示)
+  String get formattedRemindAt {
+    return FHelperFunctions.getFormattedDate(remindAtLocal, format: 'dd MMM yyyy, HH:mm');
+  }
+
+  /// Returns formatted creation date (使用本地时间显示)
   String get formattedCreatedAt {
-    return FHelperFunctions.getFormattedDate(createdAt);
+    return FHelperFunctions.getFormattedDate(createdAtLocal);
   }
 
   /// Returns reminder status text
@@ -91,20 +125,22 @@ class Reminder {
     return isSent ? 'Sent' : 'Pending';
   }
 
-  /// Checks if reminder should be sent
+  /// Checks if reminder should be sent (使用 UTC 时间比较)
   bool get shouldSend {
-    return !isSent && DateTime.now().isAfter(remindAt);
+    final nowUtc = DateTime.now().toUtc();
+    return !isSent && nowUtc.isAfter(remindAtUtc);
   }
 
-  /// Checks if reminder is overdue
+  /// Checks if reminder is overdue (使用 UTC 时间比较)
   bool get isOverdue {
-    return !isSent && DateTime.now().isAfter(remindAt);
+    final nowUtc = DateTime.now().toUtc();
+    return !isSent && nowUtc.isAfter(remindAtUtc);
   }
 
-  /// Returns time until reminder in a readable format
+  /// Returns time until reminder in a readable format (使用本地时间计算)
   String get timeUntilReminder {
     final now = DateTime.now();
-    final difference = remindAt.difference(now);
+    final difference = remindAtLocal.difference(now);
 
     if (difference.isNegative) {
       return 'Overdue';
@@ -129,8 +165,8 @@ class Reminder {
     String? registrationId,
     String? title,
     String? message,
-    DateTime? remindAt,
-    DateTime? createdAt,
+    Timestamp? remindAt,
+    Timestamp? createdAt,
     bool? isSent,
   }) {
     return Reminder(

@@ -1,23 +1,26 @@
+// reminder_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
-import 'package:fyp/utils/exceptions/firebase_exceptions.dart';
-import 'package:fyp/utils/exceptions/format_exceptions.dart';
-import 'package:fyp/utils/exceptions/platform_exceptions.dart';
-
 import '../../../features/event/models/reminder_model.dart';
+import '../../../utils/exceptions/firebase_exceptions.dart';
+import '../../../utils/exceptions/format_exceptions.dart';
+import '../../../utils/exceptions/platform_exceptions.dart';
 
 class ReminderRepository extends GetxController {
   static ReminderRepository get instance => Get.find();
 
   final _db = FirebaseFirestore.instance;
 
-  /// Collection reference
   CollectionReference get _remindersCollection => _db.collection('reminders');
 
-  /// Create a new reminder
-  Future<void> createReminder(Reminder reminder) async {
+  /// Create a new reminder (使用 Firestore 自动生成 ID)
+  Future<String> createReminder(Reminder reminder) async {
     try {
-      await _remindersCollection.doc(reminder.reminderId).set(reminder.toJson());
+      // 使用 add() 方法让 Firestore 自动生成文档 ID
+      final docRef = await _remindersCollection.add(reminder.toFirestore());
+
+      // 返回自动生成的 reminderId
+      return docRef.id;
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -44,28 +47,6 @@ class ReminderRepository extends GetxController {
     }
   }
 
-  /// Get reminder by ID
-  Future<Reminder?> getReminderById(String reminderId) async {
-    try {
-      final doc = await _remindersCollection.doc(reminderId).get();
-      if (doc.exists) {
-        final data = doc.data() as Map<String, dynamic>?;
-        if (data != null) {
-          return Reminder.fromJson(data);
-        }
-      }
-      return null;
-    } on FirebaseException catch (e) {
-      throw FFirebaseException(e.code).message;
-    } on FormatException catch (_) {
-      throw const FFormatException();
-    } on FPlatformException catch (e) {
-      throw FPlatformException(e.code).message;
-    } catch (e) {
-      throw 'Something went wrong. Please try again.';
-    }
-  }
-
   /// Get reminder by registration ID
   Future<Reminder?> getReminderByRegistration(String registrationId) async {
     try {
@@ -76,10 +57,7 @@ class ReminderRepository extends GetxController {
 
       if (querySnapshot.docs.isNotEmpty) {
         final doc = querySnapshot.docs.first;
-        final data = doc.data() as Map<String, dynamic>?;
-        if (data != null) {
-          return Reminder.fromJson(data);
-        }
+        return Reminder.fromSnapshot(doc as DocumentSnapshot<Map<String, dynamic>>);
       }
       return null;
     } on FirebaseException catch (e) {
@@ -93,59 +71,11 @@ class ReminderRepository extends GetxController {
     }
   }
 
-  /// Stream to get all reminders for a user by registration IDs
-  Stream<List<Reminder>> getUserRemindersStream(List<String> registrationIds) {
+  /// Check if reminder exists for registration
+  Future<bool> checkReminderExists(String registrationId) async {
     try {
-      if (registrationIds.isEmpty) {
-        return Stream.value([]);
-      }
-
-      return _remindersCollection
-          .where('registrationId', whereIn: registrationIds)
-          .snapshots()
-          .map((snapshot) {
-        final reminders = <Reminder>[];
-        for (final doc in snapshot.docs) {
-          final data = doc.data() as Map<String, dynamic>?;
-          if (data != null) {
-            try {
-              reminders.add(Reminder.fromJson(data));
-            } catch (e) {
-              // Skip invalid documents
-              continue;
-            }
-          }
-        }
-        return reminders;
-      });
-    } on FirebaseException catch (e) {
-      throw FFirebaseException(e.code).message;
-    } on FormatException catch (_) {
-      throw const FFormatException();
-    } on FPlatformException catch (e) {
-      throw FPlatformException(e.code).message;
-    } catch (e) {
-      throw 'Something went wrong. Please try again.';
-    }
-  }
-
-  /// Stream to get single reminder by registration ID
-  Stream<Reminder?> getReminderByRegistrationStream(String registrationId) {
-    try {
-      return _remindersCollection
-          .where('registrationId', isEqualTo: registrationId)
-          .limit(1)
-          .snapshots()
-          .map((snapshot) {
-        if (snapshot.docs.isNotEmpty) {
-          final doc = snapshot.docs.first;
-          final data = doc.data() as Map<String, dynamic>?;
-          if (data != null) {
-            return Reminder.fromJson(data);
-          }
-        }
-        return null;
-      });
+      final reminder = await getReminderByRegistration(registrationId);
+      return reminder != null;
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } on FormatException catch (_) {
@@ -174,83 +104,27 @@ class ReminderRepository extends GetxController {
     }
   }
 
-  /// Get reminders that are due to be sent
+  /// Get reminders that are due to be sent (使用 UTC 时间比较)
   Stream<List<Reminder>> getDueRemindersStream() {
     try {
+      final now = Timestamp.now(); // 使用当前 UTC 时间
+
       return _remindersCollection
           .where('isSent', isEqualTo: false)
-          .where('remindAt', isLessThanOrEqualTo: DateTime.now())
+          .where('remindAt', isLessThanOrEqualTo: now)
           .snapshots()
           .map((snapshot) {
         final reminders = <Reminder>[];
         for (final doc in snapshot.docs) {
-          final data = doc.data() as Map<String, dynamic>?;
-          if (data != null) {
-            try {
-              reminders.add(Reminder.fromJson(data));
-            } catch (e) {
-              // Skip invalid documents
-              continue;
-            }
-          }
-        }
-        return reminders;
-      });
-    } on FirebaseException catch (e) {
-      throw FFirebaseException(e.code).message;
-    } on FormatException catch (_) {
-      throw const FFormatException();
-    } on FPlatformException catch (e) {
-      throw FPlatformException(e.code).message;
-    } catch (e) {
-      throw 'Something went wrong. Please try again.';
-    }
-  }
-
-  /// Check if reminder exists for registration
-  Future<bool> checkReminderExists(String registrationId) async {
-    try {
-      final reminder = await getReminderByRegistration(registrationId);
-      return reminder != null;
-    } on FirebaseException catch (e) {
-      throw FFirebaseException(e.code).message;
-    } on FormatException catch (_) {
-      throw const FFormatException();
-    } on FPlatformException catch (e) {
-      throw FPlatformException(e.code).message;
-    } catch (e) {
-      throw 'Something went wrong. Please try again.';
-    }
-  }
-
-  /// Get all reminders with pagination
-  Future<List<Reminder>> getRemindersPaginated({
-    int limit = 20,
-    DocumentSnapshot? lastDoc,
-  }) async {
-    try {
-      Query query = _remindersCollection
-          .orderBy('createdAt', descending: true)
-          .limit(limit);
-
-      if (lastDoc != null) {
-        query = query.startAfterDocument(lastDoc);
-      }
-
-      final snapshot = await query.get();
-      final reminders = <Reminder>[];
-      for (final doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>?;
-        if (data != null) {
           try {
-            reminders.add(Reminder.fromJson(data));
+            reminders.add(Reminder.fromSnapshot(doc as DocumentSnapshot<Map<String, dynamic>>));
           } catch (e) {
             // Skip invalid documents
             continue;
           }
         }
-      }
-      return reminders;
+        return reminders;
+      });
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } on FormatException catch (_) {

@@ -1,11 +1,29 @@
+import 'dart:io';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
+import 'package:fyp/data/repositories/user/user_repository.dart';
+import 'package:fyp/features/personalization/models/recycle_activity_model.dart';
 
-import '../../personalization/models/recycle_activity_model.dart';
+import '../../../data/repositories/authentication/authentication_repository.dart';
+import '../../../data/repositories/personalization/recycling_activity_repository.dart';
+import '../../../data/repositories/recycling_center/waste_category_repository.dart';
+import '../../../data/services/qr_code/jwt_service.dart';
+import '../../../utils/constants/colors.dart';
+import '../../../utils/constants/enums.dart';
+import '../../../utils/helpers/activity_image.dart';
+import '../../../utils/popups/full_screen_loader.dart';
+import '../../../utils/popups/loaders.dart';
 import '../models/waste_category_model.dart';
+import '../screens/add_recyling_activity/widgets/submission_success.dart';
 
 class StaffHomeController extends GetxController {
   static StaffHomeController get instance => Get.find();
+
+  // Repositories
+  final UserRepository _userRepository = Get.put(UserRepository());
+  final RecyclingActivityRepository _activityRepository = Get.put(RecyclingActivityRepository());
+  final WasteCategoryRepository _wasteCategoryRepository = Get.put(WasteCategoryRepository());
+  final JWTService _jwtService = Get.put(JWTService());
 
   // Observables
   final RxString userId = ''.obs;
@@ -14,18 +32,28 @@ class StaffHomeController extends GetxController {
   final RxString userName = ''.obs;
   final RxString userEmail = ''.obs;
   final RxInt userRewardPoints = 0.obs;
+  final RxString userProfileImage = ''.obs;
+  final Rx<UserSearchMethod> searchMethod = UserSearchMethod.username.obs;
 
-  // Recycling activities for current session
-  final RxList<RecyclingActivity> currentActivities = <RecyclingActivity>[].obs;
+  // Recycling activities with their images
+  final RxList<ActivityWithImage> currentActivitiesWithImages = <ActivityWithImage>[].obs;
   final RxList<WasteCategory> wasteCategories = <WasteCategory>[].obs;
 
   // Form controllers
   final TextEditingController userIdController = TextEditingController();
   final GlobalKey<FormState> userIdFormKey = GlobalKey<FormState>();
 
+  // Staff info
+  final RxString staffId = ''.obs;
+
+  // Computed properties for compatibility
+  List<RecyclingActivity> get currentActivities =>
+      currentActivitiesWithImages.map((e) => e.activity).toList();
+
   @override
   void onInit() {
     super.onInit();
+    _initializeStaffInfo();
     loadWasteCategories();
   }
 
@@ -35,235 +63,328 @@ class StaffHomeController extends GetxController {
     super.onClose();
   }
 
-  /// Load waste categories from database
-  void loadWasteCategories() async {
+  void _initializeStaffInfo() {
+    final authUser = AuthenticationRepository.instance.authUser;
+    if (authUser != null) {
+      staffId.value = authUser.uid;
+    }
+  }
+
+  Future<void> loadWasteCategories() async {
     try {
       isLoading.value = true;
-
-      // Mock data - replace with actual database call
-      wasteCategories.value = [
-        WasteCategory(
-          categoryId: '1',
-          name: 'Plastic',
-          description: 'Plastic bottles, containers, bags',
-          disposalMethod: 'Recycling',
-          icon: Icons.recycling,
-          color: Colors.blue,
-          basePoints: 5.0,
-          examples: ['Bottles', 'Containers', 'Bags'],
-          isRecyclable: true,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
-        WasteCategory(
-          categoryId: '2',
-          name: 'Paper',
-          description: 'Newspapers, magazines, cardboard',
-          disposalMethod: 'Recycling',
-          icon: Icons.article,
-          color: Colors.brown,
-          basePoints: 3.0,
-          examples: ['Newspapers', 'Magazines', 'Cardboard'],
-          isRecyclable: true,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
-        WasteCategory(
-          categoryId: '3',
-          name: 'Electronics',
-          description: 'Old phones, computers, batteries',
-          disposalMethod: 'Special handling',
-          icon: Icons.devices,
-          color: Colors.purple,
-          basePoints: 15.0,
-          examples: ['Phones', 'Computers', 'Batteries'],
-          isRecyclable: true,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        ),
-      ];
-
+      final categories = await _wasteCategoryRepository.getAllWasteCategories();
+      wasteCategories.value = categories;
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load waste categories: $e');
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to load waste categories: $e',
+      );
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// Validate and search for user by ID
-  void searchUser() async {
+  Future<void> searchUser() async {
     if (!userIdFormKey.currentState!.validate()) return;
 
     try {
       isLoading.value = true;
+      searchMethod.value = UserSearchMethod.username;
 
-      // Mock user validation - replace with actual database call
-      await Future.delayed(const Duration(seconds: 1));
+      final username = userIdController.text.trim();
+      final user = await _userRepository.getUserByUsername(username);
 
-      final String inputUserId = userIdController.text.trim();
+      if (user != null && user.userId.isNotEmpty) {
+        await _setUserInfo(
+          user.userId,
+          user.username,
+          user.email,
+          user.rewardPoint,
+          user.profileImg,
+        );
 
-      // Mock validation logic
-      if (inputUserId.isNotEmpty && inputUserId.length >= 3) {
-        userId.value = inputUserId;
-        userName.value = 'John Doe'; // Mock data
-        userEmail.value = 'john.doe@email.com'; // Mock data
-        userRewardPoints.value = 1250; // Mock data
-        isValidUser.value = true;
-
-        // Clear previous activities
-        currentActivities.clear();
-
-        Get.snackbar(
-          'Success',
-          'User found! You can now add recycling activities.',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
+        FLoaders.successSnackBar(
+          title: 'Success',
+          message: 'User found! You can now add recycling activities.',
         );
       } else {
         isValidUser.value = false;
-        Get.snackbar(
-          'Error',
-          'User not found. Please check the User ID.',
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
+        FLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'User not found. Please check the username.',
         );
       }
-
     } catch (e) {
       isValidUser.value = false;
-      Get.snackbar('Error', 'Failed to search user: $e');
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to search user: $e',
+      );
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// Add new recycling activity to current session
-  void addRecyclingActivity(RecyclingActivity activity) {
-    currentActivities.add(activity);
-    Get.back(); // Return to activities list
-    Get.snackbar(
-      'Added',
-      'Recycling activity added successfully!',
-      backgroundColor: Colors.green,
-      colorText: Colors.white,
-    );
-  }
-
-  /// Edit existing recycling activity
-  void editRecyclingActivity(int index, RecyclingActivity activity) {
-    if (index >= 0 && index < currentActivities.length) {
-      currentActivities[index] = activity;
-      Get.back(); // Return to activities list
-      Get.snackbar(
-        'Updated',
-        'Recycling activity updated successfully!',
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-      );
-    }
-  }
-
-  /// Delete recycling activity from current session
-  void deleteRecyclingActivity(int index) {
-    if (index >= 0 && index < currentActivities.length) {
-      currentActivities.removeAt(index);
-      Get.snackbar(
-        'Deleted',
-        'Recycling activity removed!',
-        backgroundColor: Colors.orange,
-        colorText: Colors.white,
-      );
-    }
-  }
-
-  /// Submit all activities to database
-  void submitAllActivities() async {
-    if (currentActivities.isEmpty) {
-      Get.snackbar('Error', 'No activities to submit!');
-      return;
-    }
-
+  Future<void> validateAndSetUserFromQR(String scannedResult) async {
     try {
       isLoading.value = true;
+      searchMethod.value = UserSearchMethod.qrCode;
 
-      // Mock database submission - replace with actual database calls
-      await Future.delayed(const Duration(seconds: 2));
+      String userId;
 
-      // Calculate total points
-      int totalPoints = currentActivities.fold(0, (sum, activity) => sum + activity.pointsEarned);
+      if (scannedResult.length == 28) {
+        userId = scannedResult;
+      } else {
+        final extractedUserId = _jwtService.validateQRToken(scannedResult);
+        if (extractedUserId != null) {
+          userId = extractedUserId;
+        } else {
+          throw Exception('Invalid QR code format');
+        }
+      }
 
-      // Mock submission success
-      Get.snackbar(
-        'Success',
-        'All activities submitted! Total points awarded: $totalPoints',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
+      final user = await _userRepository.fetchOtherUserDetails(userId);
+
+      if (user.userId.isNotEmpty) {
+        await _setUserInfo(
+          user.userId,
+          user.username,
+          user.email,
+          user.rewardPoint,
+          user.profileImg,
+        );
+
+        FLoaders.customToast(
+          message: 'QR scan successful! User verified.',
+        );
+      } else {
+        FLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'User not found in database.',
+        );
+      }
+    } catch (e) {
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to process QR code: ${e.toString()}',
       );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> _setUserInfo(
+      String id,
+      String name,
+      String email,
+      int points,
+      String? profileImg,
+      ) async {
+    userId.value = id;
+    userName.value = name;
+    userEmail.value = email;
+    userRewardPoints.value = points;
+    userProfileImage.value = profileImg ?? '';
+    isValidUser.value = true;
+    currentActivitiesWithImages.clear();
+  }
+
+  Future<String?> getUserProfileImageUrl() async {
+    if (userProfileImage.value.isEmpty) return null;
+
+    try {
+      final cachedUrl = _userRepository.getCachedProfileImageUrl(userProfileImage.value);
+      if (cachedUrl != null) {
+        return cachedUrl;
+      }
+      return await _userRepository.getProfileImageUrl(userProfileImage.value);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<bool> addRecyclingActivity(RecyclingActivity activity, File? imageFile) async {
+    try {
+      currentActivitiesWithImages.add(
+          ActivityWithImage(activity: activity, imageFile: imageFile)
+      );
+      return true;
+    } catch (e) {
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to add activity: $e',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> editRecyclingActivity(int index, RecyclingActivity activity, File? imageFile) async {
+    try {
+      if (index >= 0 && index < currentActivitiesWithImages.length) {
+        currentActivitiesWithImages[index] = ActivityWithImage(
+          activity: activity,
+          imageFile: imageFile,
+        );
+        return true;
+      } else {
+        FLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Invalid activity index',
+        );
+        return false;
+      }
+    } catch (e) {
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to edit activity: $e',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> deleteRecyclingActivity(int index) async {
+    try {
+      if (index >= 0 && index < currentActivitiesWithImages.length) {
+        final confirmed = await Get.dialog<bool>(
+          AlertDialog(
+            title: const Text('Delete Activity'),
+            content: const Text('Are you sure you want to delete this activity?'),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(result: false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Get.back(result: true),
+                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed == true) {
+          currentActivitiesWithImages.removeAt(index);
+          FLoaders.warningSnackBar(
+            title: 'Deleted',
+            message: 'Recycling activity removed!',
+          );
+          return true;
+        }
+        return false;
+      } else {
+        FLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Invalid activity index',
+        );
+        return false;
+      }
+    } catch (e) {
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to delete activity: $e',
+      );
+      return false;
+    }
+  }
+
+  Future<void> submitAllActivities() async {
+    // Show confirmation dialog
+    final confirmed = await Get.dialog<bool>(
+      AlertDialog(
+        title: const Text('Submit All Activities'),
+        content: Text(
+          'Submit ${currentActivitiesWithImages.length} activities?\n\n'
+              'Total Weight: ${totalSessionWeight.toStringAsFixed(1)} kg\n'
+              'Total Points: $totalSessionPoints points\n\n'
+              'Note: This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Get.back(result: true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: FColors.staffLightSecondary,
+            ),
+            child: const Text('Submit'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // Store values before clearing
+      final submittedActivitiesCount = currentActivitiesWithImages.length;
+      final submittedWeight = totalSessionWeight;
+      final submittedPoints = totalSessionPoints;
+      final submittedUserName = userName.value;
+
+      FFullScreenLoader.openLoadingDialog(
+        'Submitting activities...',
+        'assets/images/animations/loader-animation.json',
+      );
+
+      // Submit through repository with images
+      await _activityRepository.submitActivitiesWithImages(
+        currentActivitiesWithImages.toList(),
+        userId.value,
+      );
+
+      FFullScreenLoader.stopLoading();
 
       // Reset form
       resetForm();
 
+      // Navigate to success screen with data
+      Get.off(() => SubmissionSuccessScreen(
+        activitiesCount: submittedActivitiesCount,
+        totalWeight: submittedWeight,
+        totalPoints: submittedPoints,
+        userName: submittedUserName,
+      ));
     } catch (e) {
-      Get.snackbar('Error', 'Failed to submit activities: $e');
-    } finally {
-      isLoading.value = false;
+      FFullScreenLoader.stopLoading();
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to submit activities: $e',
+      );
     }
   }
 
-  /// Reset form and clear data
   void resetForm() {
     userIdController.clear();
     userId.value = '';
     userName.value = '';
     userEmail.value = '';
     userRewardPoints.value = 0;
+    userProfileImage.value = '';
     isValidUser.value = false;
-    currentActivities.clear();
+    currentActivitiesWithImages.clear();
+    searchMethod.value = UserSearchMethod.username;
   }
 
-  /// Scan QR Code (placeholder)
-  void scanQRCode() async {
-    try {
-      // Mock QR code scanning - replace with actual QR scanner
-      await Future.delayed(const Duration(seconds: 1));
-
-      // Mock scanned user ID
-      String scannedUserId = 'USER123';
-      userIdController.text = scannedUserId;
-
-      Get.snackbar(
-        'QR Scanned',
-        'User ID captured from QR code',
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-      );
-
-      // Automatically search for user
-      searchUser();
-
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to scan QR code: $e');
-    }
-  }
-
-  /// Get total points for current session
   int get totalSessionPoints {
-    return currentActivities.fold(0, (sum, activity) => sum + activity.pointsEarned);
+    return currentActivitiesWithImages.fold(
+        0,
+            (sum, item) => sum + item.activity.pointsEarned
+    );
   }
 
-  /// Get total weight for current session
   double get totalSessionWeight {
-    return currentActivities.fold(0.0, (sum, activity) => sum + activity.weight);
+    return currentActivitiesWithImages.fold(
+        0.0,
+            (sum, item) => sum + item.activity.weight
+    );
   }
 
-  /// Validate user ID input
   String? validateUserId(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Please enter User ID';
-    }
-    if (value.trim().length < 3) {
-      return 'User ID must be at least 3 characters';
+      return 'Please enter username';
     }
     return null;
   }

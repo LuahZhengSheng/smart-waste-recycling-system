@@ -17,6 +17,7 @@ class FCommentCard extends StatelessWidget {
   final String postId;
   final bool isInRepliesScreen;
   final bool isOriginalComment;
+  final bool isPostDisabled;
 
   const FCommentCard({
     super.key,
@@ -24,6 +25,7 @@ class FCommentCard extends StatelessWidget {
     required this.postId,
     this.isInRepliesScreen = false,
     this.isOriginalComment = false,
+    this.isPostDisabled = false,
   });
 
   @override
@@ -33,7 +35,7 @@ class FCommentCard extends StatelessWidget {
     final dark = FHelperFunctions.isDarkMode(context);
 
     return GestureDetector(
-      onLongPress: () => _showContextMenu(context, commentController, dark),
+      onLongPress: isPostDisabled ? null : () => _showContextMenu(context, commentController, dark),
       child: Container(
         padding: EdgeInsets.all(isOriginalComment ? FSizes.md * 1.4 : FSizes.md * 1.2),
         color: dark ? FColors.communityDarkBackground : FColors.white,
@@ -71,27 +73,47 @@ class FCommentCard extends StatelessWidget {
                   ),
                   const SizedBox(height: FSizes.spaceBtwItems * 1.5),
 
-                  // Action buttons
-                  _buildActionButtons(context, commentController, dark),
+                  // Action buttons - Disabled if post is disabled
+                  if (isPostDisabled)
+                    Opacity(
+                      opacity: 0.5,
+                      child: IgnorePointer(
+                        child: _buildActionButtons(context, commentController, dark),
+                      ),
+                    )
+                  else
+                    _buildActionButtons(context, commentController, dark),
 
-                  // View replies (only in post details screen)
+                  // View replies (only in post details screen) - Disabled if post is disabled
                   if (!isInRepliesScreen && comment.replyCount > 0) ...[
                     const SizedBox(height: FSizes.md),
-                    GestureDetector(
-                      onTap: () => _navigateToReplies(context, comment, false),
-                      child: Text(
-                        'View ${comment.replyCount} ${comment.replyCount == 1 ? 'reply' : 'replies'}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: FColors.primary,
-                          fontWeight: FontWeight.w500,
+                    if (isPostDisabled)
+                      Opacity(
+                        opacity: 0.5,
+                        child: IgnorePointer(
+                          child: _buildViewRepliesButton(context, comment),
                         ),
-                      ),
-                    ),
+                      )
+                    else
+                      _buildViewRepliesButton(context, comment),
                   ],
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewRepliesButton(BuildContext context, Comment comment) {
+    return GestureDetector(
+      onTap: () => _navigateToReplies(context, comment, false),
+      child: Text(
+        'View ${comment.replyCount} ${comment.replyCount == 1 ? 'reply' : 'replies'}',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: FColors.primary,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -196,6 +218,8 @@ class FCommentCard extends StatelessWidget {
   }
 
   void _navigateToReplies(BuildContext context, Comment comment, bool autoFocus) {
+    if (isPostDisabled) return;
+
     // 确保在进入回复页面之前 CommentController 已经初始化
     final CommentController commentController = Get.find<CommentController>();
     commentController.initialize(comment, postId: postId);
@@ -204,6 +228,7 @@ class FCommentCard extends StatelessWidget {
       postId: postId,
       comment: comment,
       autoFocusReply: autoFocus,
+      isPostDisabled: isPostDisabled,
     ));
   }
 }

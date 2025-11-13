@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -6,6 +8,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_links/app_links.dart';
+
 import '../../../features/event/models/event_model.dart';
 import '../../../features/event/screens/event_detail/event_detail.dart';
 import '../../repositories/event/event_repository.dart';
@@ -21,7 +25,12 @@ class FCMService {
   late FlutterLocalNotificationsPlugin _localNotifications;
 
   static const String _lastUserIdKey = 'last_known_user_id';
-  static const String _scheduledRemindersKey = 'scheduled_reminders';
+
+  /// Deep Link 相关属性
+  static const String _appScheme = 'saveearth'; // 替换为你的 app scheme
+  static const String _deepLinkHost = 'event';
+  late AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSubscription;
 
   /// Initialize FCM
   Future<void> initialize() async {
@@ -50,10 +59,85 @@ class FCMService {
       // Setup auth state listener
       _setupAuthStateListener();
 
-      print('FCM Service initialized successfully for Event Reminders');
+      // Initialize Deep Links
+      await _initializeAppLinks();
+
+      print('FCM Service initialized successfully');
     } catch (e) {
       print('Error initializing FCM Service: $e');
     }
+  }
+
+  /// Initialize App Links
+  Future<void> _initializeAppLinks() async {
+    try {
+      _appLinks = AppLinks();
+
+      // 处理冷启动时的初始链接 - 使用正确的 API
+      final initialLink = await getInitialAppLink();
+      if (initialLink != null) {
+        print('Initial app link: $initialLink');
+        _handleDeepLink(initialLink);
+      }
+
+      // 设置链接监听器
+      _setupAppLinkHandlers();
+
+      print('App Links initialized successfully');
+    } catch (e) {
+      print('Error initializing App Links: $e');
+    }
+  }
+
+  /// 获取初始 App Link - 使用正确的 API
+  Future<String?> getInitialAppLink() async {
+    try {
+      // 尝试获取 URI
+      final uri = await _appLinks.getInitialLink();
+      return uri?.toString();
+    } catch (e) {
+      print('Error getting initial app link: $e');
+      return null;
+    }
+  }
+
+  /// 设置 App Link 监听器
+  void _setupAppLinkHandlers() {
+    _linkSubscription = _appLinks.uriLinkStream.listen((Uri uri) {
+      print('Received app link: $uri');
+      _handleDeepLink(uri.toString());
+    }, onError: (err) {
+      print('Error in app link stream: $err');
+    });
+  }
+
+  /// 处理 Deep Link
+  void _handleDeepLink(String link) {
+    try {
+      final uri = Uri.parse(link);
+
+      // 验证 scheme 和 host
+      if (uri.scheme == _appScheme && uri.host == _deepLinkHost) {
+        final pathSegments = uri.pathSegments;
+
+        if (pathSegments.isNotEmpty) {
+          final eventId = pathSegments.first;
+          if (eventId.isNotEmpty) {
+            print('Deep link navigating to event: $eventId');
+            _navigateToEventDetails(eventId);
+          }
+        }
+      } else {
+        print('Invalid deep link format: $link');
+      }
+    } catch (e) {
+      print('Error handling deep link: $e');
+    }
+  }
+
+  /// 生成 Event 的 Deep Link URL
+  String generateEventDeepLink(String eventId) {
+    return '$_appScheme://$_deepLinkHost/$eventId';
   }
 
   /// Initialize local notifications
@@ -96,8 +180,7 @@ class FCMService {
     );
 
     await _localNotifications
-        .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(eventRemindersChannel);
   }
 
@@ -106,34 +189,12 @@ class FCMService {
     Map<String, dynamic>? payloadMap;
     if (response.payload != null) {
       try {
-        payloadMap = _parsePayloadString(response.payload!);
+        payloadMap = json.decode(response.payload!) as Map<String, dynamic>;
       } catch (e) {
         print('Failed to parse notification payload: $e');
       }
     }
     _handleNotificationClick(payloadMap);
-  }
-
-  /// Parse payload string
-  Map<String, dynamic>? _parsePayloadString(String payload) {
-    try {
-      if (payload.startsWith('{') && payload.endsWith('}')) {
-        return json.decode(payload) as Map<String, dynamic>;
-      } else {
-        final Map<String, dynamic> result = {};
-        final pairs = payload.split('&');
-        for (final pair in pairs) {
-          final keyValue = pair.split('=');
-          if (keyValue.length == 2) {
-            result[keyValue[0]] = Uri.decodeComponent(keyValue[1]);
-          }
-        }
-        return result;
-      }
-    } catch (e) {
-      print('Error parsing payload: $e');
-      return null;
-    }
   }
 
   /// Get and save FCM token
@@ -166,7 +227,6 @@ class FCMService {
         await _firestore.collection('users').doc(userId).set({
           'fcmTokens': FieldValue.arrayUnion([token]),
           'updatedAt': FieldValue.serverTimestamp(),
-          'lastTokenUpdate': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
         print('FCM token saved successfully for user $userId');
@@ -193,7 +253,7 @@ class FCMService {
   void _setupMessageHandlers() {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('Received foreground message: ${message.notification?.title}');
-      showLocalNotification(message);
+      _showLocalNotification(message);
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
@@ -245,17 +305,6 @@ class FCMService {
     }
   }
 
-  /// Clear saved user ID
-  Future<void> _clearSavedUserId() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_lastUserIdKey);
-      print('User ID cleared from local storage');
-    } catch (e) {
-      print('Error clearing user ID: $e');
-    }
-  }
-
   /// Clear tokens on logout
   Future<void> _clearTokensOnLogout() async {
     try {
@@ -267,8 +316,6 @@ class FCMService {
           'lastLogout': FieldValue.serverTimestamp(),
         });
         print('FCM tokens cleared for user $lastKnownUserId on logout');
-
-        await _clearSavedUserId();
       } else {
         print('No known user ID to clear tokens');
       }
@@ -278,31 +325,19 @@ class FCMService {
   }
 
   /// Show local notification
-  Future<void> showLocalNotification(RemoteMessage message) async {
-    final String? type = message.data['type'];
-
-    String channelId = 'event_reminders';
-    String channelName = 'Event Reminders';
-
-    if (type == 'event_reminder') {
-      channelId = 'event_reminders';
-      channelName = 'Event Reminders';
-    }
-
+  Future<void> _showLocalNotification(RemoteMessage message) async {
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      channelId,
-      channelName,
-      channelDescription: 'Notifications for $channelName',
+      'event_reminders',
+      'Event Reminders',
+      channelDescription: 'Notifications for event reminders',
       importance: Importance.high,
       playSound: true,
-      styleInformation: const BigTextStyleInformation(''),
     );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
-      badgeNumber: 1,
     );
 
     final NotificationDetails details = NotificationDetails(
@@ -310,37 +345,49 @@ class FCMService {
       iOS: iosDetails,
     );
 
+    // 准备通知数据，包含 deep link
+    final notificationData = Map<String, dynamic>.from(message.data);
+
+    // 如果没有 deep_link，自动生成一个
+    if (notificationData['eventId'] != null && notificationData['deep_link'] == null) {
+      final eventId = notificationData['eventId'];
+      notificationData['deep_link'] = generateEventDeepLink(eventId);
+    }
+
     try {
       await _localNotifications.show(
         message.hashCode,
         message.notification?.title ?? 'Event Reminder',
         message.notification?.body ?? 'You have an upcoming event!',
         details,
-        payload: jsonEncode(message.data),
+        payload: jsonEncode(notificationData), // 使用包含 deep link 的数据
       );
-      print('Local notification shown successfully');
+      print('Local notification shown with deep link');
     } catch (e) {
       print('Error showing local notification: $e');
     }
   }
 
-  /// Handle notification click
+  /// Handle notification click - 修改为支持 Deep Link
   void _handleNotificationClick(Map<String, dynamic>? data) {
     if (data != null) {
       final type = data['type'];
       final eventId = data['eventId'];
       final userId = data['userId'];
+      final deepLink = data['deep_link']; // 新增 deep_link 字段
 
-      print('Notification clicked - Type: $type, Event ID: $eventId, User ID: $userId');
+      print('Notification clicked - Type: $type, Event ID: $eventId, User ID: $userId, Deep Link: $deepLink');
 
       final currentUserId = _getCurrentUserId();
       if (userId != null && currentUserId != null && userId != currentUserId) {
-        print(
-            'Notification does not belong to current user. Expected: $currentUserId, Got: $userId');
+        print('Notification does not belong to current user. Expected: $currentUserId, Got: $userId');
         return;
       }
 
-      if (type == 'event_reminder' && eventId != null) {
+      // 优先使用 deep_link
+      if (deepLink != null && deepLink is String) {
+        _handleDeepLink(deepLink);
+      } else if (type == 'event_reminder' && eventId != null) {
         _navigateToEventDetails(eventId);
       } else {
         print('Unknown notification type or missing data: $type');
@@ -361,48 +408,6 @@ class FCMService {
   }
 
   // ==================== Public Methods ====================
-
-  /// Schedule event reminder (called when user enables reminder)
-  Future<void> scheduleEventReminder({
-    required String userId,
-    required String eventId,
-    required String eventTitle,
-    required String eventLocation,
-    required DateTime remindAt,
-    required String reminderId,
-    required String registrationId,
-  }) async {
-    try {
-      // Save scheduled reminder info to Firestore for Cloud Function to process
-      await _firestore.collection('scheduledReminders').doc(reminderId).set({
-        'userId': userId,
-        'eventId': eventId,
-        'eventTitle': eventTitle,
-        'eventLocation': eventLocation,
-        'remindAt': Timestamp.fromDate(remindAt),
-        'reminderId': reminderId,
-        'registrationId': registrationId,
-        'type': 'event_reminder',
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      print('Event reminder scheduled: $reminderId for event: $eventTitle at $remindAt');
-    } catch (e) {
-      print('Error scheduling event reminder: $e');
-      throw 'Failed to schedule event reminder';
-    }
-  }
-
-  /// Cancel event reminder
-  Future<void> cancelEventReminder(String reminderId) async {
-    try {
-      await _firestore.collection('scheduledReminders').doc(reminderId).delete();
-      print('Event reminder cancelled: $reminderId');
-    } catch (e) {
-      print('Error cancelling event reminder: $e');
-    }
-  }
 
   /// Get current FCM token
   Future<String?> getCurrentToken() async {
@@ -439,20 +444,36 @@ class FCMService {
     }
   }
 
-  /// Clear all tokens
+  /// Clear all tokens (manual clear)
   Future<void> clearTokens() async {
     try {
       String? userId = _getCurrentUserId();
       if (userId != null) {
         await _firestore.collection('users').doc(userId).update({
           'fcmTokens': FieldValue.delete(),
-          'lastTokenClear': FieldValue.serverTimestamp(),
         });
         print('FCM tokens cleared for user $userId');
       }
     } catch (e) {
       print('Error clearing FCM tokens: $e');
     }
+  }
+
+  /// 生成测试用的 Deep Link（用于开发测试）
+  String generateTestDeepLink(String eventId) {
+    return generateEventDeepLink(eventId);
+  }
+
+  /// 手动触发 Deep Link（用于测试）
+  void triggerTestDeepLink(String eventId) {
+    final deepLink = generateEventDeepLink(eventId);
+    _handleDeepLink(deepLink);
+  }
+
+  /// 清理资源
+  void dispose() {
+    _linkSubscription?.cancel();
+    print('FCM Service disposed');
   }
 }
 
@@ -464,7 +485,7 @@ class _EventDetailScreenWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final eventRepository = Get.find<EventRepository>();
+    final eventRepository = Get.put(EventRepository());
 
     return StreamBuilder<Event>(
       stream: eventRepository.getEventById(eventId),

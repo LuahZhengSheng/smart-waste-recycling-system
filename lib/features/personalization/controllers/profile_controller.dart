@@ -439,8 +439,9 @@ class ProfileController extends GetxController {
     }
   }
 
-  void navigateToEditProfile() {
-    Get.to(() => const EditProfileScreen());
+  void navigateToEditProfile({bool isStaffProfile = false}) {
+    Get.to(() => EditProfileScreen(isStaffProfile: isStaffProfile));
+    // Get.to(() => AddWasteCategoryScreen());
   }
 
   void logout() {

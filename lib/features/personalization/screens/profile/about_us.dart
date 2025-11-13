@@ -10,10 +10,10 @@ class AboutUsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: isDark ? FColors.dark : FColors.light,
+      backgroundColor: dark ? FColors.dark : FColors.light,
       appBar: FAppBar(
         title: Text(
           'About Us',
@@ -118,7 +118,7 @@ class AboutUsScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(FSizes.lg),
               decoration: BoxDecoration(
-                color: isDark ? FColors.darkContainer : FColors.white,
+                color: dark ? FColors.darkContainer : FColors.white,
                 borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
                 boxShadow: [
                   BoxShadow(
@@ -170,7 +170,7 @@ class AboutUsScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(FSizes.lg),
               decoration: BoxDecoration(
-                color: isDark ? FColors.darkContainer : FColors.white,
+                color: dark ? FColors.darkContainer : FColors.white,
                 borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
                 boxShadow: [
                   BoxShadow(
@@ -195,7 +195,7 @@ class AboutUsScreen extends StatelessWidget {
                     'Our diverse team of environmental scientists, software engineers, and sustainability experts work together to create innovative solutions for a greener future.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       height: 1.6,
-                      color: isDark ? FColors.textSecondary : FColors.textPrimary,
+                      color: dark ? FColors.textSecondary : FColors.textPrimary,
                     ),
                   ),
                 ],
@@ -208,7 +208,7 @@ class AboutUsScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(FSizes.lg),
               decoration: BoxDecoration(
-                color: isDark ? FColors.darkContainer : FColors.white,
+                color: dark ? FColors.darkContainer : FColors.white,
                 borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
                 boxShadow: [
                   BoxShadow(
@@ -257,7 +257,7 @@ class AboutUsScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(FSizes.md),
               decoration: BoxDecoration(
-                color: isDark
+                color: dark
                     ? FColors.primary.withOpacity(0.1)
                     : FColors.primary.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
@@ -282,7 +282,7 @@ class AboutUsScreen extends StatelessWidget {
                   Text(
                     '© 2024 EcoRecycle. All rights reserved.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: isDark ? FColors.darkGrey : FColors.darkerGrey,
+                      color: dark ? FColors.darkGrey : FColors.darkerGrey,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -302,14 +302,14 @@ class AboutUsScreen extends StatelessWidget {
         required String content,
         required List<Color> gradient,
       }) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: FSizes.lg),
       padding: const EdgeInsets.all(FSizes.lg),
       decoration: BoxDecoration(
-        color: isDark ? FColors.darkContainer : FColors.white,
+        color: dark ? FColors.darkContainer : FColors.white,
         borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
         boxShadow: [
           BoxShadow(
@@ -350,7 +350,7 @@ class AboutUsScreen extends StatelessWidget {
             content,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               height: 1.6,
-              color: isDark ? FColors.textSecondary : FColors.textPrimary,
+              color: dark ? FColors.textSecondary : FColors.textPrimary,
             ),
           ),
         ],
@@ -359,7 +359,7 @@ class AboutUsScreen extends StatelessWidget {
   }
 
   Widget _buildStatItem(BuildContext context, String number, String label, IconData icon) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Container(
       padding: const EdgeInsets.all(FSizes.md),
@@ -382,7 +382,7 @@ class AboutUsScreen extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: isDark ? FColors.darkGrey : FColors.darkerGrey,
+              color: dark ? FColors.darkGrey : FColors.darkerGrey,
             ),
             textAlign: TextAlign.center,
           ),
@@ -392,7 +392,7 @@ class AboutUsScreen extends StatelessWidget {
   }
 
   Widget _buildContactItem(BuildContext context, IconData icon, String title, String content) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: FSizes.sm),
@@ -423,7 +423,7 @@ class AboutUsScreen extends StatelessWidget {
                 Text(
                   content,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isDark ? FColors.textSecondary : FColors.textPrimary,
+                    color: dark ? FColors.textSecondary : FColors.textPrimary,
                   ),
                 ),
               ],

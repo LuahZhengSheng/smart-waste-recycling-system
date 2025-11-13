@@ -10,10 +10,10 @@ class TermsConditionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: isDark ? FColors.dark : FColors.light,
+      backgroundColor: dark ? FColors.dark : FColors.light,
       appBar: FAppBar(
         title: Text(
           'Terms & Conditions',
@@ -60,7 +60,7 @@ class TermsConditionsScreen extends StatelessWidget {
                   Text(
                     'Last updated: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: isDark ? FColors.darkGrey : FColors.darkerGrey,
+                      color: dark ? FColors.darkGrey : FColors.darkerGrey,
                     ),
                   ),
                 ],
@@ -148,14 +148,14 @@ class TermsConditionsScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(FSizes.md),
               decoration: BoxDecoration(
-                color: isDark ? FColors.darkContainer : FColors.lightContainer,
+                color: dark ? FColors.darkContainer : FColors.lightContainer,
                 borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
               ),
               child: Text(
                 'By continuing to use our app, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   fontStyle: FontStyle.italic,
-                  color: isDark ? FColors.darkGrey : FColors.darkerGrey,
+                  color: dark ? FColors.darkGrey : FColors.darkerGrey,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -167,14 +167,14 @@ class TermsConditionsScreen extends StatelessWidget {
   }
 
   Widget _buildSection(BuildContext context, {required String title, required String content}) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: FSizes.lg),
       padding: const EdgeInsets.all(FSizes.md),
       decoration: BoxDecoration(
-        color: isDark ? FColors.darkContainer : FColors.white,
+        color: dark ? FColors.darkContainer : FColors.white,
         borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
         boxShadow: [
           BoxShadow(
@@ -199,7 +199,7 @@ class TermsConditionsScreen extends StatelessWidget {
             content,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               height: 1.6,
-              color: isDark ? FColors.textSecondary : FColors.textPrimary,
+              color: dark ? FColors.textSecondary : FColors.textPrimary,
             ),
           ),
         ],

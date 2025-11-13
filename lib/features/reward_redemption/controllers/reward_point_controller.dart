@@ -297,7 +297,7 @@ class _DateFilterBottomSheet extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF1A1F36) : Colors.white,
+        color: dark ? FColors.darkerGrey : FColors.white,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
@@ -362,7 +362,7 @@ class _DateFilterBottomSheet extends StatelessWidget {
                     }
                   },
                 ));
-          }).toList(),
+          }),
         ],
       ),
     );

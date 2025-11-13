@@ -644,7 +644,7 @@ class RecyclingCenterDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStaffTile(RecyclingCenterStaffModel staff, int activityCount,
+  Widget _buildStaffTile(RecyclingCenterStaff staff, int activityCount,
       bool dark) {
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -1024,7 +1024,7 @@ class RecyclingCenterDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildActivityTile(RecyclingActivity activity,
-      RecyclingCenterStaffModel? staff, UserModel? user, bool dark) {
+      RecyclingCenterStaff? staff, UserModel? user, bool dark) {
     return Container(
       padding: const EdgeInsets.all(FSizes.lg),
       child: Row(

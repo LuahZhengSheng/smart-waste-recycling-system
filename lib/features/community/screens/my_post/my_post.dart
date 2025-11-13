@@ -22,19 +22,7 @@ class MyPostsScreen extends StatelessWidget {
       backgroundColor: dark ? FColors.dark : FColors.light,
       appBar: FAppBar(
         showBackArrow: true,
-        backgroundColor: dark ? FColors.dark : FColors.white,
-        title: Row(
-          children: [
-            Text(
-              'My Posts',
-              style: TextStyle(
-                color: dark ? FColors.white : FColors.black,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
+        title: const Text('My Posts'),
       ),
       body: SafeArea(
         child: Column(
@@ -93,8 +81,11 @@ class MyPostsScreen extends StatelessWidget {
             // Posts List
             Expanded(
               child: Obx(() {
+                // 添加统一的加载状态
                 if (controller.isLoading.value) {
-                  return _buildLoadingState(dark);
+                  return const Center(
+                    child: CircularProgressIndicator(color: FColors.primary),
+                  );
                 }
 
                 return TabBarView(
@@ -153,37 +144,6 @@ class MyPostsScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingState(bool dark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: FColors.primary.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: CircularProgressIndicator(
-              color: FColors.primary,
-              backgroundColor: dark ? FColors.darkGrey : FColors.grey.withOpacity(0.2),
-              strokeWidth: 3,
-            ),
-          ),
-          const SizedBox(height: FSizes.spaceBtwItems),
-          Text(
-            'Loading your posts...',
-            style: TextStyle(
-              color: dark ? FColors.white : FColors.black,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -268,3 +228,4 @@ class MyPostsScreen extends StatelessWidget {
     );
   }
 }
+

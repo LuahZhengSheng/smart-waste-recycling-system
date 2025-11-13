@@ -17,7 +17,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(HomeController());
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Scaffold(
       body: RefreshIndicator(
@@ -29,27 +29,27 @@ class HomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Custom App Bar
-              _buildAppBar(context, isDark),
+              _buildAppBar(context, dark),
 
               const SizedBox(height: FSizes.spaceBtwSections),
 
               // Slideshow Section
-              _buildSlideshow(controller, isDark),
+              _buildSlideshow(controller, dark),
 
               const SizedBox(height: FSizes.spaceBtwSections),
 
               // Reward Points Section
-              _buildRewardPointsCard(controller, isDark),
+              _buildRewardPointsCard(controller, dark),
 
               const SizedBox(height: FSizes.spaceBtwSections),
 
               // Statistics Section
-              _buildStatisticsSection(controller, isDark),
+              _buildStatisticsSection(controller, dark),
 
               const SizedBox(height: FSizes.spaceBtwSections),
 
               // Emissions Section
-              _buildEmissionsSection(controller, isDark),
+              _buildEmissionsSection(controller, dark),
             ],
           ),
         ),
@@ -57,7 +57,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAppBar(BuildContext context, bool isDark) {
+  Widget _buildAppBar(BuildContext context, bool dark) {
     return SafeArea(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -79,7 +79,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSlideshow(HomeController controller, bool isDark) {
+  Widget _buildSlideshow(HomeController controller, bool dark) {
     return Obx(() {
       if (controller.isLoadingSlides.value) {
         return _buildSlideshowSkeleton();
@@ -116,7 +116,7 @@ class HomeScreen extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
                         child: CustomPaint(
-                          painter: LeafBackgroundPainter(isDark: isDark),
+                          painter: LeafBackgroundPainter(dark: dark),
                         ),
                       ),
                     ),
@@ -169,13 +169,13 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRewardPointsCard(HomeController controller, bool isDark) {
+  Widget _buildRewardPointsCard(HomeController controller, bool dark) {
     return Obx(() => GestureDetector(
       onTap: () => Get.to(() => const MyRewardPointsScreen()),
       child: Container(
         padding: const EdgeInsets.all(FSizes.lg),
         decoration: BoxDecoration(
-          color: isDark ? FColors.darkContainer : const Color(0xFFE8F5E8),
+          color: dark ? FColors.darkContainer : const Color(0xFFE8F5E8),
           borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
           boxShadow: [
             BoxShadow(
@@ -260,7 +260,7 @@ class HomeScreen extends StatelessWidget {
     ));
   }
 
-  Widget _buildStatisticsSection(HomeController controller, bool isDark) {
+  Widget _buildStatisticsSection(HomeController controller, bool dark) {
     return Obx(() => Row(
       children: [
         Expanded(
@@ -269,7 +269,7 @@ class HomeScreen extends StatelessWidget {
             value: controller.kgCO2e.value.toString(),
             unit: 'kgCO2e',
             iconColor: FColors.accent, // Changed to cyan
-            isDark: isDark,
+            dark: dark,
           ),
         ),
         const SizedBox(width: FSizes.md),
@@ -279,7 +279,7 @@ class HomeScreen extends StatelessWidget {
             value: controller.totalKg.value.toString(),
             unit: 'KG',
             iconColor: FColors.accent, // Changed to cyan
-            isDark: isDark,
+            dark: dark,
           ),
         ),
         const SizedBox(width: FSizes.md),
@@ -289,7 +289,7 @@ class HomeScreen extends StatelessWidget {
             value: controller.frequency.value.toString(),
             unit: 'Freq',
             iconColor: FColors.accent, // Changed to cyan
-            isDark: isDark,
+            dark: dark,
           ),
         ),
       ],
@@ -301,15 +301,15 @@ class HomeScreen extends StatelessWidget {
     required String value,
     required String unit,
     required Color iconColor,
-    required bool isDark,
+    required bool dark,
   }) {
     return Container(
       padding: const EdgeInsets.all(FSizes.md),
       decoration: BoxDecoration(
-        color: isDark ? FColors.darkContainer : FColors.lightContainer,
+        color: dark ? FColors.darkContainer : FColors.lightContainer,
         borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
         border: Border.all(
-          color: isDark ? FColors.borderPrimary.withOpacity(0.1) : FColors.borderPrimary,
+          color: dark ? FColors.borderPrimary.withOpacity(0.1) : FColors.borderPrimary,
         ),
       ),
       child: Column(
@@ -332,7 +332,7 @@ class HomeScreen extends StatelessWidget {
             unit,
             style: TextStyle(
               fontSize: 12,
-              color: isDark ? FColors.textSecondary : FColors.textSecondary,
+              color: dark ? FColors.textSecondary : FColors.textSecondary,
             ),
           ),
         ],
@@ -340,11 +340,11 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmissionsSection(HomeController controller, bool isDark) {
+  Widget _buildEmissionsSection(HomeController controller, bool dark) {
     return Container(
       padding: const EdgeInsets.all(FSizes.lg),
       decoration: BoxDecoration(
-        color: isDark ? FColors.darkContainer : const Color(0xFFE8F5E8),
+        color: dark ? FColors.darkContainer : const Color(0xFFE8F5E8),
         borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
       ),
       child: Column(
@@ -363,7 +363,7 @@ class HomeScreen extends StatelessWidget {
             'Calculate Your Emission',
             style: TextStyle(
               fontSize: 14,
-              color: isDark ? FColors.textSecondary : FColors.textSecondary,
+              color: dark ? FColors.textSecondary : FColors.textSecondary,
             ),
           ),
           const SizedBox(height: FSizes.lg),
@@ -396,14 +396,14 @@ class HomeScreen extends StatelessWidget {
 
 // Custom painter for leaf background decoration
 class LeafBackgroundPainter extends CustomPainter {
-  final bool isDark;
+  final bool dark;
 
-  LeafBackgroundPainter({required this.isDark});
+  LeafBackgroundPainter({required this.dark});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = (isDark ? FColors.darkGreen : FColors.accent).withOpacity(0.2)
+      ..color = (dark ? FColors.darkGreen : FColors.accent).withOpacity(0.2)
       ..style = PaintingStyle.fill;
 
     // Draw decorative leaf shapes

@@ -10,25 +10,25 @@ class NotificationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final NotificationController controller = Get.put(NotificationController());
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? FColors.dark : FColors.primaryBackground,
+      backgroundColor: dark ? FColors.dark : FColors.primaryBackground,
       appBar: AppBar(
-        backgroundColor: isDark ? FColors.dark : FColors.white,
+        backgroundColor: dark ? FColors.dark : FColors.white,
         elevation: 0,
         title: Text(
           'Notifications',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: isDark ? FColors.textWhite : FColors.textPrimary,
+            color: dark ? FColors.textWhite : FColors.textPrimary,
           ),
         ),
         leading: IconButton(
           icon: Icon(
             Icons.close,
-            color: isDark ? FColors.textWhite : FColors.textPrimary,
+            color: dark ? FColors.textWhite : FColors.textPrimary,
           ),
           onPressed: () => Get.back(),
         ),
@@ -50,14 +50,14 @@ class NotificationScreen extends StatelessWidget {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
-            color: isDark ? FColors.dark : FColors.white,
+            color: dark ? FColors.dark : FColors.white,
             child: TabBar(
               controller: controller.tabController,
               indicatorColor: FColors.primary,
               indicatorWeight: 2,
               indicatorSize: TabBarIndicatorSize.tab,
               labelColor: FColors.primary,
-              unselectedLabelColor: isDark ? FColors.textSecondary : FColors.textSecondary,
+              unselectedLabelColor: dark ? FColors.textSecondary : FColors.textSecondary,
               labelStyle: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -174,17 +174,17 @@ class NotificationScreen extends StatelessWidget {
             Obx(() => _NotificationsList(
               notifications: controller.allNotifications.toList(),
               controller: controller,
-              isDark: isDark,
+              dark: dark,
             )),
             Obx(() => _NotificationsList(
               notifications: controller.unreadNotifications,
               controller: controller,
-              isDark: isDark,
+              dark: dark,
             )),
             Obx(() => _NotificationsList(
               notifications: controller.readNotifications,
               controller: controller,
-              isDark: isDark,
+              dark: dark,
             )),
           ],
         );
@@ -196,12 +196,12 @@ class NotificationScreen extends StatelessWidget {
 class _NotificationsList extends StatelessWidget {
   final List<NotificationModel> notifications;
   final NotificationController controller;
-  final bool isDark;
+  final bool dark;
 
   const _NotificationsList({
     required this.notifications,
     required this.controller,
-    required this.isDark,
+    required this.dark,
   });
 
   @override
@@ -214,7 +214,7 @@ class _NotificationsList extends StatelessWidget {
             Icon(
               Icons.notifications_off_outlined,
               size: 64,
-              color: isDark ? FColors.darkGrey : FColors.grey,
+              color: dark ? FColors.darkGrey : FColors.grey,
             ),
             const SizedBox(height: 16),
             Text(
@@ -222,7 +222,7 @@ class _NotificationsList extends StatelessWidget {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
-                color: isDark ? FColors.textSecondary : FColors.textSecondary,
+                color: dark ? FColors.textSecondary : FColors.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -230,7 +230,7 @@ class _NotificationsList extends StatelessWidget {
               'You\'re all caught up!',
               style: TextStyle(
                 fontSize: 14,
-                color: isDark ? FColors.darkGrey : FColors.textSecondary,
+                color: dark ? FColors.darkGrey : FColors.textSecondary,
               ),
             ),
           ],
@@ -246,14 +246,14 @@ class _NotificationsList extends StatelessWidget {
         itemCount: notifications.length,
         separatorBuilder: (context, index) => Divider(
           height: 1,
-          color: isDark ? FColors.darkGrey.withOpacity(0.2) : FColors.borderPrimary,
+          color: dark ? FColors.darkGrey.withOpacity(0.2) : FColors.borderPrimary,
         ),
         itemBuilder: (context, index) {
           final notification = notifications[index];
           return _NotificationTile(
             notification: notification,
             controller: controller,
-            isDark: isDark,
+            dark: dark,
           );
         },
       ),
@@ -264,12 +264,12 @@ class _NotificationsList extends StatelessWidget {
 class _NotificationTile extends StatelessWidget {
   final NotificationModel notification;
   final NotificationController controller;
-  final bool isDark;
+  final bool dark;
 
   const _NotificationTile({
     required this.notification,
     required this.controller,
-    required this.isDark,
+    required this.dark,
   });
 
   @override
@@ -280,7 +280,7 @@ class _NotificationTile extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         color: notification.isRead
             ? Colors.transparent
-            : isDark
+            : dark
             ? FColors.accent.withOpacity(0.2)
             : FColors.accent.withOpacity(0.15),
         child: Row(
@@ -304,7 +304,7 @@ class _NotificationTile extends StatelessWidget {
                             fontWeight: notification.isRead
                                 ? FontWeight.w500
                                 : FontWeight.w600,
-                            color: isDark ? FColors.textWhite : FColors.textPrimary,
+                            color: dark ? FColors.textWhite : FColors.textPrimary,
                           ),
                         ),
                       ),
@@ -313,7 +313,7 @@ class _NotificationTile extends StatelessWidget {
                         controller.getTimeAgo(notification.createdAt),
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? FColors.darkGrey : FColors.textSecondary,
+                          color: dark ? FColors.darkGrey : FColors.textSecondary,
                         ),
                       ),
                     ],
@@ -323,7 +323,7 @@ class _NotificationTile extends StatelessWidget {
                     notification.message,
                     style: TextStyle(
                       fontSize: 13,
-                      color: isDark ? FColors.textSecondary : FColors.textSecondary,
+                      color: dark ? FColors.textSecondary : FColors.textSecondary,
                       height: 1.3,
                     ),
                     maxLines: 2,
@@ -337,12 +337,12 @@ class _NotificationTile extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: isDark
+                        color: dark
                             ? FColors.lightContainer.withOpacity(0.1)
                             : FColors.lightContainer,
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                          color: isDark
+                          color: dark
                               ? FColors.borderPrimary.withOpacity(0.2)
                               : FColors.borderPrimary,
                           width: 0.5,
@@ -361,7 +361,7 @@ class _NotificationTile extends StatelessWidget {
                             'Demo File.pdf 2.2 MB',
                             style: TextStyle(
                               fontSize: 11,
-                              color: isDark ? FColors.textSecondary : FColors.textSecondary,
+                              color: dark ? FColors.textSecondary : FColors.textSecondary,
                             ),
                           ),
                         ],
@@ -388,9 +388,9 @@ class _NotificationTile extends StatelessWidget {
                   icon: Icon(
                     Icons.more_horiz,
                     size: 18,
-                    color: isDark ? FColors.darkGrey : FColors.textSecondary,
+                    color: dark ? FColors.darkGrey : FColors.textSecondary,
                   ),
-                  color: isDark ? FColors.lightContainer : FColors.white,
+                  color: dark ? FColors.lightContainer : FColors.white,
                   itemBuilder: (context) => [
                     if (!notification.isRead)
                       PopupMenuItem(
@@ -400,13 +400,13 @@ class _NotificationTile extends StatelessWidget {
                             Icon(
                               Icons.mark_email_read_outlined,
                               size: 16,
-                              color: isDark ? FColors.textWhite : FColors.textPrimary,
+                              color: dark ? FColors.textWhite : FColors.textPrimary,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'Mark as read',
                               style: TextStyle(
-                                color: isDark ? FColors.textWhite : FColors.textPrimary,
+                                color: dark ? FColors.textWhite : FColors.textPrimary,
                               ),
                             ),
                           ],

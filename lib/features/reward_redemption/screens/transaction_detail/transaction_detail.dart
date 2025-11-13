@@ -23,12 +23,12 @@ class TransactionDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
     final controller = RewardPointsController.instance;
     final isEarning = transactionType == 'earning';
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0A0E21) : const Color(0xFFF8FAFC),
+      backgroundColor: dark ? const Color(0xFF0A0E21) : const Color(0xFFF8FAFC),
       appBar: FAppBar(
         showBackArrow: true,
         title: Text('Transaction Details'),
@@ -36,15 +36,15 @@ class TransactionDetailsScreen extends StatelessWidget {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(FSizes.defaultSpace),
         child: isEarning
-            ? _buildEarningTransaction(controller, isDark, context)
-            : _buildSpendingTransaction(controller, isDark, context),
+            ? _buildEarningTransaction(controller, dark, context)
+            : _buildSpendingTransaction(controller, dark, context),
       ),
     );
   }
 
   Widget _buildEarningTransaction(
       RewardPointsController controller,
-      bool isDark,
+      bool dark,
       BuildContext context,
       ) {
     return StreamBuilder<RecyclingActivity>(
@@ -61,7 +61,7 @@ class TransactionDetailsScreen extends StatelessWidget {
           children: [
             // Points Summary Card
             _buildPointsSummaryCard(
-              isDark: isDark,
+              dark: dark,
               isEarning: true,
               points: activity.pointsEarned,
             ),
@@ -70,7 +70,7 @@ class TransactionDetailsScreen extends StatelessWidget {
 
             // Transaction Details Card
             _buildTransactionDetailsCard(
-              isDark: isDark,
+              dark: dark,
               isEarning: true,
               context: context,
               id: activity.activityId,
@@ -81,7 +81,7 @@ class TransactionDetailsScreen extends StatelessWidget {
             const SizedBox(height: FSizes.spaceBtwSections),
 
             // Recycling Activity Details
-            _buildEarningDetailsCard(isDark, context, activity, controller),
+            _buildEarningDetailsCard(dark, context, activity, controller),
 
             const SizedBox(height: FSizes.spaceBtwSections),
           ],
@@ -92,7 +92,7 @@ class TransactionDetailsScreen extends StatelessWidget {
 
   Widget _buildSpendingTransaction(
       RewardPointsController controller,
-      bool isDark,
+      bool dark,
       BuildContext context,
       ) {
     return StreamBuilder<RedemptionModel>(
@@ -115,7 +115,7 @@ class TransactionDetailsScreen extends StatelessWidget {
               children: [
                 // Points Summary Card
                 _buildPointsSummaryCard(
-                  isDark: isDark,
+                  dark: dark,
                   isEarning: false,
                   points: points,
                 ),
@@ -124,7 +124,7 @@ class TransactionDetailsScreen extends StatelessWidget {
 
                 // Transaction Details Card
                 _buildTransactionDetailsCard(
-                  isDark: isDark,
+                  dark: dark,
                   isEarning: false,
                   context: context,
                   id: redemption.redemptionId,
@@ -135,7 +135,7 @@ class TransactionDetailsScreen extends StatelessWidget {
                 const SizedBox(height: FSizes.spaceBtwSections),
 
                 // Redemption Details
-                _buildSpendingDetailsCard(isDark, context, redemption, rewardSnapshot.data),
+                _buildSpendingDetailsCard(dark, context, redemption, rewardSnapshot.data),
 
                 const SizedBox(height: FSizes.spaceBtwSections),
               ],
@@ -147,7 +147,7 @@ class TransactionDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildPointsSummaryCard({
-    required bool isDark,
+    required bool dark,
     required bool isEarning,
     required int points,
   }) {
@@ -222,7 +222,7 @@ class TransactionDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildTransactionDetailsCard({
-    required bool isDark,
+    required bool dark,
     required bool isEarning,
     required BuildContext context,
     required String id,
@@ -232,10 +232,10 @@ class TransactionDetailsScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(FSizes.lg),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1F36).withOpacity(0.8) : Colors.white,
+        color: dark ? const Color(0xFF1A1F36).withOpacity(0.8) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark
+          color: dark
               ? FColors.darkGrey.withOpacity(0.3)
               : FColors.grey.withOpacity(0.2),
         ),
@@ -247,7 +247,7 @@ class TransactionDetailsScreen extends StatelessWidget {
             'Transaction Details',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
-              color: isDark ? FColors.white : FColors.textPrimary,
+              color: dark ? FColors.white : FColors.textPrimary,
             ),
           ),
           const SizedBox(height: FSizes.lg),
@@ -256,31 +256,31 @@ class TransactionDetailsScreen extends StatelessWidget {
             icon: Iconsax.hashtag,
             label: 'Transaction ID',
             value: id,
-            isDark: isDark,
+            dark: dark,
           ),
-          _buildDivider(isDark),
+          _buildDivider(dark),
           _buildDetailRow(
             context: context,
             icon: Iconsax.note_text,
             label: 'Description',
             value: description,
-            isDark: isDark,
+            dark: dark,
           ),
-          _buildDivider(isDark),
+          _buildDivider(dark),
           _buildDetailRow(
             context: context,
             icon: Iconsax.calendar,
             label: 'Date & Time',
             value: '${FFormatter.formatDate(date)} • ${_formatTime(date)}',
-            isDark: isDark,
+            dark: dark,
           ),
-          _buildDivider(isDark),
+          _buildDivider(dark),
           _buildDetailRow(
             context: context,
             icon: isEarning ? Iconsax.arrow_up_3 : Iconsax.arrow_down_1,
             label: 'Type',
             value: isEarning ? 'Earning' : 'Spending',
-            isDark: isDark,
+            dark: dark,
             valueColor: isEarning ? FColors.success : FColors.error,
           ),
         ],
@@ -289,7 +289,7 @@ class TransactionDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildEarningDetailsCard(
-      bool isDark,
+      bool dark,
       BuildContext context,
       RecyclingActivity activity,
       RewardPointsController controller,
@@ -300,10 +300,10 @@ class TransactionDetailsScreen extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(FSizes.lg),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1F36).withOpacity(0.8) : Colors.white,
+            color: dark ? const Color(0xFF1A1F36).withOpacity(0.8) : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isDark
+              color: dark
                   ? FColors.darkGrey.withOpacity(0.3)
                   : FColors.grey.withOpacity(0.2),
             ),
@@ -315,7 +315,7 @@ class TransactionDetailsScreen extends StatelessWidget {
                 'Recycling Activity Details',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: isDark ? FColors.white : FColors.textPrimary,
+                  color: dark ? FColors.white : FColors.textPrimary,
                 ),
               ),
               const SizedBox(height: FSizes.lg),
@@ -324,33 +324,33 @@ class TransactionDetailsScreen extends StatelessWidget {
                 icon: Iconsax.activity,
                 label: 'Activity ID',
                 value: activity.activityId,
-                isDark: isDark,
+                dark: dark,
               ),
-              _buildDivider(isDark),
+              _buildDivider(dark),
               if (centerSnapshot.hasData && centerSnapshot.data != null) ...[
                 _buildDetailRow(
                   context: context,
                   icon: Iconsax.building,
                   label: 'Recycling Center',
                   value: centerSnapshot.data!.name,
-                  isDark: isDark,
+                  dark: dark,
                 ),
-                _buildDivider(isDark),
+                _buildDivider(dark),
               ],
               _buildDetailRow(
                 context: context,
                 icon: Iconsax.trash,
                 label: 'Waste Type',
                 value: activity.wasteObject,
-                isDark: isDark,
+                dark: dark,
               ),
-              _buildDivider(isDark),
+              _buildDivider(dark),
               _buildDetailRow(
                 context: context,
                 icon: Iconsax.weight,
                 label: 'Weight',
                 value: '${activity.weight.toStringAsFixed(2)} kg',
-                isDark: isDark,
+                dark: dark,
               ),
             ],
           ),
@@ -360,7 +360,7 @@ class TransactionDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildSpendingDetailsCard(
-      bool isDark,
+      bool dark,
       BuildContext context,
       RedemptionModel redemption,
       RewardModel? reward,
@@ -368,10 +368,10 @@ class TransactionDetailsScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(FSizes.lg),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1F36).withOpacity(0.8) : Colors.white,
+        color: dark ? const Color(0xFF1A1F36).withOpacity(0.8) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark
+          color: dark
               ? FColors.darkGrey.withOpacity(0.3)
               : FColors.grey.withOpacity(0.2),
         ),
@@ -383,7 +383,7 @@ class TransactionDetailsScreen extends StatelessWidget {
             'Redemption Details',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
-              color: isDark ? FColors.white : FColors.textPrimary,
+              color: dark ? FColors.white : FColors.textPrimary,
             ),
           ),
           const SizedBox(height: FSizes.lg),
@@ -392,34 +392,34 @@ class TransactionDetailsScreen extends StatelessWidget {
             icon: Iconsax.ticket,
             label: 'Redemption ID',
             value: redemption.redemptionId,
-            isDark: isDark,
+            dark: dark,
           ),
-          _buildDivider(isDark),
+          _buildDivider(dark),
           if (reward != null) ...[
             _buildDetailRow(
               context: context,
               icon: Iconsax.gift,
               label: 'Reward',
               value: reward.title,
-              isDark: isDark,
+              dark: dark,
             ),
-            _buildDivider(isDark),
+            _buildDivider(dark),
           ],
           _buildDetailRow(
             context: context,
             icon: Iconsax.security_safe,
             label: 'PIN Code',
             value: _formatPinCode(redemption.pinCode),
-            isDark: isDark,
+            dark: dark,
             isMonospace: true,
           ),
-          _buildDivider(isDark),
+          _buildDivider(dark),
           _buildDetailRow(
             context: context,
             icon: Iconsax.verify,
             label: 'Status',
             value: redemption.statusDisplayText,
-            isDark: isDark,
+            dark: dark,
             valueColor: redemption.isPending
                 ? FColors.warning
                 : (redemption.isUsed ? FColors.success : FColors.error),
@@ -434,7 +434,7 @@ class TransactionDetailsScreen extends StatelessWidget {
     required IconData icon,
     required String label,
     required String value,
-    required bool isDark,
+    required bool dark,
     Color? valueColor,
     bool isMonospace = false,
   }) {
@@ -458,7 +458,7 @@ class TransactionDetailsScreen extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: isDark
+                    color: dark
                         ? FColors.white.withOpacity(0.6)
                         : FColors.textSecondary,
                     fontSize: 12,
@@ -470,7 +470,7 @@ class TransactionDetailsScreen extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: valueColor ??
-                        (isDark ? FColors.white : FColors.textPrimary),
+                        (dark ? FColors.white : FColors.textPrimary),
                     fontFamily: isMonospace ? 'Courier' : null,
                     letterSpacing: isMonospace ? 1.5 : 0.3,
                   ),
@@ -483,11 +483,11 @@ class TransactionDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDivider(bool isDark) {
+  Widget _buildDivider(bool dark) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: FSizes.xs),
       child: Divider(
-        color: isDark
+        color: dark
             ? FColors.darkGrey.withOpacity(0.3)
             : FColors.grey.withOpacity(0.2),
         height: 1,

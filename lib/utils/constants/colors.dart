@@ -74,7 +74,32 @@ class FColors {
   static const Color darkTextSecondary = Color(0xFF9E9E9E); // Secondary text in dark mode
   static const Color darkDivider = Color(0xFF2C2C2C); // Divider in dark mode
 
-  // Community Dark Mode Colors - 新增
+  // -------------------- Carbon Footprint Calculator Module Colors --------------------
+  
+  // Category Colors - vibrant and distinct
+  static const Color landTravel = Color(0xFF6B5CF6); // Purple
+  static const Color airTravel = Color(0xFFE91E63); // Pink
+  static const Color energy = Color(0xFFFFC107); // Amber/Yellow
+  static const Color food = Color(0xFFFF5722); // Deep Orange
+  static const Color stuff = Color(0xFFF44336); // Red
+
+  // Light mode variants (with opacity for backgrounds)
+  static Color landTravelLight = landTravel.withOpacity(0.1);
+  static Color airTravelLight = airTravel.withOpacity(0.1);
+  static Color energyLight = energy.withOpacity(0.1);
+  static Color foodLight = food.withOpacity(0.1);
+  static Color stuffLight = stuff.withOpacity(0.1);
+
+  // Dark mode variants (lighter versions)
+  static const Color landTravelDark = Color(0xFF9B8CF7);
+  static const Color airTravelDark = Color(0xFFF48FB1);
+  static const Color energyDark = Color(0xFFFFD54F);
+  static const Color foodDark = Color(0xFFFF8A65);
+  static const Color stuffDark = Color(0xFFEF5350);
+
+  // -------------------- Community Module Colors --------------------
+
+  // Community Dark Mode Colors
   static const Color communityDarkBackground = Color(0xFF1A1A1A);
   static const Color communityDarkSurface = Color(0xFF2A2A2A);
   static const Color communityDarkBorder = Color(0xFF3A3A3A);
@@ -127,6 +152,82 @@ class FColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [Color(0xFFE6A57E), Color(0xFFCD7F32)],
+  );
+
+  // -------------------- Staff Side Colors (Blue Theme) --------------------
+
+  // Staff Light Theme
+  static const Color staffLightPrimary = Color(0xFF2196F3); // Blue
+  static const Color staffLightSecondary = Color(0xFF4CAF50); // Green for success
+  static const Color staffLightAccent = Color(0xFF00BCD4); // Cyan
+  static const Color staffLightBackground = Color(0xFFF5F7FA);
+  static const Color staffLightSurface = Color(0xFFFFFFFF);
+  static const Color staffLightSurfaceVariant = Color(0xFFF8FAFB);
+
+  static const Color staffLightText = Color(0xFF1E3A5F);
+  static const Color staffLightTextSecondary = Color(0xFF7A8FA6);
+  static const Color staffLightTextMuted = Color(0xFFA8B8CC);
+  static const Color staffLightIcon = Color(0xFF4A5F7F);
+
+  static const Color staffLightBorder = Color(0xFFE1E8F0);
+  static const Color staffLightDivider = Color(0xFFD4DCE6);
+
+  static const Color staffLightSuccess = Color(0xFF4CAF50);
+  static const Color staffLightError = Color(0xFFE53935);
+  static const Color staffLightWarning = Color(0xFFFFA726);
+  static const Color staffLightInfo = Color(0xFF29B6F6);
+
+  static const Color staffLightHover = Color(0xFFF0F4F8);
+  static const Color staffLightSelected = Color(0xFFE3F2FD);
+  static const Color staffLightFocus = Color(0xFF2196F3);
+
+  // Staff Dark Theme
+  static const Color staffDarkPrimary = Color(0xFF64B5F6); // Light Blue
+  static const Color staffDarkSecondary = Color(0xFF66BB6A); // Light Green
+  static const Color staffDarkAccent = Color(0xFF4DD0E1); // Light Cyan
+  static const Color staffDarkBackground = Color(0xFF0D1B2A);
+  static const Color staffDarkSurface = Color(0xFF1B2838);
+  static const Color staffDarkSurfaceVariant = Color(0xFF253447);
+
+  static const Color staffDarkText = Color(0xFFE3EBF5);
+  static const Color staffDarkTextSecondary = Color(0xFF9DB4CD);
+  static const Color staffDarkTextMuted = Color(0xFF6B8199);
+  static const Color staffDarkIcon = Color(0xFFB8CDE0);
+
+  static const Color staffDarkBorder = Color(0xFF1E3247);
+  static const Color staffDarkDivider = Color(0xFF2A3F54);
+
+  static const Color staffDarkSuccess = Color(0xFF66BB6A);
+  static const Color staffDarkError = Color(0xFFEF5350);
+  static const Color staffDarkWarning = Color(0xFFFFB74D);
+  static const Color staffDarkInfo = Color(0xFF4FC3F7);
+
+  static const Color staffDarkHover = Color(0xFF1E3247);
+  static const Color staffDarkSelected = Color(0xFF2A4A6E);
+  static const Color staffDarkFocus = Color(0xFF64B5F6);
+
+  // Staff Chart Colors
+  static const List<Color> staffChartColors = [
+    Color(0xFF2196F3),
+    Color(0xFF4CAF50),
+    Color(0xFF00BCD4),
+    Color(0xFFFFA726),
+    Color(0xFFE53935),
+    Color(0xFFFDD835),
+    Color(0xFF9C27B0),
+  ];
+
+  // Staff Gradients
+  static const LinearGradient staffPrimaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
+  );
+
+  static const LinearGradient staffSuccessGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF4CAF50), Color(0xFF388E3C)],
   );
 
   // -------------------- Admin Side Colors --------------------

@@ -20,7 +20,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../features/admin/screens/admin_layout.dart';
-import '../../../features/recycling_center/screens/home/home.dart';
+import '../../../staff_navigation_menu.dart' hide StaffNavigationMenu;
 
 class AuthenticationRepository extends GetxController {
   static AuthenticationRepository get instance => Get.find();
@@ -53,15 +53,12 @@ class AuthenticationRepository extends GetxController {
       // ✅ 已登录
       if (user.emailVerified) {
         // 获取用户角色（假设角色信息存储在Firestore中）
-        // final userDoc = await FirebaseFirestore.instance
-        //     .collection('users')
-        //     .doc(user.uid)
-        //     .get();
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
 
-        // final String role = userDoc.data()?['role'] ?? 'user'; // 默认角色为 'user'
-        final String role = "admin"; // 默认角色为 'user'
-
-        print(role);
+        final String role = userDoc.data()?['role'] ?? 'user'; // 默认角色为 'user'
 
         if (kIsWeb) {
           // 👉 Web 用 Sidebar（可根据角色调整）
@@ -73,7 +70,7 @@ class AuthenticationRepository extends GetxController {
               Get.offAll(() => const NavigationMenu());
               break;
             case 'center_staff':
-              Get.offAll(() => const StaffHomeScreen());
+              Get.offAll(() => const StaffNavigationMenu());
               break;
             default: // 普通用户
               Get.offAll(() => const NavigationMenu());
@@ -133,13 +130,14 @@ class AuthenticationRepository extends GetxController {
       print('userID#: $userId');
 
       if (fcmToken != null && userId.isNotEmpty) {
-        // 更新用户文档中的 FCM token
-        await _firestore.collection(_usersCollection).doc(userId).update({
-          'fcmToken': fcmToken,
-        });
+        // 使用数组来存储多个设备的 token，避免覆盖
+        await _firestore.collection(_usersCollection).doc(userId).set({
+          'fcmTokens': FieldValue.arrayUnion([fcmToken]), // 使用数组和 FieldValue.arrayUnion
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
 
         if (kDebugMode) {
-          print('FCM Token updated for user: $userId');
+          print('FCM Token added to fcmTokens array for user: $userId');
         }
       }
     } catch (e) {

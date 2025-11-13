@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fyp/common/models/role_model.dart';
 
-class RecyclingCenterStaffModel extends RoleModel {
+class RecyclingCenterStaff extends RoleModel {
   final String centerId;
   final String? gender;
   final DateTime joinDate;
 
-  RecyclingCenterStaffModel({
+  RecyclingCenterStaff({
     // RoleModel fields
     required super.userId,
     required super.username,
@@ -19,16 +19,16 @@ class RecyclingCenterStaffModel extends RoleModel {
     super.profileImg,
     super.lastFailedLogin,
 
-    // RecyclingCenterStaffModel fields
+    // RecyclingCenterStaff fields
     required this.centerId,
     this.gender,
     required this.joinDate,
   });
 
   /// ✅ Firestore 转换
-  factory RecyclingCenterStaffModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory RecyclingCenterStaff.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
-    return RecyclingCenterStaffModel(
+    return RecyclingCenterStaff(
       userId: doc.id,
       username: data['Username'] ?? '',
       email: data['Email'] ?? '',
@@ -51,8 +51,8 @@ class RecyclingCenterStaffModel extends RoleModel {
   }
 
   /// ✅ Map 转换（用于本地缓存）
-  factory RecyclingCenterStaffModel.fromMap(Map<String, dynamic> map) {
-    return RecyclingCenterStaffModel(
+  factory RecyclingCenterStaff.fromMap(Map<String, dynamic> map) {
+    return RecyclingCenterStaff(
       userId: map['userId'] ?? '',
       username: map['username'] ?? '',
       email: map['email'] ?? '',
@@ -94,7 +94,7 @@ class RecyclingCenterStaffModel extends RoleModel {
   }
 
   @override
-  RecyclingCenterStaffModel copyWith({
+  RecyclingCenterStaff copyWith({
     String? centerId,
     String? gender,
     DateTime? joinDate,
@@ -109,7 +109,7 @@ class RecyclingCenterStaffModel extends RoleModel {
     String? userId,
     String? username,
   }) {
-    return RecyclingCenterStaffModel(
+    return RecyclingCenterStaff(
       userId: userId ?? this.userId,
       username: username ?? this.username,
       email: email ?? this.email,
@@ -127,7 +127,7 @@ class RecyclingCenterStaffModel extends RoleModel {
   }
 
   /// ✅ Empty User
-  static RecyclingCenterStaffModel empty() => RecyclingCenterStaffModel(
+  static RecyclingCenterStaff empty() => RecyclingCenterStaff(
     userId: '',
     username: '',
     email: '',

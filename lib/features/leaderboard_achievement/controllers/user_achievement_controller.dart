@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:fyp/data/repositories/authentication/authentication_repository.dart';
-import 'package:fyp/utils/constants/enums.dart';
 
 import '../../../data/repositories/achievement/achievement_repostory.dart';
 import '../../../data/repositories/achievement/user_achievement_repository.dart';
@@ -120,7 +119,26 @@ class UserAchievementController extends GetxController {
       grouped[category]!.add(userAchievement);
     }
 
-    return grouped;
+    // 按自定义顺序排序：recycling 先出现，然后 differentWaste
+    final sortedEntries = grouped.entries.toList()
+      ..sort((a, b) {
+        // 定义优先级：recycling = 1 (最高), differentWaste = 2
+        final priorityA = _getCategoryPriority(a.key);
+        final priorityB = _getCategoryPriority(b.key);
+        return priorityA.compareTo(priorityB);
+      });
+
+    return Map.fromEntries(sortedEntries);
+  }
+
+  /// 获取分类优先级
+  int _getCategoryPriority(AchievementCategory category) {
+    switch (category) {
+      case AchievementCategory.recycling:
+        return 1; // 最高优先级，最先显示
+      case AchievementCategory.differentWaste:
+        return 2; // 第二优先级
+    }
   }
 
   /// Get total completed achievements count

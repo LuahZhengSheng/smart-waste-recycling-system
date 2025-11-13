@@ -3,7 +3,6 @@ import 'package:iconsax/iconsax.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/constants/sizes.dart';
-import '../../../utils/helpers/helper_functions.dart';
 import '../../../utils/popups/loaders.dart';
 import '../models/event_model.dart';
 import '../models/event_enums.dart';

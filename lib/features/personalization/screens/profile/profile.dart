@@ -8,11 +8,13 @@ import 'package:fyp/utils/helpers/helper_functions.dart';
 import 'package:fyp/utils/formatters/formatter.dart';
 
 import '../../../leaderboard_achievement/screens/user_achievement/user_achievement.dart';
+import '../../../recycling_center/screens/test.dart';
 import '../../controllers/profile_controller.dart';
 import '../recycle_activity/recycle_activity.dart';
 import 'about_us.dart';
 import 'privacy_policy.dart';
 import 'terms_conditions.dart';
+import 'widgets/qr_code.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -20,10 +22,10 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(ProfileController());
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: isDark ? FColors.dark : FColors.light,
+      backgroundColor: dark ? FColors.dark : FColors.light,
       body: Obx(() {
         // Show loading state while fetching user data
         if (controller.user.value.userId.isEmpty) {
@@ -42,7 +44,7 @@ class ProfileScreen extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: isDark
+                    colors: dark
                         ? [FColors.primary.withOpacity(0.8), FColors.primary.withOpacity(0.6)]
                         : [FColors.primary, FColors.primary.withOpacity(0.8)],
                   ),
@@ -72,14 +74,14 @@ class ProfileScreen extends StatelessWidget {
                         const SizedBox(height: FSizes.spaceBtwSections),
 
                         /// Profile Picture & Info
-                        _buildProfileHeader(context, controller, isDark),
+                        _buildProfileHeader(context, controller, dark),
                       ],
                     ),
                   ),
                 ),
               ),
 
-              /// -- Profile Options
+              /// -- Profile Options (QR Code section removed from here)
               Padding(
                 padding: const EdgeInsets.all(FSizes.defaultSpace),
                 child: Column(
@@ -182,7 +184,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context, ProfileController controller, bool isDark) {
+  Widget _buildProfileHeader(BuildContext context, ProfileController controller, bool dark) {
     return Obx(() {
       final user = controller.user.value;
       final profileImg = user.profileImg;
@@ -254,13 +256,38 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: FSizes.md),
 
-          /// User Info
-          Text(
-            user.username.isNotEmpty ? user.username : 'User',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+          /// User Info with QR Icon
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                user.username.isNotEmpty ? user.username : 'User',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: FSizes.sm),
+              GestureDetector(
+                onTap: () => QRCodeDialog.show(context),
+                child: Container(
+                  padding: const EdgeInsets.all(FSizes.xs),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(FSizes.borderRadiusMd),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Iconsax.scan_barcode,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: FSizes.xs),
           Text(
@@ -332,7 +359,7 @@ class ProfileScreen extends StatelessWidget {
         Color? textColor,
         required VoidCallback onTap,
       }) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Container(
       margin: const EdgeInsets.only(bottom: FSizes.sm),
@@ -344,7 +371,7 @@ class ProfileScreen extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(FSizes.md),
             decoration: BoxDecoration(
-              color: isDark ? FColors.darkContainer : FColors.white,
+              color: dark ? FColors.darkContainer : FColors.white,
               borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
               boxShadow: [
                 BoxShadow(
@@ -385,7 +412,7 @@ class ProfileScreen extends StatelessWidget {
                       Text(
                         subtitle,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isDark ? FColors.grey : FColors.darkGrey,
+                          color: dark ? FColors.grey : FColors.darkGrey,
                         ),
                       ),
                     ],
@@ -393,7 +420,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 Icon(
                   Iconsax.arrow_right_3,
-                  color: isDark ? FColors.grey : FColors.darkGrey,
+                  color: dark ? FColors.grey : FColors.darkGrey,
                   size: 18,
                 ),
               ],
@@ -463,10 +490,10 @@ class AccountSecurityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: isDark ? FColors.dark : FColors.light,
+      backgroundColor: dark ? FColors.dark : FColors.light,
       appBar: FAppBar(
         title: Text(
           'Account Security',
@@ -514,7 +541,7 @@ class AccountSecurityScreen extends StatelessWidget {
         required String subtitle,
         required VoidCallback onTap,
       }) {
-    final isDark = FHelperFunctions.isDarkMode(context);
+    final dark = FHelperFunctions.isDarkMode(context);
 
     return Container(
       margin: const EdgeInsets.only(bottom: FSizes.sm),
@@ -526,7 +553,7 @@ class AccountSecurityScreen extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(FSizes.md),
             decoration: BoxDecoration(
-              color: isDark ? FColors.darkContainer : FColors.white,
+              color: dark ? FColors.darkContainer : FColors.white,
               borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
               boxShadow: [
                 BoxShadow(
@@ -562,7 +589,7 @@ class AccountSecurityScreen extends StatelessWidget {
                       Text(
                         subtitle,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: isDark ? FColors.grey : FColors.darkGrey,
+                          color: dark ? FColors.grey : FColors.darkGrey,
                         ),
                       ),
                     ],
@@ -570,7 +597,7 @@ class AccountSecurityScreen extends StatelessWidget {
                 ),
                 Icon(
                   Iconsax.arrow_right_3,
-                  color: isDark ? FColors.grey : FColors.darkGrey,
+                  color: dark ? FColors.grey : FColors.darkGrey,
                   size: 18,
                 ),
               ],

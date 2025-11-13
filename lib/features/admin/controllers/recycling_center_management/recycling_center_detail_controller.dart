@@ -16,7 +16,7 @@ class RecyclingCenterDetailsController extends GetxController {
 
   // Observables
   final Rx<PartnerRecyclingCenter?> center = Rx<PartnerRecyclingCenter?>(null);
-  final RxList<RecyclingCenterStaffModel> allStaff = <RecyclingCenterStaffModel>[].obs;
+  final RxList<RecyclingCenterStaff> allStaff = <RecyclingCenterStaff>[].obs;
   final RxList<RecyclingActivity> allActivities = <RecyclingActivity>[].obs;
   final RxList<RecyclingActivity> filteredActivities = <RecyclingActivity>[].obs;
   final RxMap<String, UserModel> users = <String, UserModel>{}.obs;
@@ -137,10 +137,10 @@ class RecyclingCenterDetailsController extends GetxController {
     );
   }
 
-  List<RecyclingCenterStaffModel> _getMockStaff() {
+  List<RecyclingCenterStaff> _getMockStaff() {
     final now = DateTime.now();
     return [
-      RecyclingCenterStaffModel(
+      RecyclingCenterStaff(
         userId: 'staff1',
         username: 'Ahmad Rahman',
         email: 'ahmad@ecocenter-kl.com',
@@ -154,7 +154,7 @@ class RecyclingCenterDetailsController extends GetxController {
         gender: 'male',
         joinDate: now.subtract(const Duration(days: 90)),
       ),
-      RecyclingCenterStaffModel(
+      RecyclingCenterStaff(
         userId: 'staff2',
         username: 'Siti Nurhaliza',
         email: 'siti@ecocenter-kl.com',
@@ -168,7 +168,7 @@ class RecyclingCenterDetailsController extends GetxController {
         gender: 'female',
         joinDate: now.subtract(const Duration(days: 75)),
       ),
-      RecyclingCenterStaffModel(
+      RecyclingCenterStaff(
         userId: 'staff3',
         username: 'Wong Wei Ming',
         email: 'wong@ecocenter-kl.com',
@@ -182,7 +182,7 @@ class RecyclingCenterDetailsController extends GetxController {
         gender: 'male',
         joinDate: now.subtract(const Duration(days: 60)),
       ),
-      RecyclingCenterStaffModel(
+      RecyclingCenterStaff(
         userId: 'staff4',
         username: 'Priya Sharma',
         email: 'priya@ecocenter-kl.com',
@@ -440,7 +440,7 @@ class RecyclingCenterDetailsController extends GetxController {
     print('Navigate to edit center: ${center.value?.name}');
   }
 
-  RecyclingCenterStaffModel? getStaffById(String staffId) {
+  RecyclingCenterStaff? getStaffById(String staffId) {
     try {
       return allStaff.firstWhere((staff) => staff.userId == staffId);
     } catch (e) {
@@ -457,13 +457,13 @@ class RecyclingCenterDetailsController extends GetxController {
     return center.value!.status == 'active' ? 'Active' : 'Inactive';
   }
 
-  Color getCenterStatusColor(bool isDark) {
+  Color getCenterStatusColor(bool dark) {
     if (center.value == null) return Colors.grey;
 
     if (center.value!.status == 'active') {
-      return isDark ? FColors.adminDarkSuccess : FColors.adminLightSuccess;
+      return dark ? FColors.adminDarkSuccess : FColors.adminLightSuccess;
     } else {
-      return isDark ? FColors.adminDarkTextMuted : FColors.adminLightTextMuted;
+      return dark ? FColors.adminDarkTextMuted : FColors.adminLightTextMuted;
     }
   }
 

@@ -54,5 +54,39 @@
         <string>This app needs access to your location to show nearby recycling centers.</string>
         <key>io.flutter.embedded_views_preview</key>
         <true/>
+
+		<!-- ==================== DEEP LINK CONFIGURATIONS ==================== -->
+		<!-- Custom URL Schemes for Deep Linking -->
+		<!-- Used for: FCM notification clicks, external app links -->
+		<!-- Format: saveearth://event/12345 -->
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.saveearth.deepLink</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>saveearth</string>
+				</array>
+			</dict>
+		</array>
+
+		<!-- Universal Links for iOS -->
+		<!-- Note: Universal Links require a real domain and apple-app-site-association file -->
+		<!-- Since you don't have a domain, these are commented out for now -->
+		<!-- You can uncomment and configure these when you get a real domain -->
+		<!--
+		<key>com.apple.developer.associated-domains</key>
+		<array>
+			<string>applinks:yourdomain.com</string>
+			<string>applinks:www.yourdomain.com</string>
+		</array>
+		-->
+
+		<!-- Firebase Configuration for Push Notifications -->
+		<key>FirebaseAppDelegateProxyEnabled</key>
+		<false/>
 	</dict>
 </plist>

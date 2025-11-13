@@ -48,7 +48,7 @@ class WasteCategory {
   }
 
   /// Factory method to create from Firestore document
-  factory WasteCategory.fromFirestore(DocumentSnapshot doc) {
+  factory WasteCategory.fromSnapshot(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
 
     return WasteCategory(
@@ -67,8 +67,9 @@ class WasteCategory {
   }
 
   /// Convert to Firestore compatible Map
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toJson() {
     return {
+      'categoryId': categoryId,
       'name': name,
       'description': description,
       'disposalMethod': disposalMethod,
@@ -77,8 +78,8 @@ class WasteCategory {
       'basePoints': basePoints,
       'examples': examples,
       'isRecyclable': isRecyclable,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     };
   }
 
@@ -97,23 +98,6 @@ class WasteCategory {
       createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
       updatedAt: DateTime.parse(json['updatedAt'] ?? DateTime.now().toIso8601String()),
     );
-  }
-
-  /// Convert to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'categoryId': categoryId,
-      'name': name,
-      'description': description,
-      'disposalMethod': disposalMethod,
-      'icon': _iconToString(icon),
-      'color': _colorToHex(color),
-      'basePoints': basePoints,
-      'examples': examples,
-      'isRecyclable': isRecyclable,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
   }
 
   /// Helper method to parse icon data from string
@@ -201,19 +185,19 @@ class WasteCategory {
   }
 
   /// Get formatted points string
-  String get formattedPoints => '${basePoints.toStringAsFixed(1)} 分/公斤';
+  String get formattedPoints => '${basePoints.toStringAsFixed(1)} points/kg';
 
   /// Get examples as formatted string
   String get formattedExamples => examples.join(', ');
 
   /// Check if category is hazardous
-  bool get isHazardous => name.contains('电池') || name.contains('有害');
+  bool get isHazardous => name.contains('Battery') || name.contains('Hazardous');
 
   /// Get disposal method with emoji
   String get disposalMethodWithEmoji {
-    if (disposalMethod.contains('回收')) return '♻️ $disposalMethod';
-    if (disposalMethod.contains('处理')) return '⚡ $disposalMethod';
-    if (disposalMethod.contains('填埋')) return '🗑️ $disposalMethod';
+    if (disposalMethod.contains('Recycle')) return '♻️ $disposalMethod';
+    if (disposalMethod.contains('Process')) return '⚡ $disposalMethod';
+    if (disposalMethod.contains('Landfill')) return '🗑️ $disposalMethod';
     return disposalMethod;
   }
 

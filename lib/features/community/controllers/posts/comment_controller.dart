@@ -62,6 +62,7 @@ class CommentController extends GetxController {
 
   /// Load user data for all comments
   Future<void> loadUserDataForComments(List<Comment> comments) async {
+    print('0test');
     if (comments.isEmpty) return;
 
     try {
@@ -72,14 +73,17 @@ class CommentController extends GetxController {
 
       // 过滤出还没有缓存的用户
       final uncachedUserIds = uniqueUserIds.where((id) => !userDataCache.containsKey(id)).toSet();
+      print('1test');
 
       if (uncachedUserIds.isNotEmpty) {
+        print('2test');
         // 批量获取用户数据
         final usersData = await userRepository.getUsersProfileData(uncachedUserIds);
 
         // 更新缓存
         userDataCache.addAll(usersData);
       }
+      print('3test');
     } catch (e) {
       debugPrint('Failed to load user data for comments: $e');
     } finally {
@@ -99,6 +103,7 @@ class CommentController extends GetxController {
 
   /// Initialize controller with comment data (for replies screen)
   Future<void> initialize(Comment comment, {String? postId}) async {
+    print('-1test');
     currentComment.value = comment;
     if (postId != null) {
       _currentPostId = postId;

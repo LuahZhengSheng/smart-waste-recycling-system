@@ -53,6 +53,23 @@
         android:label="fyp"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- ==================== FCM CONFIGURATIONS ==================== -->
+        <!-- Default notification channel for FCM -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="event_reminders" />
+
+        <!-- Default notification icon -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+
+        <!-- Default notification color (Android Lollipop+) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/primary" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -67,14 +84,62 @@
                  while the Flutter UI initializes. After that, this theme continues
                  to determine the Window background behind the Flutter UI. -->
             <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme"
+                />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- Handle notification clicks -->
+            <intent-filter>
+                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- ==================== DEEP LINK CONFIGURATIONS ==================== -->
+            <!-- Handle custom scheme deep links (smartwaste://event/12345) -->
+            <!-- Used for: FCM notification clicks, external app links -->
+            <!-- Note: Using 'smartwaste' as app scheme for better identification -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Custom scheme for deep links -->
+                <!-- Format: smartwaste://event/{eventId} -->
+                <data
+                    android:scheme="saveearth"
+                    android:host="event" />
+            </intent-filter>
+
+            <!-- ==================== ANDROID APP LINKS CONFIGURATIONS ==================== -->
+            <!-- Note: Android App Links require a real domain and assetlinks.json file -->
+            <!-- Since you don't have a domain, these are commented out for now -->
+            <!-- You can uncomment and configure these when you get a real domain -->
+            <!--
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="yourdomain.com"
+                    android:pathPrefix="/event/" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="www.yourdomain.com"
+                    android:pathPrefix="/event/" />
+            </intent-filter>
+            -->
         </activity>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -101,16 +166,15 @@
         </activity>
 
         <!-- ==================== FCM SERVICE ==================== -->
-
         <!-- Firebase Cloud Messaging Service for handling background messages -->
-        <service
-            android:name=".java.MyFirebaseMessagingService"
-            android:exported="false">
-            <intent-filter>
-                <!-- Listens for incoming FCM messages -->
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
+        <!--        <service-->
+        <!--            android:name=".MyFirebaseMessagingService"-->
+        <!--            android:exported="false">-->
+        <!--            <intent-filter>-->
+        <!--                &lt;!&ndash; Listens for incoming FCM messages &ndash;&gt;-->
+        <!--                <action android:name="com.google.firebase.MESSAGING_EVENT" />-->
+        <!--            </intent-filter>-->
+        <!--        </service>-->
 
         <!-- ==================== GOOGLE MAP SERVICE ==================== -->
         <!-- Google Maps API Key configuration -->
@@ -121,6 +185,7 @@
             android:value="AIzaSyDxxkSWPJGDFFpcejtULq6hHohdYuTLQ5A"/>
 
     </application>
+
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.

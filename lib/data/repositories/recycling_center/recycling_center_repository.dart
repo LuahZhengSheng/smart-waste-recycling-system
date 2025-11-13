@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:get/get.dart';
 import 'package:fyp/features/recycling_center/models/partner_recycling_center_model.dart';
 
@@ -7,8 +8,10 @@ class RecyclingCenterRepository extends GetxController {
   static RecyclingCenterRepository get instance => Get.find();
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String _recyclingCentersCollection = 'recyclingCenters';
-  final String _recyclingCenterStaffCollection = 'recyclingCenterStaff';
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final String _recyclingCentersCollection = 'partnerRecyclingCenters';
+  final String _usersCollection = 'users'; // 员工数据存储在 users 集合
+  final String _centerImagesFolder = 'recycling_centers'; // 回收中心图片文件夹
 
   /// Get recycling center by ID
   Future<PartnerRecyclingCenter> getCenterById(String centerId) async {
@@ -18,7 +21,9 @@ class RecyclingCenterRepository extends GetxController {
       if (!snapshot.exists) {
         throw 'Center not found';
       }
-      return PartnerRecyclingCenter.fromSnapshot(snapshot);
+      final center = PartnerRecyclingCenter.fromSnapshot(snapshot);
+      // 转换图片URL
+      return await _convertImageToDownloadUrl(center);
     } catch (e) {
       throw 'Failed to fetch center: $e';
     }
@@ -30,7 +35,10 @@ class RecyclingCenterRepository extends GetxController {
         .collection(_recyclingCentersCollection)
         .doc(centerId)
         .snapshots()
-        .map((snapshot) => PartnerRecyclingCenter.fromSnapshot(snapshot));
+        .asyncMap((snapshot) async {
+      final center = PartnerRecyclingCenter.fromSnapshot(snapshot);
+      return await _convertImageToDownloadUrl(center);
+    });
   }
 
   /// Get all active centers
@@ -41,9 +49,12 @@ class RecyclingCenterRepository extends GetxController {
           .where('status', isEqualTo: 'active')
           .get();
 
-      return snapshot.docs
+      final centers = snapshot.docs
           .map((doc) => PartnerRecyclingCenter.fromSnapshot(doc))
           .toList();
+
+      // 批量转换图片URL
+      return await _convertImagesToDownloadUrls(centers);
     } catch (e) {
       throw 'Failed to fetch centers: $e';
     }
@@ -56,9 +67,12 @@ class RecyclingCenterRepository extends GetxController {
         .where('status', isEqualTo: 'active')
         .orderBy('name')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-        .map((doc) => PartnerRecyclingCenter.fromSnapshot(doc))
-        .toList());
+        .asyncMap((snapshot) async {
+      final centers = snapshot.docs
+          .map((doc) => PartnerRecyclingCenter.fromSnapshot(doc))
+          .toList();
+      return await _convertImagesToDownloadUrls(centers);
+    });
   }
 
   /// Get centers within radius (client-side filtering)
@@ -108,32 +122,83 @@ class RecyclingCenterRepository extends GetxController {
     return degrees * (pi / 180);
   }
 
-  /// Get center by staff ID
+  /// Get center by staff ID - 修复版本
   Future<PartnerRecyclingCenter?> getCenterByStaffId(String staffId) async {
     try {
-      final staffDoc = await _db
-          .collection(_recyclingCenterStaffCollection)
-          .doc(staffId)
-          .get();
+      print('🔄 Searching for center with staff ID: $staffId');
+
+      // 方法1: 先从 users 集合获取员工数据
+      final staffDoc = await _db.collection(_usersCollection).doc(staffId).get();
+
       if (!staffDoc.exists) {
+        print('❌ Staff document not found in users collection for ID: $staffId');
         return null;
       }
 
-      final centerId = staffDoc.data()?['centerId'];
-      if (centerId == null) {
+      final staffData = staffDoc.data();
+      final centerId = staffData?['centerId'] as String?;
+
+      if (centerId == null || centerId.isEmpty) {
+        print('❌ Staff $staffId has no centerId assigned');
         return null;
       }
 
-      return await getCenterById(centerId);
+      print('✅ Found centerId: $centerId for staff: $staffId');
+
+      // 通过 centerId 查找回收中心
+      final centerDoc = await _db.collection(_recyclingCentersCollection).doc(centerId).get();
+
+      if (!centerDoc.exists) {
+        print('❌ Recycling center not found for centerId: $centerId');
+        return null;
+      }
+
+      final center = PartnerRecyclingCenter.fromSnapshot(centerDoc);
+      // 转换图片URL
+      final centerWithImageUrl = await _convertImageToDownloadUrl(center);
+      print('✅ Recycling center loaded: ${centerWithImageUrl.name}');
+      print('✅ Center image URL: ${centerWithImageUrl.image}');
+      return centerWithImageUrl;
+
     } catch (e) {
-      throw 'Failed to fetch center by staff ID: $e';
+      print('❌ Error in getCenterByStaffId: $e');
+      return null;
     }
   }
 
-  /// Get center stream by staff ID
+  /// 备选方法: 直接查询包含该staffId的中心
+  Future<PartnerRecyclingCenter?> getCenterByStaffIdAlternative(String staffId) async {
+    try {
+      print('🔄 Using alternative method to find center for staff: $staffId');
+
+      // 查询所有中心，检查 staffIds 数组是否包含该员工ID
+      final querySnapshot = await _db
+          .collection(_recyclingCentersCollection)
+          .where('staffIds', arrayContains: staffId)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        print('❌ No center found containing staff ID: $staffId');
+        return null;
+      }
+
+      final center = PartnerRecyclingCenter.fromSnapshot(querySnapshot.docs.first as DocumentSnapshot<Map<String, dynamic>>);
+      // 转换图片URL
+      final centerWithImageUrl = await _convertImageToDownloadUrl(center);
+      print('✅ Center found via alternative method: ${centerWithImageUrl.name}');
+      return centerWithImageUrl;
+
+    } catch (e) {
+      print('❌ Error in alternative method: $e');
+      return null;
+    }
+  }
+
+  /// Get center stream by staff ID - 修复版本
   Stream<PartnerRecyclingCenter?> getCenterByStaffIdStream(String staffId) {
     return _db
-        .collection(_recyclingCenterStaffCollection)
+        .collection(_usersCollection) // 使用 users 集合
         .doc(staffId)
         .snapshots()
         .asyncMap((staffSnapshot) async {
@@ -152,7 +217,77 @@ class RecyclingCenterRepository extends GetxController {
         return null;
       }
 
-      return PartnerRecyclingCenter.fromSnapshot(centerSnapshot);
+      final center = PartnerRecyclingCenter.fromSnapshot(centerSnapshot);
+      return await _convertImageToDownloadUrl(center);
     });
+  }
+
+  /// 将单个回收中心的图片文件名转换为下载URL
+  Future<PartnerRecyclingCenter> _convertImageToDownloadUrl(PartnerRecyclingCenter center) async {
+    try {
+      // 如果已经是完整URL，直接返回
+      if (center.image.startsWith('http')) {
+        return center;
+      }
+
+      // 如果是空的，返回原对象
+      if (center.image.isEmpty) {
+        return center;
+      }
+
+      // 从文件名构建完整下载URL
+      final downloadUrl = await _getImageDownloadUrl(center.image);
+      return center.copyWith(image: downloadUrl);
+
+    } catch (e) {
+      print('❌ Failed to convert image to download URL for center ${center.name}: $e');
+      return center; // 返回原对象，保持原有图片字段
+    }
+  }
+
+  /// 批量转换回收中心图片URL
+  Future<List<PartnerRecyclingCenter>> _convertImagesToDownloadUrls(List<PartnerRecyclingCenter> centers) async {
+    final List<PartnerRecyclingCenter> result = [];
+
+    for (final center in centers) {
+      try {
+        final updatedCenter = await _convertImageToDownloadUrl(center);
+        result.add(updatedCenter);
+      } catch (e) {
+        print('❌ Failed to convert image for center ${center.name}: $e');
+        result.add(center); // 添加原对象
+      }
+    }
+
+    return result;
+  }
+
+  /// 获取图片下载URL
+  Future<String> _getImageDownloadUrl(String fileName) async {
+    try {
+      if (fileName.isEmpty) return '';
+
+      // 构建存储路径
+      final path = '$_centerImagesFolder/$fileName';
+      final ref = _storage.ref().child(path);
+
+      // 获取下载URL
+      final downloadUrl = await ref.getDownloadURL();
+      print('✅ Generated download URL for $fileName: $downloadUrl');
+
+      return downloadUrl;
+    } on FirebaseException catch (e) {
+      if (e.code == 'object-not-found') {
+        print('❌ Image not found in storage: $fileName');
+      }
+      throw 'Failed to get image download URL: ${e.message}';
+    } catch (e) {
+      throw 'Failed to get image download URL: $e';
+    }
+  }
+
+  /// 直接获取图片下载URL（公共方法）
+  Future<String> getCenterImageUrl(String fileName) async {
+    return await _getImageDownloadUrl(fileName);
   }
 }

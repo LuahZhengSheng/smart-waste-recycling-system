@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 /// Model representing a physical address
 class Address {
   final String unitNo;
@@ -7,7 +5,7 @@ class Address {
   final String postcode;
   final String city;
   final String state;
-  final String? fullAddress; // 非必需的完整地址字段
+  final String? fullAddress;
 
   const Address({
     required this.unitNo,
@@ -15,7 +13,7 @@ class Address {
     required this.postcode,
     required this.city,
     required this.state,
-    this.fullAddress, // 可选参数
+    this.fullAddress,
   });
 
   /// Creates an empty Address instance
@@ -35,16 +33,8 @@ class Address {
       postcode: json['postcode'] ?? '',
       city: json['city'] ?? '',
       state: json['state'] ?? '',
-      fullAddress: json['fullAddress'], // 可选解析
+      fullAddress: json['fullAddress'],
     );
-  }
-
-  /// Creates Address instance from Firebase DocumentSnapshot
-  factory Address.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
-    if (snapshot.data() != null) {
-      return Address.fromJson(snapshot.data()!);
-    }
-    return Address.empty();
   }
 
   /// Converts Address instance to JSON map
@@ -65,7 +55,6 @@ class Address {
   }
 
   /// Returns formatted address string
-  /// 优先返回 Google 的完整地址，如果没有则使用拼接的地址
   String get formattedAddress {
     return fullAddress ?? '$unitNo, $area, $postcode $city, $state';
   }

@@ -13,6 +13,43 @@ class EventRegistrationRepository extends GetxController {
   /// Collection reference
   CollectionReference get _registrationsCollection => _db.collection('eventRegistrations');
 
+  /// Get registration by registration ID
+  Future<Map<String, dynamic>?> getRegistrationById(String registrationId) async {
+    try {
+      final doc = await _registrationsCollection.doc(registrationId).get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data != null) {
+          return {
+            'registrationId': doc.id,
+            'userId': data['userId'] ?? '',
+            'eventId': data['eventId'] ?? '',
+            'createdAt': (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            'isCancelled': data['isCancelled'] ?? false,
+          };
+        }
+      }
+      return null;
+    } on FirebaseException catch (e) {
+      throw FFirebaseException(e.code).message;
+    } catch (e) {
+      throw 'Something went wrong. Please try again';
+    }
+  }
+
+  /// Get registration by registration ID with DocumentSnapshot
+  Future<DocumentSnapshot<Map<String, dynamic>>?> getRegistrationSnapshotById(String registrationId) async {
+    try {
+      final doc = await _registrationsCollection.doc(registrationId).get();
+      return doc.exists ? doc as DocumentSnapshot<Map<String, dynamic>> : null;
+    } on FirebaseException catch (e) {
+      throw FFirebaseException(e.code).message;
+    } catch (e) {
+      throw 'Something went wrong. Please try again';
+    }
+  }
+
   /// Get user's registered events with real-time updates
   Stream<List<Event>> getUserRegisteredEvents(String userId) {
     try {

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/features/carbon_footprint_calculator/controllers/emission_controller.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/emission/emission.dart';
 import 'package:get/get.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
+
+import '../../../../common/widgets/appbar/appbar.dart';
+import '../../controllers/emission_controller.dart';
+import '../../utils/emission_utils.dart';
 
 class EmissionsScreen extends StatelessWidget {
   const EmissionsScreen({super.key});
@@ -16,27 +19,27 @@ class EmissionsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: dark ? FColors.dark : FColors.light,
-      appBar: AppBar(
-        title: Text(
-          'Emissions',
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+      appBar: FAppBar(
+        showBackArrow: true,
+        title: const Text('My Emissions'),
       ),
-      body: SingleChildScrollView(
+      body: Obx(() => controller.isLoading.value
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(FSizes.defaultSpace),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title Section
+            // Header
             Text(
-              'My Relative Emissions',
-              style: Theme.of(context).textTheme.headlineSmall,
+              'Annual Carbon Footprint',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: FSizes.xs),
             Text(
-              'Annual Kilograms Pollution (CO2e)',
+              'Compare your emissions with others',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: dark ? FColors.darkGrey : FColors.textSecondary,
               ),
@@ -44,151 +47,263 @@ class EmissionsScreen extends StatelessWidget {
             const SizedBox(height: FSizes.spaceBtwSections),
 
             // Chart Section
-            Obx(() => _buildChartSection(context, controller, dark)),
+            _buildChartSection(context, controller, dark),
 
             const SizedBox(height: FSizes.spaceBtwSections),
 
-            // Legend Section
-            _buildLegendSection(context, dark),
+            // Legend
+            _buildLegend(context, controller, dark),
 
             const SizedBox(height: FSizes.spaceBtwSections),
 
             // Comparison Card
-            Obx(() => _buildComparisonCard(context, controller, dark)),
+            _buildComparisonCard(context, controller, dark),
 
             const SizedBox(height: FSizes.md),
 
-            // Emissions Profile Card
-            _buildEmissionsProfileCard(context, controller, dark),
+            // Action Card
+            _buildActionCard(context, controller, dark),
+          ],
+        ),
+      )),
+    );
+  }
+
+  Widget _buildChartSection(
+      BuildContext context, EmissionsController controller, bool dark) {
+    return Obx(() => Container(
+      height: 350,
+      decoration: BoxDecoration(
+        color: dark ? FColors.darkContainer : FColors.white,
+        borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Chart content
+          Padding(
+            padding: const EdgeInsets.all(FSizes.lg),
+            child: Column(
+              children: [
+                // Chart title
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Emissions Comparison',
+                      style:
+                      Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (controller.hasCalculatedEmissions.value)
+                      Text(
+                        'kg CO₂e',
+                        style:
+                        Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: dark
+                              ? FColors.darkGrey
+                              : FColors.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: FSizes.lg),
+
+                // Bars
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _buildEmissionBar(
+                        context,
+                        controller,
+                        'You',
+                        controller.userEmissions,
+                        true,
+                        dark,
+                      ),
+                      _buildEmissionBar(
+                        context,
+                        controller,
+                        'Average',
+                        controller.avgEmissions,
+                        false,
+                        dark,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Locked overlay
+          if (!controller.hasCalculatedEmissions.value)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Iconsax.lock,
+                        size: 48,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                      const SizedBox(height: FSizes.md),
+                      Text(
+                        'Calculate Your Emissions',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: FSizes.xs),
+                      Text(
+                        'Start by entering your emission data',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(
+                          color: Colors.white.withOpacity(0.8),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ));
+  }
+
+  Widget _buildEmissionBar(
+      BuildContext context,
+      EmissionsController controller,
+      String label,
+      Map<String, double> data,
+      bool isUser,
+      bool dark,
+      ) {
+    final total = controller.getTotalEmissions(data);
+    final categories = ['Land Travel', 'Air Travel', 'Energy', 'Food', 'Stuff'];
+
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: FSizes.sm),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            // Bar
+            Expanded(
+              child: GestureDetector(
+                onTap: isUser && controller.hasCalculatedEmissions.value
+                    ? () => _showDetailedBreakdown(context, data, dark)
+                    : null,
+                child: Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxWidth: 100),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(FSizes.borderRadiusMd),
+                  ),
+                  child: total > 0
+                      ? Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: _buildStackedBars(
+                        categories, data, total, dark),
+                  )
+                      : Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: dark
+                          ? FColors.darkGrey.withOpacity(0.3)
+                          : FColors.grey.withOpacity(0.3),
+                      borderRadius:
+                      BorderRadius.circular(FSizes.borderRadiusMd),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: FSizes.sm),
+            // Label
+            Text(
+              label,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            // Total
+            Text(
+              total > 0 ? total.toStringAsFixed(1) : '0.0',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: FColors.primary,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildChartSection(BuildContext context, EmissionsController controller, bool dark) {
-    return Stack(
-      children: [
-        Container(
-          height: 300,
-          padding: const EdgeInsets.all(FSizes.md),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildBarChart(context, controller, 'You', controller.userEmissions, true),
-              _buildBarChart(context, controller, 'All Users Avg', controller.avgEmissions, false),
-            ],
-          ),
-        ),
-        // Overlay when no emissions calculated
-        if (!controller.hasCalculatedEmissions.value)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.eco,
-                      size: 48,
-                      color: Colors.white.withOpacity(0.8),
-                    ),
-                    const SizedBox(height: FSizes.md),
-                    Text(
-                      'Calculate your emissions first',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildBarChart(BuildContext context, EmissionsController controller, String label, Map<String, double> data, bool isUser) {
-    final totalEmissions = data.values.fold(0.0, (sum, value) => sum + value);
-
-    return Column(
-      children: [
-        Expanded(
-          child: GestureDetector(
-            onTapDown: (details) {
-              if (controller.hasCalculatedEmissions.value && isUser) {
-                controller.showTooltip(details.localPosition, data);
-              }
-            },
-            child: Container(
-              width: 80,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(FSizes.borderRadiusSm),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: _buildStackedBar(data, totalEmissions),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: FSizes.sm),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        Text(
-          totalEmissions.toStringAsFixed(1),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> _buildStackedBar(Map<String, double> data, double total) {
-    if (total == 0) return [Container(height: 20, width: 80, color: Colors.grey[300])];
-
-    final categories = ['Land Travel', 'Air Travel', 'Energy', 'Food', 'Stuff'];
-    final colors = [
-      FColors.primary,
-      const Color(0xFFE91E63),
-      const Color(0xFFFFEB3B),
-      const Color(0xFFFF5722),
-      const Color(0xFFF44336),
-    ];
-
-    return categories.asMap().entries.map((entry) {
-      final index = entry.key;
-      final category = entry.value;
+  List<Widget> _buildStackedBars(
+      List<String> categories,
+      Map<String, double> data,
+      double total,
+      bool dark,
+      ) {
+    return categories.map((category) {
       final value = data[category] ?? 0.0;
-      final height = (value / total) * 200; // Max height 200
+      if (value == 0) return const SizedBox.shrink();
+
+      final height = (value / total) * 200;
+      final color = EmissionUtils.getCategoryColor(category, darkMode: dark);
 
       return Container(
         height: height,
-        width: 80,
-        color: colors[index],
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: total == value
+              ? BorderRadius.circular(FSizes.borderRadiusMd)
+              : null,
+        ),
       );
     }).toList();
   }
 
-  Widget _buildLegendSection(BuildContext context, bool dark) {
-    final legendItems = [
-      ('Land Travel', FColors.primary),
-      ('Air Travel', const Color(0xFFE91E63)),
-      ('Energy', const Color(0xFFFFEB3B)),
-      ('Food', const Color(0xFFFF5722)),
-      ('Stuff', const Color(0xFFF44336)),
+  Widget _buildLegend(
+      BuildContext context, EmissionsController controller, bool dark) {
+    final categories = [
+      ('Land Travel', 'land_travel'),
+      ('Air Travel', 'air_travel'),
+      ('Energy', 'energy'),
+      ('Food', 'food'),
+      ('Stuff', 'stuff'),
     ];
 
     return Wrap(
       spacing: FSizes.md,
       runSpacing: FSizes.sm,
-      children: legendItems.map((item) {
+      children: categories.map((item) {
+        final color = EmissionUtils.getCategoryColor(item.$2, darkMode: dark);
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -196,8 +311,8 @@ class EmissionsScreen extends StatelessWidget {
               width: 16,
               height: 16,
               decoration: BoxDecoration(
-                color: item.$2,
-                borderRadius: BorderRadius.circular(FSizes.borderRadiusSm),
+                color: color,
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
             const SizedBox(width: FSizes.xs),
@@ -211,83 +326,197 @@ class EmissionsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildComparisonCard(BuildContext context, EmissionsController controller, bool dark) {
-    return Container(
+  Widget _buildComparisonCard(
+      BuildContext context, EmissionsController controller, bool dark) {
+    return Obx(() => Container(
       width: double.infinity,
       padding: const EdgeInsets.all(FSizes.lg),
       decoration: BoxDecoration(
-        color: dark ? FColors.darkGrey.withOpacity(0.1) : FColors.grey.withOpacity(0.3),
+        gradient: LinearGradient(
+          colors: dark
+              ? [
+            FColors.darkContainer,
+            FColors.darkContainer.withOpacity(0.7)
+          ]
+              : [FColors.primary.withOpacity(0.1), FColors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+        border: Border.all(
+          color: dark
+              ? FColors.borderDark
+              : FColors.primary.withOpacity(0.2),
+        ),
       ),
       child: Column(
         children: [
+          Icon(
+            controller.comparisonPercentage.value > 0
+                ? Iconsax.arrow_up_1
+                : controller.comparisonPercentage.value < 0
+                ? Iconsax.arrow_down
+                : Iconsax.minus,
+            color: controller.getComparisonColor(dark),
+            size: 32,
+          ),
+          const SizedBox(height: FSizes.sm),
           Text(
-            '${controller.comparisonPercentage.value.toStringAsFixed(0)}% more',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            controller.comparisonText,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
+              color: controller.getComparisonColor(dark),
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: FSizes.xs),
           Text(
-            'than All Users Average',
+            'Compared to all users',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: dark ? FColors.darkGrey : FColors.textSecondary,
             ),
           ),
         ],
       ),
-    );
+    ));
   }
 
-  Widget _buildEmissionsProfileCard(BuildContext context, EmissionsController controller, bool dark) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(FSizes.lg),
-      decoration: BoxDecoration(
-        color: FColors.accent.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+  Widget _buildActionCard(
+      BuildContext context, EmissionsController controller, bool dark) {
+    return Obx(() {
+      final completedCount = controller.getCompletedCategoriesCount();
+      final allCompleted = controller.allCategoriesCompleted;
+
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(FSizes.lg),
+        decoration: BoxDecoration(
+          color: FColors.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  allCompleted ? Iconsax.tick_circle : Iconsax.edit,
+                  color: FColors.primary,
+                  size: 32,
+                ),
+                const SizedBox(width: FSizes.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        allCompleted
+                            ? 'Profile Complete!'
+                            : 'Complete Your Profile',
+                        style:
+                        Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: FColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        allCompleted
+                            ? 'All categories completed'
+                            : '$completedCount/5 categories completed',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color:
+                          dark ? FColors.darkGrey : FColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: FSizes.md),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => controller.navigateToEmissionsProfile(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: FColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: FSizes.md),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(FSizes.buttonRadius),
+                  ),
+                ),
+                child: Text(
+                  allCompleted ? 'Update Emissions' : 'Calculate Emissions',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: FColors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  void _showDetailedBreakdown(
+      BuildContext context, Map<String, double> data, bool dark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: dark ? FColors.darkContainer : FColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Emissions Profile',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: FColors.primary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: FSizes.xs),
-          Text(
-            'Update Your Inputs',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: dark ? FColors.darkGrey : FColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: FSizes.md),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => controller.navigateToEmissionsProfile(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: FColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: FSizes.md),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(FSizes.buttonRadius),
-                ),
-              ),
-              child: Text(
-                'Calculate Emission',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: FColors.white,
-                  fontWeight: FontWeight.w600,
-                ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(FSizes.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your Emissions Breakdown',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: FSizes.md),
+            ...data.entries.map((entry) {
+              final color =
+              EmissionUtils.getCategoryColor(entry.key, darkMode: dark);
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: FSizes.xs),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: FSizes.sm),
+                    Expanded(
+                      child: Text(
+                        entry.key,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    Text(
+                      '${entry.value.toStringAsFixed(2)} kg',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
       ),
     );
   }
 }
-

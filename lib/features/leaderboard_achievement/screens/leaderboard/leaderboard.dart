@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
+import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../authentication/models/user_model.dart';
 import '../../controllers/leaderboard_controller.dart';
 
@@ -17,27 +18,15 @@ class LeaderboardScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: dark ? FColors.dark : FColors.light,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Iconsax.arrow_left, color: dark ? FColors.white : FColors.black),
-          onPressed: () => Get.back(),
-        ),
-        title: Text(
-          'Leaderboard',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: dark ? FColors.white : FColors.black,
-          ),
-        ),
+      appBar: FAppBar(
+        showBackArrow: true,
+        backgroundColor: dark ? FColors.communityDarkBackground : FColors.white,
+        title: const Text('Leaderboard'),
       ),
       body: Obx(() {
         if (controller.isLoading.value) {
-          return Center(
-            child: CircularProgressIndicator(
-              color: FColors.primary,
-            ),
+          return const Center(
+            child: CircularProgressIndicator(color: FColors.primary),
           );
         }
 
@@ -86,10 +75,9 @@ class LeaderboardScreen extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: FSizes.spaceBtwSections),
-            if (controller.topThree.length == 3)
-              _buildPodium(context, controller, dark),
+            _buildPodium(context, controller, dark),
             const SizedBox(height: FSizes.spaceBtwSections),
-            _buildUsersList(context, controller, dark),
+            _buildUsersList(context, controller, dark), // 显示完整的20名用户
           ],
         ),
       );
@@ -331,6 +319,8 @@ class LeaderboardScreen extends StatelessWidget {
   }
 
   Widget _buildPodiumUser(UserModel user, int rank, double topPadding, bool dark) {
+    final controller = Get.find<LeaderboardController>();
+    final isPlaceholder = controller.isPlaceholder(user);
     final size = rank == 1 ? 100.0 : 80.0;
     final borderColor = rank == 1
         ? FColors.leaderboardGold
@@ -342,7 +332,7 @@ class LeaderboardScreen extends StatelessWidget {
       padding: EdgeInsets.only(top: topPadding),
       child: Column(
         children: [
-          if (rank == 1)
+          if (rank == 1 && !isPlaceholder)
             Container(
               margin: const EdgeInsets.only(bottom: FSizes.sm),
               padding: const EdgeInsets.all(FSizes.sm),
@@ -368,8 +358,13 @@ class LeaderboardScreen extends StatelessWidget {
             height: size,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: borderColor, width: 4),
-              boxShadow: [
+              border: Border.all(
+                  color: isPlaceholder
+                      ? (dark ? FColors.darkGrey : FColors.grey)
+                      : borderColor,
+                  width: 4
+              ),
+              boxShadow: isPlaceholder ? [] : [
                 BoxShadow(
                   color: borderColor.withOpacity(0.3),
                   blurRadius: 12,
@@ -378,22 +373,20 @@ class LeaderboardScreen extends StatelessWidget {
               ],
             ),
             child: ClipOval(
-              child: user.profileImg != null && user.profileImg!.isNotEmpty
-                  ? Image.network(
-                user.profileImg!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _buildDefaultAvatar(user.username, size),
-              )
-                  : _buildDefaultAvatar(user.username, size),
+              child: isPlaceholder
+                  ? _buildDefaultAvatar('', size, isPlaceholder: true, dark: dark)
+                  : _buildUserAvatar(user, size, controller),
             ),
           ),
           const SizedBox(height: FSizes.sm),
           Text(
-            user.username,
+            isPlaceholder ? '---' : user.username,
             style: TextStyle(
               fontSize: rank == 1 ? 16 : 14,
               fontWeight: FontWeight.w600,
-              color: dark ? FColors.white : FColors.black,
+              color: isPlaceholder
+                  ? (dark ? FColors.darkGrey : FColors.grey)
+                  : (dark ? FColors.white : FColors.black),
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -403,10 +396,26 @@ class LeaderboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDefaultAvatar(String username, double size) {
+  Widget _buildUserAvatar(UserModel user, double size, LeaderboardController controller) {
+    final imageUrl = controller.getProfileImageUrl(user.profileImg);
+
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => _buildDefaultAvatar(user.username, size),
+      );
+    }
+
+    return _buildDefaultAvatar(user.username, size);
+  }
+
+  Widget _buildDefaultAvatar(String username, double size, {bool isPlaceholder = false, bool dark = false}) {
     return Container(
-      decoration: const BoxDecoration(
-        color: FColors.primary,
+      decoration: BoxDecoration(
+        color: isPlaceholder
+            ? (dark ? FColors.darkGrey : FColors.grey)
+            : FColors.primary,
       ),
       child: Center(
         child: Icon(
@@ -420,13 +429,13 @@ class LeaderboardScreen extends StatelessWidget {
 
   Widget _buildUsersList(BuildContext context, LeaderboardController controller, bool dark) {
     final users = controller.top20Users;
-    if (users.length <= 3) return const SizedBox.shrink();
 
+    // 显示所有20名用户，从第4名开始（前3名已经在领奖台显示）
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
-      itemCount: users.length - 3,
+      itemCount: users.length - 3, // 显示第4名到第20名
       itemBuilder: (context, index) {
         final user = users[index + 3];
         final rank = index + 4;
@@ -437,6 +446,9 @@ class LeaderboardScreen extends StatelessWidget {
   }
 
   Widget _buildUserCard(BuildContext context, UserModel user, int rank, int points, bool dark) {
+    final controller = Get.find<LeaderboardController>();
+    final imageUrl = controller.getProfileImageUrl(user.profileImg);
+
     return Container(
       margin: const EdgeInsets.only(bottom: FSizes.md),
       padding: const EdgeInsets.all(FSizes.md),
@@ -483,9 +495,9 @@ class LeaderboardScreen extends StatelessWidget {
               ),
             ),
             child: ClipOval(
-              child: user.profileImg != null && user.profileImg!.isNotEmpty
+              child: imageUrl != null && imageUrl.isNotEmpty
                   ? Image.network(
-                user.profileImg!,
+                imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => _buildSmallAvatar(user.username),
               )
@@ -547,6 +559,7 @@ class LeaderboardScreen extends StatelessWidget {
       final currentUser = controller.currentUser.value;
       final rank = controller.currentUserRank;
       final points = controller.getPoints(currentUser);
+      final imageUrl = controller.getProfileImageUrl(currentUser.profileImg);
 
       return Container(
         margin: const EdgeInsets.all(FSizes.defaultSpace),
@@ -597,9 +610,9 @@ class LeaderboardScreen extends StatelessWidget {
                 ],
               ),
               child: ClipOval(
-                child: currentUser.profileImg != null && currentUser.profileImg!.isNotEmpty
+                child: imageUrl != null && imageUrl.isNotEmpty
                     ? Image.network(
-                  currentUser.profileImg!,
+                  imageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => _buildSmallAvatar(currentUser.username),
                 )

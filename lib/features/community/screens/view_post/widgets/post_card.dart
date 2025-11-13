@@ -32,70 +32,136 @@ class FPostCard extends StatelessWidget {
     final controller = Get.find<PostsController>();
     final dark = FHelperFunctions.isDarkMode(context);
     final postType = PostType.fromString(post.postType);
+    final isDisabled = post.isDisabled;
 
     return GestureDetector(
       onTap: isInDetailScreen
           ? null
           : () => controller.navigateToPostDetails(post.postId),
-      child: Container(
-        padding: const EdgeInsets.all(FSizes.md),
-        margin: const EdgeInsets.only(bottom: FSizes.spaceBtwItems),
-        decoration: BoxDecoration(
-          color: isInDetailScreen
-              ? dark
-              ? FColors.dark
-              : FColors.white
-              : dark
-              ? FColors.communityDarkSurface
-              : FColors.white,
-          borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
-          boxShadow: dark
-              ? null
-              : [
-            BoxShadow(
-              color: FColors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // User Info & Post Options
-            _buildUserInfoSection(context, dark, postType),
-            const SizedBox(height: FSizes.spaceBtwItems * 2),
+      child: Stack(
+        children: [
+          Opacity(
+            opacity: isDisabled ? 0.6 : 1.0,
+            child: Container(
+              padding: const EdgeInsets.all(FSizes.md),
+              margin: const EdgeInsets.only(bottom: FSizes.spaceBtwItems),
+              decoration: BoxDecoration(
+                color: isInDetailScreen
+                    ? dark
+                    ? FColors.dark
+                    : FColors.white
+                    : dark
+                    ? FColors.communityDarkSurface
+                    : FColors.white,
+                borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+                border: isDisabled
+                    ? Border.all(color: FColors.error.withOpacity(0.3), width: 1.5)
+                    : null,
+                boxShadow: dark
+                    ? null
+                    : [
+                  BoxShadow(
+                    color: FColors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // User Info & Post Options
+                  _buildUserInfoSection(context, dark, postType),
+                  const SizedBox(height: FSizes.spaceBtwItems * 2),
 
-            // Post Content
-            Text(
-              post.content,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                height: 1.4,
-                color: dark ? FColors.darkText : FColors.black,
+                  // Post Content
+                  Text(
+                    post.content,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      height: 1.4,
+                      color: dark ? FColors.darkText : FColors.black,
+                    ),
+                  ),
+
+                  // Post Media (if any)
+                  if (post.media.isNotEmpty) ...[
+                    const SizedBox(height: FSizes.spaceBtwItems * 2),
+                    _PostMediaPreview(
+                      mediaUrls: post.media,
+                      onTap: (index) => _openMediaLightbox(context, index),
+                    ),
+                  ],
+
+                  const SizedBox(height: FSizes.spaceBtwItems),
+
+                  // Action Buttons - Disabled if post is disabled
+                  if (isDisabled)
+                    Opacity(
+                      opacity: 0.5,
+                      child: IgnorePointer(
+                        child: Row(
+                          children: [
+                            const Spacer(),
+                            _buildPostActions(),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    Row(
+                      children: [
+                        const Spacer(),
+                        _buildPostActions(),
+                      ],
+                    ),
+                ],
               ),
             ),
-
-            // Post Media (if any)
-            if (post.media.isNotEmpty) ...[
-              const SizedBox(height: FSizes.spaceBtwItems * 2),
-              _PostMediaPreview(
-                mediaUrls: post.media,
-                onTap: (index) => _openMediaLightbox(context, index),
+          ),
+          // Violated badge for disabled posts
+          if (isDisabled)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: FSizes.sm,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: FColors.error.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: FColors.error.withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Iconsax.warning_2,
+                      color: FColors.white,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'VIOLATED',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: FColors.white,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
-
-            const SizedBox(height: FSizes.spaceBtwItems),
-
-            // Action Buttons
-            Row(
-              children: [
-                const Spacer(),
-                _buildPostActions(),
-              ],
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 import '../../../data/repositories/event/event_registration_repository.dart';
@@ -12,7 +13,13 @@ import '../models/reminder_model.dart';
 import 'dart:async';
 
 class EventController extends GetxController with GetSingleTickerProviderStateMixin {
-  static EventController get instance => Get.find();
+  static EventController get instance {
+    if (Get.isRegistered<EventController>()) {
+      return Get.find<EventController>();
+    } else {
+      return Get.put(EventController(), permanent: true);
+    }
+  }
 
   final eventRepository = Get.put(EventRepository());
   final eventRegistrationRepository = Get.put(EventRegistrationRepository());
@@ -413,66 +420,59 @@ class EventController extends GetxController with GetSingleTickerProviderStateMi
     }
   }
 
-  /// Create a new reminder with FCM notification
+  /// Create a new reminder (EventController 负责创建提醒)
   Future<void> _createReminder(String eventId, String registrationId) async {
     try {
+      // 通过 eventId 获取事件详情
       final event = await eventRepository.getEventById(eventId).first;
 
-      // Calculate reminder time (1 day before event start)
-      final remindAt = event.startDateTime.subtract(const Duration(days: 1));
+      // Calculate reminder time (1 day before event start) - 转换为 UTC
+      final remindAtDateTime = event.startDateTime.subtract(const Duration(days: 1));
+      final remindAtUtc = Timestamp.fromDate(remindAtDateTime.toUtc());
 
-      // Create reminder model
+      // Create reminder model - 不再需要手动生成 reminderId
       final reminder = Reminder(
-        reminderId: _generateReminderId(),
+        reminderId: '', // 留空，Firestore 会自动生成
         registrationId: registrationId,
         title: 'Event Reminder: ${event.title}',
-        message:
-        'Your event "${event.title}" starts in 1 day at ${event.location.address.area}',
-        remindAt: remindAt,
-        createdAt: DateTime.now(),
+        message: 'Your event "${event.title}" starts tomorrow at ${event.location.address.area}. Don\'t forget to attend!',
+        remindAt: remindAtUtc, // 使用 UTC 时间
+        createdAt: Timestamp.now(), // 使用当前 UTC 时间
         isSent: false,
       );
 
-      // Save to Firestore
-      await reminderRepository.createReminder(reminder);
+      // Save to Firestore - 返回自动生成的 reminderId
+      final generatedReminderId = await reminderRepository.createReminder(reminder);
 
-      // Schedule FCM notification
-      await fcmService.scheduleEventReminder(
-        userId: currentUserId,
-        eventId: eventId,
-        eventTitle: event.title,
-        eventLocation: event.location.address.area,
-        remindAt: remindAt,
-        reminderId: reminder.reminderId,
-        registrationId: registrationId,
-      );
+      print('Reminder created successfully: $generatedReminderId for event: ${event.title}');
+
     } catch (e) {
+      print('Error creating reminder: $e');
       rethrow;
     }
   }
 
-  /// Delete an existing reminder and cancel FCM notification
+  /// Delete an existing reminder
   Future<void> _deleteReminder(String registrationId, String eventId) async {
     try {
       final reminder = await reminderRepository.getReminderByRegistration(registrationId);
       if (reminder != null) {
         await reminderRepository.deleteReminder(reminder.reminderId);
-
-        // Cancel FCM notification
-        await fcmService.cancelEventReminder(reminder.reminderId);
+        print('Reminder deleted: ${reminder.reminderId} for event: $eventId');
       }
     } catch (e) {
+      print('Error deleting reminder: $e');
       rethrow;
     }
-  }
-
-  /// Generate a unique reminder ID
-  String _generateReminderId() {
-    return 'rem_${DateTime.now().millisecondsSinceEpoch}_${currentUserId.substring(0, 8)}';
   }
 
   /// Refresh events
   Future<void> refreshEvents() async {
     loadEvents();
+  }
+
+  /// Ensure controller is initialized (for push notification handling)
+  static void ensureInitialized() {
+    instance;
   }
 }

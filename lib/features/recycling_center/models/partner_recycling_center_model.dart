@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fyp/utils/formatters/formatter.dart';
-import '../../../utils/constants/google_places_config.dart';
+import '../../../config/google_places_config.dart';
 import '../../event/models/location_model.dart';
 
 class PartnerRecyclingCenter {
@@ -11,16 +11,14 @@ class PartnerRecyclingCenter {
   final String website;
   final Location centerLocation;
   final String image;
-  final Map<String, dynamic>? openingHours; // Changed to match Google Places format
+  final Map<String, dynamic>? openingHours;
   final List<String> acceptedMaterials;
   final int numberOfStaff;
-  final DateTime createdAt;
+  final DateTime createdAt; // 存储 UTC 时间
   final String status;
   final double? rating;
   final int? userRatingsTotal;
   final String? placeId;
-
-  // Removed: final List<String> photoReferences;
 
   PartnerRecyclingCenter({
     required this.centerId,
@@ -51,12 +49,47 @@ class PartnerRecyclingCenter {
     openingHours: null,
     acceptedMaterials: [],
     numberOfStaff: 0,
-    createdAt: DateTime.now(),
+    createdAt: DateTime.now().toUtc(), // 使用 UTC 时间
     status: 'inactive',
   );
 
+  /// 用于创建新回收中心的工厂方法
+  static PartnerRecyclingCenter createNew({
+    required String name,
+    required String email,
+    required String phoneNo,
+    required String website,
+    required Location centerLocation,
+    String image = '',
+    Map<String, dynamic>? openingHours,
+    List<String> acceptedMaterials = const [],
+    required int numberOfStaff,
+    String status = 'active',
+    double? rating,
+    int? userRatingsTotal,
+    String? placeId,
+  }) {
+    return PartnerRecyclingCenter(
+      centerId: '', // 由 Firestore 自动生成
+      name: name,
+      email: email,
+      phoneNo: phoneNo,
+      website: website,
+      centerLocation: centerLocation,
+      image: image,
+      openingHours: openingHours,
+      acceptedMaterials: acceptedMaterials,
+      numberOfStaff: numberOfStaff,
+      createdAt: DateTime.now().toUtc(), // 临时 UTC 时间，写入时会被 ServerTime 替换
+      status: status,
+      rating: rating,
+      userRatingsTotal: userRatingsTotal,
+      placeId: placeId,
+    );
+  }
+
   Map<String, dynamic> toJson() {
-    return {
+    final json = {
       'centerId': centerId,
       'name': name,
       'email': email,
@@ -67,17 +100,37 @@ class PartnerRecyclingCenter {
       'openingHours': openingHours,
       'acceptedMaterials': acceptedMaterials,
       'numberOfStaff': numberOfStaff,
-      'createdAt': createdAt.toIso8601String(),
       'status': status,
       'rating': rating,
       'userRatingsTotal': userRatingsTotal,
       'placeId': placeId,
     };
+
+    // 使用 ServerTime 存储 UTC 时间
+    if (centerId.isEmpty) {
+      // 新文档：使用 ServerTime
+      json['createdAt'] = FieldValue.serverTimestamp();
+    } else {
+      // 现有文档：保持原有的 UTC 时间
+      json['createdAt'] = Timestamp.fromDate(createdAt);
+    }
+
+    return json;
   }
 
   factory PartnerRecyclingCenter.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> document) {
     if (document.data() != null) {
       final data = document.data()!;
+
+      // 直接读取 ServerTime (UTC)
+      DateTime createdAt;
+      if (data['createdAt'] is Timestamp) {
+        createdAt = (data['createdAt'] as Timestamp).toDate();
+      } else {
+        // 降级方案：使用当前 UTC 时间
+        createdAt = DateTime.now().toUtc();
+      }
+
       return PartnerRecyclingCenter(
         centerId: document.id,
         name: data['name'] ?? '',
@@ -89,7 +142,7 @@ class PartnerRecyclingCenter {
         openingHours: Map<String, dynamic>.from(data['openingHours'] ?? {}),
         acceptedMaterials: List<String>.from(data['acceptedMaterials'] ?? []),
         numberOfStaff: (data['numberOfStaff'] as num?)?.toInt() ?? 0,
-        createdAt: DateTime.parse(data['createdAt'] ?? DateTime.now().toIso8601String()),
+        createdAt: createdAt, // 存储 UTC 时间
         status: data['status'] ?? 'inactive',
         rating: data['rating']?.toDouble(),
         userRatingsTotal: data['userRatingsTotal'],
@@ -98,6 +151,48 @@ class PartnerRecyclingCenter {
     } else {
       return PartnerRecyclingCenter.empty();
     }
+  }
+
+  /// 从 JSON 创建（用于 API 响应等）
+  factory PartnerRecyclingCenter.fromJson(Map<String, dynamic> json) {
+    DateTime createdAt;
+    if (json['createdAt'] is Timestamp) {
+      createdAt = (json['createdAt'] as Timestamp).toDate();
+    } else if (json['createdAt'] is String) {
+      createdAt = DateTime.parse(json['createdAt']);
+    } else if (json['createdAt'] is int) {
+      createdAt = DateTime.fromMillisecondsSinceEpoch(json['createdAt']);
+    } else {
+      createdAt = DateTime.now().toUtc();
+    }
+
+    return PartnerRecyclingCenter(
+      centerId: json['centerId'] ?? '',
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      phoneNo: json['phoneNo'] ?? '',
+      website: json['website'] ?? '',
+      centerLocation: Location.fromJson(Map<String, dynamic>.from(json['centerLocation'] ?? {})),
+      image: json['image'] ?? '',
+      openingHours: Map<String, dynamic>.from(json['openingHours'] ?? {}),
+      acceptedMaterials: List<String>.from(json['acceptedMaterials'] ?? []),
+      numberOfStaff: (json['numberOfStaff'] as num?)?.toInt() ?? 0,
+      createdAt: createdAt,
+      status: json['status'] ?? 'inactive',
+      rating: json['rating']?.toDouble(),
+      userRatingsTotal: json['userRatingsTotal'],
+      placeId: json['placeId'],
+    );
+  }
+
+  /// 显示为马来西亚时间 (UTC+8)
+  DateTime get displayTime {
+    return createdAt.add(const Duration(hours: 8));
+  }
+
+  /// 获取当前马来西亚时间（用于营业判断）
+  static DateTime _getCurrentMalaysiaTime() {
+    return DateTime.now().toUtc().add(const Duration(hours: 8));
   }
 
   bool isValid() {
@@ -123,8 +218,9 @@ class PartnerRecyclingCenter {
     return websiteRegex.hasMatch(website);
   }
 
+  /// 格式化显示时间（马来西亚时间）
   String get formattedCreatedAt {
-    return FFormatter.formatDate(createdAt);
+    return FFormatter.formatDate(displayTime);
   }
 
   String get formattedPhoneNo {
@@ -142,45 +238,41 @@ class PartnerRecyclingCenter {
     return status == 'active';
   }
 
+  /// 营业时间判断使用当前马来西亚时间
   bool get isOpenNow {
     if (openingHours == null) return false;
+    return _isOpenAtTime(_getCurrentMalaysiaTime());
+  }
 
-    final now = DateTime.now();
-    final weekday = now.weekday; // 1=Monday, 7=Sunday
+  /// 私有方法：统一的营业时间判断逻辑
+  bool _isOpenAtTime(DateTime time) {
+    final weekday = time.weekday;
 
-    // Google Places opening hours format
     final periods = openingHours!['periods'] as List<dynamic>?;
     if (periods == null) return false;
 
     for (var period in periods) {
       final open = period['open'];
-      if (open != null && open['day'] == weekday - 1) { // Google uses 0=Sunday, 6=Saturday
+      if (open != null && open['day'] == weekday - 1) {
         final openTime = open['time'] as String?;
         final closeTime = period['close']?['time'] as String?;
 
         if (openTime != null && closeTime != null) {
-          final currentTimeStr = '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+          final currentTimeStr = '${time.hour.toString().padLeft(2, '0')}${time.minute.toString().padLeft(2, '0')}';
           return currentTimeStr.compareTo(openTime) >= 0 && currentTimeStr.compareTo(closeTime) < 0;
         }
       }
     }
-
     return false;
   }
 
   List<String> get weekdayText {
-    final List<String> result = [];
-    final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
     if (openingHours != null && openingHours!['weekday_text'] is List) {
       return List<String>.from(openingHours!['weekday_text']);
     }
 
-    // Fallback if weekday_text is not available
-    for (final day in days) {
-      result.add('$day: Unknown');
-    }
-    return result;
+    return ['Monday: Unknown', 'Tuesday: Unknown', 'Wednesday: Unknown',
+      'Thursday: Unknown', 'Friday: Unknown', 'Saturday: Unknown', 'Sunday: Unknown'];
   }
 
   bool get hasPhotos => image.isNotEmpty;
@@ -227,7 +319,7 @@ class PartnerRecyclingCenter {
 
   @override
   String toString() {
-    return 'PartnerRecyclingCenter(centerId: $centerId, name: $name, isPartner: ${isActive}, rating: $rating)';
+    return 'PartnerRecyclingCenter(centerId: $centerId, name: $name, isActive: $isActive, rating: $rating, createdAt: $createdAt)';
   }
 
   @override

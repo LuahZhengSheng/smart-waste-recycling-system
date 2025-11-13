@@ -233,10 +233,10 @@ class AddPartnerCenterController extends GetxController {
       context: Get.context!,
       initialTime: TimeOfDay.now(),
       builder: (context, child) {
-        final isDark = FHelperFunctions.isDarkMode(context);
+        final dark = FHelperFunctions.isDarkMode(context);
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: isDark
+            colorScheme: dark
                 ? const ColorScheme.dark().copyWith(
               primary: Color(0xFF7B8CFF), // adminDarkPrimary
             )

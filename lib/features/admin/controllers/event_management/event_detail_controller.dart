@@ -229,11 +229,11 @@ class AdminEventDetailsController extends GetxController {
     return registration.isCancelled ? 'Cancelled' : 'Active';
   }
 
-  Color getRegistrationStatusColor(EventRegistration registration, bool isDark) {
+  Color getRegistrationStatusColor(EventRegistration registration, bool dark) {
     if (registration.isCancelled) {
-      return isDark ? FColors.adminDarkError : FColors.adminLightError;
+      return dark ? FColors.adminDarkError : FColors.adminLightError;
     }
-    return isDark ? FColors.adminDarkSuccess : FColors.adminLightSuccess;
+    return dark ? FColors.adminDarkSuccess : FColors.adminLightSuccess;
   }
 
   String getTimeAgo(DateTime dateTime) {

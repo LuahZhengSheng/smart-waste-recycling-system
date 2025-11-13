@@ -1,93 +1,30 @@
-import 'package:fyp/utils/popups/loaders.dart';
 import 'package:get/get.dart';
 import 'package:fyp/features/personalization/models/recycle_activity_model.dart';
 import 'package:fyp/features/recycling_center/models/waste_category_model.dart';
-import 'package:flutter/material.dart';
-import 'package:iconsax/iconsax.dart';
+import 'package:fyp/features/recycling_center/models/partner_recycling_center_model.dart';
+import 'package:fyp/data/repositories/recycling_center/recycling_center_repository.dart';
+import 'package:fyp/data/repositories/user/user_repository.dart';
+import 'package:fyp/utils/popups/loaders.dart';
+
+import '../../../data/repositories/personalization/recycling_activity_repository.dart';
+import '../../../data/repositories/recycling_center/waste_category_repository.dart';
+import '../../../data/repositories/recycling_center/recycling_center_staff_repository.dart';
+import '../../recycling_center/models/recycling_center_staff_model.dart';
 
 class ActivityDetailController extends GetxController {
   final Rx<RecyclingActivity?> activity = Rx<RecyclingActivity?>(null);
-  final RxBool isLoading = false.obs;
+  final Rx<WasteCategory?> wasteCategory = Rx<WasteCategory?>(null);
+  final Rx<PartnerRecyclingCenter?> recyclingCenter = Rx<PartnerRecyclingCenter?>(null);
+  final Rx<RecyclingCenterStaff?> staffUser = Rx<RecyclingCenterStaff?>(null);
+  final RxBool isLoading = true.obs;
   final RxBool isDeleting = false.obs;
-  final RxString selectedTab = 'details'.obs;
 
-  // Mock recycling center data
-  final RxString recyclingCenterName = 'Green Earth Recycling Center'.obs;
-  final RxString recyclingCenterAddress = '123 Eco Street, Green City'.obs;
-  final RxString recyclingCenterPhone = '+1 234 567 8900'.obs;
-  final RxDouble recyclingCenterRating = 4.5.obs;
-
-  // Timeline data
-  final RxList<ActivityTimelineItem> timeline = <ActivityTimelineItem>[].obs;
-
-  // Mock waste categories - in real app, this would come from repository
-  final List<WasteCategory> _wasteCategories = [
-    WasteCategory(
-      categoryId: '1',
-      name: 'Plastic',
-      description: 'Plastic bottles, containers, bags and other plastic items',
-      disposalMethod: 'Clean and sort by type for recycling',
-      icon: Iconsax.box,
-      color: const Color(0xFF2196F3),
-      basePoints: 10.0,
-      examples: ['Plastic bottles', 'Food containers', 'Plastic bags'],
-      isRecyclable: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-    WasteCategory(
-      categoryId: '2',
-      name: 'Paper',
-      description: 'Newspapers, cardboard, magazines and paper products',
-      disposalMethod: 'Keep dry and separate from other materials',
-      icon: Iconsax.document,
-      color: const Color(0xFF8BC34A),
-      basePoints: 8.0,
-      examples: ['Newspapers', 'Cardboard boxes', 'Magazines'],
-      isRecyclable: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-    WasteCategory(
-      categoryId: '3',
-      name: 'Glass',
-      description: 'Bottles, jars and glass containers',
-      disposalMethod: 'Clean and sort by color',
-      icon: Iconsax.glass,
-      color: const Color(0xFF00BCD4),
-      basePoints: 12.0,
-      examples: ['Glass bottles', 'Jars', 'Glass containers'],
-      isRecyclable: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-    WasteCategory(
-      categoryId: '4',
-      name: 'Metal',
-      description: 'Aluminum cans, steel containers and metal items',
-      disposalMethod: 'Clean and separate ferrous from non-ferrous',
-      icon: Iconsax.cpu,
-      color: const Color(0xFF607D8B),
-      basePoints: 15.0,
-      examples: ['Aluminum cans', 'Steel containers', 'Metal scraps'],
-      isRecyclable: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-    WasteCategory(
-      categoryId: '5',
-      name: 'Electronics',
-      description: 'Old phones, computers, batteries and electronic devices',
-      disposalMethod: 'Special handling required for electronic components',
-      icon: Iconsax.mobile,
-      color: const Color(0xFF9C27B0),
-      basePoints: 20.0,
-      examples: ['Old phones', 'Computers', 'Batteries'],
-      isRecyclable: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-  ];
+  // Repositories
+  final _activityRepo = Get.put(RecyclingActivityRepository());
+  final _categoryRepo = Get.put(WasteCategoryRepository());
+  final _centerRepo = Get.put(RecyclingCenterRepository());
+  final _userRepo = Get.put(UserRepository());
+  final _staffRepo = Get.put(RecyclingCenterStaffRepository());
 
   @override
   void onInit() {
@@ -95,162 +32,141 @@ class ActivityDetailController extends GetxController {
     final args = Get.arguments as RecyclingActivity?;
     if (args != null) {
       activity.value = args;
-      _generateTimeline();
-    }
-  }
-
-  void _generateTimeline() {
-    if (activity.value == null) return;
-
-    final act = activity.value!;
-    timeline.clear();
-
-    // Always add submission
-    timeline.add(ActivityTimelineItem(
-      title: 'Activity Submitted',
-      description: 'Your recycling activity was submitted for review',
-      timestamp: act.createdAt,
-      status: TimelineStatus.completed,
-      icon: 'upload',
-    ));
-
-    // Add review if not pending
-    if (!act.isPending) {
-      timeline.add(ActivityTimelineItem(
-        title: 'Under Review',
-        description: 'Our team is verifying your submission',
-        timestamp: act.createdAt.add(const Duration(hours: 2)),
-        status: TimelineStatus.completed,
-        icon: 'eye',
-      ));
-
-      // Add approval/rejection based on status
-      if (act.isApproved) {
-        timeline.add(ActivityTimelineItem(
-          title: 'Activity Approved',
-          description: 'Great! Your activity has been verified and points awarded',
-          timestamp: act.createdAt.add(const Duration(hours: 24)),
-          status: TimelineStatus.completed,
-          icon: 'check_circle',
-        ));
-      } else if (act.isRejected) {
-        timeline.add(ActivityTimelineItem(
-          title: 'Activity Rejected',
-          description: 'Unfortunately, your submission did not meet our criteria',
-          timestamp: act.createdAt.add(const Duration(hours: 24)),
-          status: TimelineStatus.rejected,
-          icon: 'close_circle',
-        ));
-      } else if (act.isCompleted) {
-        timeline.add(ActivityTimelineItem(
-          title: 'Activity Completed',
-          description: 'Your recycling activity has been processed successfully',
-          timestamp: act.createdAt.add(const Duration(hours: 48)),
-          status: TimelineStatus.completed,
-          icon: 'check_circle',
-        ));
-      }
+      _loadActivityData();
     } else {
-      // Add pending review
-      timeline.add(ActivityTimelineItem(
-        title: 'Pending Review',
-        description: 'Waiting for verification by our team',
-        timestamp: DateTime.now(),
-        status: TimelineStatus.pending,
-        icon: 'clock',
-      ));
-    }
-
-    // Sort by timestamp
-    timeline.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-  }
-
-  void selectTab(String tab) {
-    selectedTab.value = tab;
-  }
-
-  Future<void> deleteActivity() async {
-    if (activity.value == null || !activity.value!.canDelete) return;
-
-    try {
-      isDeleting.value = true;
-
-      // Simulate API call - in real app, call repository method
-      await Future.delayed(const Duration(seconds: 1));
-
-      FLoaders.successSnackBar(
-        title: 'Success',
-        message: 'Activity deleted successfully',
-      );
-
-      Get.back(result: true); // Return true to indicate deletion
-    } catch (e) {
-      FLoaders.errorSnackBar(
-        title: 'Error',
-        message: 'Failed to delete activity',
-      );
-    } finally {
-      isDeleting.value = false;
+      isLoading.value = false;
     }
   }
 
-  Future<void> resubmitActivity() async {
+  /// Load all activity related data
+  Future<void> _loadActivityData() async {
     if (activity.value == null) return;
 
     try {
       isLoading.value = true;
 
-      // Simulate API call - in real app, call repository method
-      await Future.delayed(const Duration(seconds: 1));
+      // Load all data in parallel for better performance
+      await Future.wait([
+        _loadWasteCategory(),
+        _loadRecyclingCenter(),
+        _loadStaffUser(),
+      ]);
 
-      // Update activity status using model's method
-      final updatedActivity = activity.value!.copyWith(status: 'pending');
-      activity.value = updatedActivity;
-      _generateTimeline();
+      // 检查数据是否成功加载
+      print('=== Activity Data Load Status ===');
+      print('Waste Category: ${wasteCategory.value != null ? "Loaded" : "Failed"}');
+      print('Recycling Center: ${recyclingCenter.value != null ? "Loaded" : "Failed"}');
+      print('Staff User: ${staffUser.value != null ? "Loaded" : "Failed"}');
+      print('Activity ID: ${activity.value?.activityId}');
+      print('Center Staff ID: ${activity.value?.centerStaffId}');
+      print('Waste Category ID: ${activity.value?.wasteCategoryId}');
+      print('center image: ${recyclingCenter.value?.image}');
 
-      FLoaders.successSnackBar(
-        title: 'Success',
-        message: 'Activity resubmitted for review',
-      );
     } catch (e) {
       FLoaders.errorSnackBar(
         title: 'Error',
-        message: 'Failed to resubmit activity',
+        message: 'Failed to load activity data: ${e.toString()}',
       );
     } finally {
       isLoading.value = false;
     }
   }
 
-  WasteCategory? getWasteCategory() {
-    if (activity.value == null) return null;
+  /// Load waste category
+  Future<void> _loadWasteCategory() async {
+    if (activity.value == null) return;
 
     try {
-      return _wasteCategories.firstWhere(
-            (cat) => cat.categoryId == activity.value!.wasteCategoryId,
-      );
+      final category = await _categoryRepo.getCategoryById(activity.value!.wasteCategoryId);
+      wasteCategory.value = category;
+      print('✅ Waste category loaded: ${category?.name}');
     } catch (e) {
-      // Return first category as fallback if not found
-      return _wasteCategories.isNotEmpty ? _wasteCategories.first : null;
+      print('❌ Failed to load waste category: $e');
+      wasteCategory.value = null;
     }
   }
 
-  // Environmental impact calculations based on activity weight
-  double get carbonFootprintReduced {
-    if (activity.value == null) return 0.0;
-    return activity.value!.weight * 0.5; // Mock calculation: 0.5kg CO2 per kg waste
+  /// Load recycling center
+  Future<void> _loadRecyclingCenter() async {
+    if (activity.value == null) return;
+
+    try {
+      final center = await _centerRepo.getCenterByStaffId(activity.value!.centerStaffId);
+      recyclingCenter.value = center;
+      print('✅ Recycling center loaded: ${center?.name}');
+    } catch (e) {
+      print('❌ Failed to load recycling center: $e');
+      recyclingCenter.value = null;
+    }
   }
 
-  double get energySaved {
-    if (activity.value == null) return 0.0;
-    return activity.value!.weight * 2.1; // Mock calculation: 2.1 kWh per kg
+  /// Load staff user information using RecyclingCenterStaffRepository
+  Future<void> _loadStaffUser() async {
+    if (activity.value == null) return;
+
+    try {
+      print('🔄 Loading staff user with ID: ${activity.value!.centerStaffId}');
+
+      // 使用 RecyclingCenterStaffRepository 获取员工数据
+      final staff = await _staffRepo.getStaffById(activity.value!.centerStaffId);
+
+      if (staff != null && staff.userId.isNotEmpty) {
+        staffUser.value = staff;
+        print('✅ Staff user loaded successfully: ${staff.username}');
+        print('Staff details - Email: ${staff.email}, Center ID: ${staff.centerId}');
+      } else {
+        print('❌ Staff user data is empty or invalid');
+        staffUser.value = null;
+
+        // 如果无法获取员工数据，尝试使用普通用户数据作为备选
+        await _loadStaffUserFallback();
+      }
+    } catch (e) {
+      print('❌ Failed to load staff user: $e');
+      staffUser.value = null;
+
+      // 如果主要方法失败，尝试备选方法
+      await _loadStaffUserFallback();
+    }
   }
 
-  double get waterSaved {
-    if (activity.value == null) return 0.0;
-    return activity.value!.weight * 3.7; // Mock calculation: 3.7L per kg
+  /// Fallback method to load staff user using UserRepository
+  Future<void> _loadStaffUserFallback() async {
+    try {
+      print('🔄 Trying fallback method to load staff user...');
+      final user = await _userRepo.fetchOtherUserDetails(activity.value!.centerStaffId);
+
+      if (user.userId.isNotEmpty) {
+        // 创建基本的 RecyclingCenterStaff 使用用户数据
+        staffUser.value = RecyclingCenterStaff(
+          userId: user.userId,
+          username: user.username,
+          email: user.email,
+          phoneNo: user.phoneNo ?? '',
+          profileImg: user.profileImg ?? '',
+          loginAttemptCount: user.loginAttemptCount ?? 0,
+          role: user.role,
+          isVerified: user.isVerified ?? false,
+          isActive: user.isActive ?? true,
+          lastFailedLogin: user.lastFailedLogin,
+          centerId: '', // 无法从用户数据获取
+          joinDate: user.joinDate ?? DateTime.now(),
+        );
+        print('✅ Fallback staff user loaded: ${user.username}');
+      } else {
+        print('❌ Fallback method also failed - user data is empty');
+      }
+    } catch (e) {
+      print('❌ Fallback method failed: $e');
+    }
   }
 
+  /// Get waste category
+  WasteCategory? getWasteCategory() {
+    return wasteCategory.value;
+  }
+
+  /// Get activity age text
   String get activityAgeText {
     if (activity.value == null) return '';
 
@@ -258,28 +174,54 @@ class ActivityDetailController extends GetxController {
     if (age < 1) {
       return 'Less than an hour ago';
     } else if (age < 24) {
-      return '$age hours ago';
+      return '$age hour${age > 1 ? 's' : ''} ago';
     } else {
       final days = (age / 24).floor();
       return '$days day${days > 1 ? 's' : ''} ago';
     }
   }
+
+  /// Delete activity
+  Future<void> deleteActivity() async {
+    if (activity.value == null || !activity.value!.canDelete) return;
+
+    try {
+      isDeleting.value = true;
+
+      await _activityRepo.deleteActivity(activity.value!.activityId);
+
+      FLoaders.successSnackBar(
+        title: 'Success',
+        message: 'Activity deleted successfully',
+      );
+
+      Get.back(result: true);
+    } catch (e) {
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to delete activity: ${e.toString()}',
+      );
+    } finally {
+      isDeleting.value = false;
+    }
+  }
+
+  /// Check if all data is loaded
+  bool get isDataLoaded {
+    return wasteCategory.value != null &&
+        recyclingCenter.value != null &&
+        staffUser.value != null;
+  }
+
+  /// Get loading status for debugging
+  void printLoadingStatus() {
+    print('=== Current Loading Status ===');
+    print('isLoading: ${isLoading.value}');
+    print('Activity: ${activity.value != null ? "Loaded" : "Null"}');
+    print('Waste Category: ${wasteCategory.value != null ? "Loaded" : "Null"}');
+    print('Recycling Center: ${recyclingCenter.value != null ? "Loaded" : "Null"}');
+    print('Staff User: ${staffUser.value != null ? "Loaded" : "Null"}');
+    print('center image: ${recyclingCenter.value?.image}');
+    print('==============================');
+  }
 }
-
-class ActivityTimelineItem {
-  final String title;
-  final String description;
-  final DateTime timestamp;
-  final TimelineStatus status;
-  final String icon;
-
-  ActivityTimelineItem({
-    required this.title,
-    required this.description,
-    required this.timestamp,
-    required this.status,
-    required this.icon,
-  });
-}
-
-enum TimelineStatus { completed, pending, rejected, inProgress }

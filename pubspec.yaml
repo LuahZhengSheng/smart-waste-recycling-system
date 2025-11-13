@@ -25,6 +25,9 @@ dependencies:
   share_plus: ^11.1.0
   uuid: ^4.2.1
   path_provider: ^2.1.1
+  crypto: ^3.0.7
+  flutter_dotenv: ^6.0.0
+  ntp: ^2.0.0
 
   # Image & Video Processing
   image: ^4.5.4
@@ -52,11 +55,18 @@ dependencies:
   # Notification
   flutter_local_notifications: ^19.5.0
 
+  # Deep Link
+  app_links: ^6.4.1
+
   # Google Maps
   google_maps_flutter: ^2.13.1
   geolocator: ^14.0.2
   geocoding: ^4.0.0
   google_maps_webservice_ex: ^0.0.1+3
+
+  # QR Code
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.1.3
 
   # Local Storage
   shared_preferences: ^2.5.3
@@ -100,6 +110,7 @@ flutter:
     - assets/images/user/
     - assets/logos/
     - assets/videos/
+    - assets/.env
 
   #------------------ LOCAL FONTS ------------------#
   fonts:

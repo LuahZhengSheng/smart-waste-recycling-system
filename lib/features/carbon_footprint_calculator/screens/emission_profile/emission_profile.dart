@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/air_travel/air_travel_input.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/energy/energy_input.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/food/food.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/land_travel/land_travel_input.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/stuff/stuff_input.dart';
+import 'package:fyp/features/carbon_footprint_calculator/controllers/emission_profile_controller.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
+
+import '../../../../common/widgets/appbar/appbar.dart';
 
 class EmissionsProfileScreen extends StatelessWidget {
   const EmissionsProfileScreen({super.key});
@@ -20,197 +18,264 @@ class EmissionsProfileScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: dark ? FColors.dark : FColors.light,
-      appBar: AppBar(
-        title: Text(
-          'Emissions Profile',
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+      appBar: FAppBar(
+        showBackArrow: true,
+        title: const Text('Emissions Profile'),
       ),
-      body: SingleChildScrollView(
+      body: Obx(() => controller.isLoading.value
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(FSizes.defaultSpace),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Section
+            // Header with Total
+            _buildHeader(context, controller, dark),
+            const SizedBox(height: FSizes.spaceBtwSections),
+
+            // Progress Indicator
+            _buildProgressCard(context, controller, dark),
+            const SizedBox(height: FSizes.spaceBtwSections),
+
+            // Categories Title
             Text(
-              'Refine my emissions profile',
-              style: Theme.of(context).textTheme.headlineSmall,
+              'Emission Categories',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: FSizes.xs),
             Text(
-              'Select a category to improve your estimate',
+              'Tap a category to add or update your data',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: dark ? FColors.darkGrey : FColors.textSecondary,
               ),
             ),
-            const SizedBox(height: FSizes.spaceBtwSections),
+            const SizedBox(height: FSizes.md),
 
             // Categories List
-            Container(
-              decoration: BoxDecoration(
-                color: FColors.accent.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
-              ),
-              child: Obx(() => Column(
-                children: controller.categories.map((category) {
-                  return _buildCategoryItem(context, controller, category, dark);
-                }).toList(),
-              )),
-            ),
+            Obx(() => Column(
+              children: controller.categories.map((category) {
+                return _buildCategoryCard(context, controller, category, dark);
+              }).toList(),
+            )),
           ],
         ),
-      ),
+      )),
     );
   }
 
-  Widget _buildCategoryItem(BuildContext context, EmissionsProfileController controller, EmissionCategory category, bool dark) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: FSizes.xs),
-      child: ListTile(
-        onTap: () => controller.navigateToCategory(category),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: FSizes.md,
-          vertical: FSizes.sm,
+  Widget _buildHeader(
+      BuildContext context, EmissionsProfileController controller, bool dark) {
+    return Obx(() => Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(FSizes.lg),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            FColors.primary,
+            FColors.primary.withOpacity(0.8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        leading: Container(
-          padding: const EdgeInsets.all(FSizes.sm),
-          decoration: BoxDecoration(
-            color: category.color.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(FSizes.borderRadiusMd),
+        borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: FColors.primary.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
-          child: Icon(
-            category.icon,
-            color: category.color,
-            size: FSizes.iconLg,
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Iconsax.chart,
+            color: FColors.white,
+            size: 48,
+          ),
+          const SizedBox(height: FSizes.sm),
+          Text(
+            'Total Annual Emissions',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: FColors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: FSizes.xs),
+          Text(
+            '${controller.totalEmissions.toStringAsFixed(2)} kg',
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+              color: FColors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            'CO₂e',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: FColors.white.withOpacity(0.9),
+            ),
+          ),
+        ],
+      ),
+    ));
+  }
+
+  Widget _buildProgressCard(
+      BuildContext context, EmissionsProfileController controller, bool dark) {
+    return Obx(() {
+      final progress = controller.completedCategoriesCount / 5;
+      return Container(
+        padding: const EdgeInsets.all(FSizes.lg),
+        decoration: BoxDecoration(
+          color: dark ? FColors.darkContainer : FColors.white,
+          borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+          border: Border.all(
+            color: dark ? FColors.borderDark : FColors.borderPrimary,
           ),
         ),
-        title: Text(
-          category.name,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${category.emission.toStringAsFixed(2)} kg',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: FColors.primary,
-                fontWeight: FontWeight.bold,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Profile Completion',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '${controller.completedCategoriesCount}/5',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: FColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: FSizes.md),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(FSizes.borderRadiusSm),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 8,
+                backgroundColor:
+                dark ? FColors.darkGrey.withOpacity(0.3) : FColors.grey,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  progress == 1.0 ? FColors.success : FColors.primary,
+                ),
               ),
             ),
-            Text(
-              'CO2e',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: FColors.primary,
+            if (progress < 1.0) ...[
+              const SizedBox(height: FSizes.sm),
+              Text(
+                'Complete ${5 - controller.completedCategoriesCount} more ${(5 - controller.completedCategoriesCount) == 1 ? "category" : "categories"} for full profile',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: dark ? FColors.darkGrey : FColors.textSecondary,
+                ),
               ),
-            ),
+            ],
           ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildCategoryCard(BuildContext context,
+      EmissionsProfileController controller, EmissionCategory category, bool dark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: FSizes.md),
+      decoration: BoxDecoration(
+        color: dark ? FColors.darkContainer : FColors.white,
+        borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+        border: Border.all(
+          color: category.emission > 0
+              ? category.getColor(darkMode: dark).withOpacity(0.3)
+              : (dark ? FColors.borderDark : FColors.borderPrimary),
+          width: category.emission > 0 ? 2 : 1,
+        ),
+        boxShadow: [
+          if (category.emission > 0)
+            BoxShadow(
+              color: category.getColor(darkMode: dark).withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => controller.navigateToCategory(category),
+          borderRadius: BorderRadius.circular(FSizes.borderRadiusLg),
+          child: Padding(
+            padding: const EdgeInsets.all(FSizes.md),
+            child: Row(
+              children: [
+                // Icon
+                Container(
+                  padding: const EdgeInsets.all(FSizes.md),
+                  decoration: BoxDecoration(
+                    color: category.getBackgroundColor(darkMode: dark),
+                    borderRadius: BorderRadius.circular(FSizes.borderRadiusMd),
+                  ),
+                  child: Icon(
+                    category.icon,
+                    color: category.getColor(darkMode: dark),
+                    size: FSizes.iconLg,
+                  ),
+                ),
+                const SizedBox(width: FSizes.md),
+
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        category.name,
+                        style:
+                        Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: FSizes.xs),
+                      Text(
+                        category.emission > 0
+                            ? '${category.emission.toStringAsFixed(2)} kg CO₂e'
+                            : 'Not calculated yet',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: category.emission > 0
+                              ? category.getColor(darkMode: dark)
+                              : (dark
+                              ? FColors.darkGrey
+                              : FColors.textSecondary),
+                          fontWeight: category.emission > 0
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Status Icon
+                Icon(
+                  category.emission > 0
+                      ? Iconsax.tick_circle5
+                      : Iconsax.arrow_right_3,
+                  color: category.emission > 0
+                      ? FColors.success
+                      : (dark ? FColors.darkGrey : FColors.textSecondary),
+                  size: FSizes.iconMd,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
-  }
-}
-
-class EmissionCategory {
-  final String name;
-  final String id;
-  final IconData icon;
-  final Color color;
-  final double emission;
-
-  EmissionCategory({
-    required this.name,
-    required this.id,
-    required this.icon,
-    required this.color,
-    required this.emission,
-  });
-}
-
-class EmissionsProfileController extends GetxController {
-  final categories = <EmissionCategory>[].obs;
-
-  @override
-  void onInit() {
-    super.onInit();
-    initializeCategories();
-  }
-
-  void initializeCategories() {
-    categories.value = [
-      EmissionCategory(
-        name: 'Land Travel',
-        id: 'land_travel',
-        icon: Iconsax.car,
-        color: const Color(0x00755cf1),
-        emission: 3.12,
-      ),
-      EmissionCategory(
-        name: 'Air Travel',
-        id: 'air_travel',
-        icon: Iconsax.airplane,
-        color: const Color(0x00E972F9),
-        emission: 5.15,
-      ),
-      EmissionCategory(
-        name: 'Energy',
-        id: 'energy',
-        icon: Iconsax.flash_1,
-        color: const Color(0x00EAE60C),
-        emission: 2.50,
-      ),
-      EmissionCategory(
-        name: 'Food',
-        id: 'food',
-        icon: Iconsax.shop,
-        color: const Color(0x00FF9191),
-        emission: 3.52,
-      ),
-      EmissionCategory(
-        name: 'Stuff',
-        id: 'stuff',
-        icon: Iconsax.box,
-        color: const Color(0x00F72222),
-        emission: 7.15,
-      ),
-    ];
-  }
-
-  void navigateToCategory(EmissionCategory category) {
-    switch (category.id) {
-      case 'land_travel':
-        Get.to(() => const LandTravelInputScreen());
-        break;
-      case 'air_travel':
-        Get.to(() => const AirTravelInputScreen());
-        break;
-      case 'energy':
-        Get.to(() => const EnergyInputScreen());
-        break;
-      case 'food':
-        Get.to(() => const FoodInputScreen());
-        break;
-      case 'stuff':
-        Get.to(() => const StuffInputScreen());
-        break;
-    }
-  }
-
-  void updateCategoryEmission(String categoryId, double newEmission) {
-    final index = categories.indexWhere((cat) => cat.id == categoryId);
-    if (index != -1) {
-      categories[index] = EmissionCategory(
-        name: categories[index].name,
-        id: categories[index].id,
-        icon: categories[index].icon,
-        color: categories[index].color,
-        emission: newEmission,
-      );
-    }
   }
 }

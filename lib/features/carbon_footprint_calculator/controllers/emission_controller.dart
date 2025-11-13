@@ -1,66 +1,150 @@
-import 'dart:ui';
+import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:fyp/features/carbon_footprint_calculator/screens/emission_profile/emission_profile.dart';
 import 'package:get/get.dart';
 
+import '../../../data/repositories/carbon_footprint_calculator/emission_repository.dart';
+
 class EmissionsController extends GetxController {
+  static EmissionsController get instance => Get.find();
+
+  final _emissionRepo = Get.put(EmissionRepository());
+
+  // Observable state
   final hasCalculatedEmissions = false.obs;
+  final isLoading = true.obs;
   final userEmissions = <String, double>{}.obs;
-  final avgEmissions = <String, double>{
-    'Land Travel': 1.2,
-    'Air Travel': 1.8,
-    'Energy': 1.5,
-    'Food': 1.3,
-    'Stuff': 1.4,
-  }.obs;
-  final comparisonPercentage = 30.0.obs;
-  final showTooltipOverlay = false.obs;
-  final tooltipPosition = Offset.zero.obs;
-  final tooltipData = <String, double>{}.obs;
+  final avgEmissions = <String, double>{}.obs;
+  final comparisonPercentage = 0.0.obs;
+  final selectedCategory = Rx<String?>(null);
+
+  StreamSubscription? _emissionsSubscription;
 
   @override
   void onInit() {
     super.onInit();
-    loadEmissionsData();
+    _initializeEmissionsStream();
+    _loadAverageEmissions();
   }
 
-  void loadEmissionsData() {
-    // Load user's emissions data from local storage or Firebase
-    final emissions = {
-      'Land Travel': 3.12,
-      'Air Travel': 5.15,
-      'Energy': 2.50,
-      'Food': 3.52,
-      'Stuff': 7.15,
-    };
+  @override
+  void onClose() {
+    _emissionsSubscription?.cancel();
+    super.onClose();
+  }
 
-    if (emissions.isNotEmpty) {
-      userEmissions.value = emissions;
-      hasCalculatedEmissions.value = true;
-      calculateComparison();
+  /// Initialize real-time emissions stream
+  void _initializeEmissionsStream() {
+    _emissionsSubscription = _emissionRepo
+        .streamUserEmissionsByCategories()
+        .listen((categoryEmissions) {
+      userEmissions.value = categoryEmissions;
+      hasCalculatedEmissions.value = categoryEmissions.isNotEmpty;
+      isLoading.value = false;
+
+      // Recalculate comparison when user emissions change
+      if (hasCalculatedEmissions.value && avgEmissions.isNotEmpty) {
+        _calculateComparison();
+      }
+    }, onError: (error) {
+      isLoading.value = false;
+      print('Error streaming emissions: $error');
+    });
+  }
+
+  /// Load average emissions (with caching)
+  Future<void> _loadAverageEmissions() async {
+    try {
+      final averages = await _emissionRepo.getAverageEmissions();
+      avgEmissions.value = averages;
+
+      // Calculate comparison if user has emissions
+      if (hasCalculatedEmissions.value) {
+        _calculateComparison();
+      }
+    } catch (e) {
+      print('Error loading average emissions: $e');
     }
   }
 
-  void calculateComparison() {
+  /// Force refresh average emissions
+  Future<void> refreshAverageEmissions() async {
+    try {
+      final averages = await _emissionRepo.getAverageEmissions(forceRefresh: true);
+      avgEmissions.value = averages;
+
+      if (hasCalculatedEmissions.value) {
+        _calculateComparison();
+      }
+    } catch (e) {
+      print('Error refreshing average emissions: $e');
+    }
+  }
+
+  /// Calculate comparison percentage
+  void _calculateComparison() {
     final userTotal = userEmissions.values.fold(0.0, (sum, value) => sum + value);
     final avgTotal = avgEmissions.values.fold(0.0, (sum, value) => sum + value);
 
     if (avgTotal > 0) {
       comparisonPercentage.value = ((userTotal - avgTotal) / avgTotal) * 100;
+    } else {
+      comparisonPercentage.value = 0.0;
     }
   }
 
-  void showTooltip(Offset position, Map<String, double> data) {
-    tooltipPosition.value = position;
-    tooltipData.value = data;
-    showTooltipOverlay.value = true;
-
-    // Hide tooltip after 2 seconds
-    Future.delayed(const Duration(seconds: 2), () {
-      showTooltipOverlay.value = false;
-    });
+  /// Get total emissions for a type (user or average)
+  double getTotalEmissions(Map<String, double> emissions) {
+    return emissions.values.fold(0.0, (sum, value) => sum + value);
   }
 
+  /// Select category for detailed view
+  void selectCategory(String? category) {
+    selectedCategory.value = category;
+  }
+
+  /// Check if category has emissions
+  bool hasCategoryEmissions(String category) {
+    return (userEmissions[category] ?? 0.0) > 0;
+  }
+
+  /// Get number of completed categories
+  int getCompletedCategoriesCount() {
+    return userEmissions.entries.where((e) => e.value > 0).length;
+  }
+
+  /// Check if all categories are completed
+  bool get allCategoriesCompleted => getCompletedCategoriesCount() >= 5;
+
+  /// Navigate to emissions profile
   void navigateToEmissionsProfile() {
     Get.to(() => const EmissionsProfileScreen());
+  }
+
+  /// Get comparison text
+  String get comparisonText {
+    if (!hasCalculatedEmissions.value) {
+      return 'No data available';
+    }
+
+    final percentage = comparisonPercentage.value.abs();
+    if (comparisonPercentage.value > 0) {
+      return '${percentage.toStringAsFixed(0)}% more than average';
+    } else if (comparisonPercentage.value < 0) {
+      return '${percentage.toStringAsFixed(0)}% less than average';
+    } else {
+      return 'Equal to average';
+    }
+  }
+
+  /// Get comparison color
+  Color getComparisonColor(bool darkMode) {
+    if (comparisonPercentage.value > 0) {
+      return Colors.red;
+    } else if (comparisonPercentage.value < 0) {
+      return Colors.green;
+    } else {
+      return darkMode ? Colors.grey[400]! : Colors.grey[700]!;
+    }
   }
 }

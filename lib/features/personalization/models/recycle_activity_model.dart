@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:fyp/utils/formatters/formatter.dart';
 
 class RecyclingActivity {
@@ -8,7 +9,7 @@ class RecyclingActivity {
   String wasteObject;
   String wasteCategoryId;
   double weight;
-  String supportImage;
+  String supportImage; // Only stores the filename
   int pointsEarned;
   DateTime createdAt;
   String status;
@@ -24,7 +25,7 @@ class RecyclingActivity {
     required this.supportImage,
     required this.pointsEarned,
     required this.createdAt,
-    this.status = 'pending',
+    this.status = 'completed', // Changed default to completed
   });
 
   /// Static function to create empty activity model
@@ -38,13 +39,12 @@ class RecyclingActivity {
     supportImage: '',
     pointsEarned: 0,
     createdAt: DateTime.now(),
-    status: 'pending',
+    status: 'completed',
   );
 
   /// Convert model to JSON structure for storing data in Firebase
   Map<String, dynamic> toJson() {
     return {
-      'activityId': activityId,
       'userId': userId,
       'centerStaffId': centerStaffId,
       'wasteObject': wasteObject,
@@ -71,7 +71,7 @@ class RecyclingActivity {
         supportImage: data['supportImage'] ?? '',
         pointsEarned: (data['pointsEarned'] ?? 0).toInt(),
         createdAt: DateTime.parse(data['createdAt'] ?? DateTime.now().toIso8601String()),
-        status: data['status'] ?? 'pending',
+        status: data['status'] ?? 'completed',
       );
     } else {
       return RecyclingActivity.empty();
@@ -90,11 +90,11 @@ class RecyclingActivity {
       supportImage: json['supportImage'] ?? '',
       pointsEarned: (json['pointsEarned'] ?? 0).toInt(),
       createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      status: json['status'] ?? 'pending',
+      status: json['status'] ?? 'completed',
     );
   }
 
-  /// Factory method to create a new recycling activity
+  /// Factory method to create a new recycling activity (without activityId)
   factory RecyclingActivity.createNew({
     required String userId,
     required String centerStaffId,
@@ -104,10 +104,10 @@ class RecyclingActivity {
     required String supportImage,
     int? customPoints,
   }) {
-    final points = customPoints ?? _calculatePoints(weight, wasteObject);
+    final points = customPoints ?? _calculatePoints(weight, wasteCategoryId);
 
     return RecyclingActivity(
-      activityId: '', // Will be set by Firebase
+      activityId: '', // Will be set by Firestore
       userId: userId,
       centerStaffId: centerStaffId,
       wasteObject: wasteObject,
@@ -116,28 +116,30 @@ class RecyclingActivity {
       supportImage: supportImage,
       pointsEarned: points,
       createdAt: DateTime.now(),
-      status: 'pending',
+      status: 'completed', // Set as completed by default
     );
   }
 
-  /// Private method to calculate points based on weight and waste type
-  static int _calculatePoints(double weight, String wasteObject) {
-    double basePoints = weight * 10; // 10 points per kg
+  /// Private method to calculate points based on weight and category
+  static int _calculatePoints(double weight, String wasteCategoryId) {
+    double basePoints = weight * 10;
+    return basePoints.round();
+  }
 
-    // Adjust points based on waste type
-    switch (wasteObject.toLowerCase()) {
-      case 'electronics':
-        return (basePoints * 1.5).round(); // 50% bonus for electronics
-      case 'plastic':
-        return (basePoints * 0.8).round(); // 20% less for plastic
-      case 'paper':
-        return (basePoints * 0.9).round(); // 10% less for paper
-      case 'glass':
-        return (basePoints * 1.2).round(); // 20% bonus for glass
-      case 'metal':
-        return (basePoints * 1.3).round(); // 30% bonus for metal
-      default:
-        return basePoints.round();
+  /// Helper method to get full image URL
+  Future<String> getSupportImageUrl(String userId) async {
+    if (supportImage.isEmpty) return '';
+
+    try {
+      final ref = FirebaseStorage.instance
+          .ref('recycling_activities')
+          .child(userId)
+          .child(supportImage);
+
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print('Error getting download URL: $e');
+      return '';
     }
   }
 
@@ -150,37 +152,14 @@ class RecyclingActivity {
         supportImage.isNotEmpty;
   }
 
-  /// Helper method to check if activity is pending approval
-  bool get isPending {
-    return status == 'pending';
-  }
+  bool get isPending => status == 'pending';
+  bool get isApproved => status == 'approved';
+  bool get isRejected => status == 'rejected';
+  bool get isCompleted => status == 'completed';
 
-  /// Helper method to check if activity is approved
-  bool get isApproved {
-    return status == 'approved';
-  }
+  String get formattedCreatedAt => FFormatter.formatDate(createdAt);
+  String get formattedWeight => '${weight.toStringAsFixed(2)} kg';
 
-  /// Helper method to check if activity is rejected
-  bool get isRejected {
-    return status == 'rejected';
-  }
-
-  /// Helper method to check if activity is completed
-  bool get isCompleted {
-    return status == 'completed';
-  }
-
-  /// Helper method to get formatted creation date
-  String get formattedCreatedAt {
-    return FFormatter.formatDate(createdAt);
-  }
-
-  /// Helper method to get formatted weight
-  String get formattedWeight {
-    return '${weight.toStringAsFixed(2)} kg';
-  }
-
-  /// Helper method to get status display text
   String get statusDisplayText {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -196,7 +175,6 @@ class RecyclingActivity {
     }
   }
 
-  /// Helper method to get status color (for UI)
   String get statusColor {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -212,33 +190,16 @@ class RecyclingActivity {
     }
   }
 
-  /// Helper method to approve activity
-  void approve() {
-    status = 'approved';
-  }
+  void approve() => status = 'approved';
+  void reject() => status = 'rejected';
+  void complete() => status = 'completed';
+  void resetToPending() => status = 'pending';
 
-  /// Helper method to reject activity
-  void reject() {
-    status = 'rejected';
-  }
-
-  /// Helper method to complete activity
-  void complete() {
-    status = 'completed';
-  }
-
-  /// Helper method to reset to pending status
-  void resetToPending() {
-    status = 'pending';
-  }
-
-  /// Override toString for debugging purposes
   @override
   String toString() {
     return 'RecyclingActivity(activityId: $activityId, userId: $userId, centerStaffId: $centerStaffId, wasteObject: $wasteObject, weight: $weight, points: $pointsEarned, status: $status)';
   }
 
-  /// Override equality operator
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -246,11 +207,9 @@ class RecyclingActivity {
               runtimeType == other.runtimeType &&
               activityId == other.activityId;
 
-  /// Override hashCode
   @override
   int get hashCode => activityId.hashCode;
 
-  /// Create a copy with updated fields
   RecyclingActivity copyWith({
     String? activityId,
     String? userId,
@@ -277,28 +236,13 @@ class RecyclingActivity {
     );
   }
 
-  /// Helper method to get activity age in hours
-  int get ageInHours {
-    return DateTime.now().difference(createdAt).inHours;
-  }
+  int get ageInHours => DateTime.now().difference(createdAt).inHours;
+  bool get isRecent => ageInHours < 24;
 
-  /// Helper method to check if activity is recent (within 24 hours)
-  bool get isRecent {
-    return ageInHours < 24;
-  }
-
-  /// Helper method to recalculate points based on current weight and waste type
   void recalculatePoints() {
-    pointsEarned = _calculatePoints(weight, wasteObject);
+    pointsEarned = _calculatePoints(weight, wasteCategoryId);
   }
 
-  /// Helper method to check if activity can be edited (only pending activities)
-  bool get canEdit {
-    return isPending;
-  }
-
-  /// Helper method to check if activity can be deleted (only pending or rejected)
-  bool get canDelete {
-    return isPending || isRejected;
-  }
+  bool get canEdit => isPending;
+  bool get canDelete => isPending || isRejected;
 }

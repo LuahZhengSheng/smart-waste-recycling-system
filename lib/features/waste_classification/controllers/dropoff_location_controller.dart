@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -10,7 +9,7 @@ import 'package:fyp/utils/popups/loaders.dart';
 
 import '../../../data/services/google_places/google_places_service.dart';
 import '../../../utils/constants/google_maps_config.dart';
-import '../../../utils/constants/google_places_config.dart';
+import '../../../config/google_places_config.dart';
 import '../../event/models/address_model.dart';
 import '../../event/models/geopoint_model.dart';
 import '../../event/models/location_model.dart';
@@ -71,6 +70,7 @@ class DropoffLocationsController extends GetxController {
     super.onClose();
   }
 
+  /// Initialize user location and load nearby centers
   Future<void> _initializeLocation() async {
     try {
       isLoading.value = true;
@@ -83,7 +83,11 @@ class DropoffLocationsController extends GetxController {
           title: 'Location Permission Required',
           message: 'Please enable location to view nearby recycling centers.',
         );
-        currentLocation.value = const LatLng(3.1390, 101.6869);
+        // Use default location from GooglePlacesConfig
+        currentLocation.value = LatLng(
+          GooglePlacesConfig.defaultLocation['lat']!,
+          GooglePlacesConfig.defaultLocation['lng']!,
+        );
       } else {
         print('📍 Getting current location...');
         final position = await Geolocator.getCurrentPosition(
@@ -122,6 +126,7 @@ class DropoffLocationsController extends GetxController {
     }
   }
 
+  /// Load centers near specified location (both partner and Google Places)
   Future<void> _loadCentersNearLocation(LatLng location) async {
     try {
       print('📥 Loading centers near location...');
@@ -136,11 +141,11 @@ class DropoffLocationsController extends GetxController {
 
       print('✅ Found ${partnerCenters.length} partner centers');
 
-      // Get Google Places centers
+      // Get Google Places centers using validated radius
       final googleCenters = await googlePlacesService.searchNearbyRecyclingCenters(
         latitude: location.latitude,
         longitude: location.longitude,
-        radius: currentRadius.value.toInt(),
+        radius: GooglePlacesConfig.validateRadius(currentRadius.value.toInt()),
         includeDetails: true,
       );
 
@@ -184,23 +189,25 @@ class DropoffLocationsController extends GetxController {
     }
   }
 
+  /// Check if Google Places center matches any partner center
   bool _isMatchingPartner(String? placeId, List<PartnerRecyclingCenter> partners) {
     if (placeId == null) return false;
     return partners.any((p) => p.placeId == placeId);
   }
 
+  /// Convert Google Places data to PartnerRecyclingCenter model
   PartnerRecyclingCenter _convertToPartnerCenter(Map<String, dynamic> place, {required bool isPartner}) {
     final geometry = place['geometry'] ?? {};
     final location = geometry['location'] ?? {};
 
-    // Get first photo if available
+    // Get first photo if available using GooglePlacesConfig
     String imageUrl = '';
     final photos = place['photos'] as List<dynamic>?;
     if (photos != null && photos.isNotEmpty) {
       final firstPhoto = photos.first;
       final photoReference = firstPhoto['photo_reference'] as String?;
       if (photoReference != null) {
-        imageUrl = googlePlacesService.getPhotoUrl(
+        imageUrl = GooglePlacesConfig.buildPhotoUrl(
           photoReference,
           maxWidth: GooglePlacesConfig.highResPhotoMaxWidth,
         );
@@ -243,6 +250,7 @@ class DropoffLocationsController extends GetxController {
     );
   }
 
+  /// Extract materials from Google Places types
   List<String> _extractMaterialsFromTypes(List<dynamic>? types) {
     if (types == null) return ['Plastic', 'Paper', 'Glass', 'Metal'];
 
@@ -256,6 +264,7 @@ class DropoffLocationsController extends GetxController {
     return materials.isEmpty ? ['Plastic', 'Paper', 'Glass', 'Metal'] : materials;
   }
 
+  /// Handle location permission requests
   Future<bool> _handleLocationPermission() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -275,6 +284,7 @@ class DropoffLocationsController extends GetxController {
     }
   }
 
+  /// Apply all active filters to the centers list
   void applyFilters() {
     try {
       print('🎯 Applying filters...');
@@ -312,6 +322,7 @@ class DropoffLocationsController extends GetxController {
     }
   }
 
+  /// Check if center is open 24 hours
   bool _isOpen24Hours(PartnerRecyclingCenter center) {
     if (center.openingHours == null) return false;
 
@@ -322,6 +333,7 @@ class DropoffLocationsController extends GetxController {
     return periods.length == 1 && periods[0]['open']?['time'] == '0000';
   }
 
+  /// Update map markers based on filtered centers
   void updateMarkers() {
     try {
       print('📍 Updating markers...');
@@ -369,10 +381,12 @@ class DropoffLocationsController extends GetxController {
     }
   }
 
+  /// Calculate distance between two coordinates in kilometers
   double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
     return Geolocator.distanceBetween(lat1, lon1, lat2, lon2) / 1000;
   }
 
+  /// Format distance for display (meters or kilometers)
   String formatDistance(double distanceKm) {
     if (distanceKm < 1) {
       return '${(distanceKm * 1000).toStringAsFixed(0)} m';
@@ -380,14 +394,17 @@ class DropoffLocationsController extends GetxController {
     return '${distanceKm.toStringAsFixed(1)} km';
   }
 
+  /// Select a center for detailed view
   void selectCenter(PartnerRecyclingCenter center) {
     selectedCenter.value = center;
   }
 
+  /// Deselect currently selected center
   void deselectCenter() {
     selectedCenter.value = null;
   }
 
+  /// Open Google Maps navigation to selected center
   Future<void> openGoogleMapsNavigation(PartnerRecyclingCenter center) async {
     try {
       await FLoaders.showMapNavigationDialog(
@@ -408,6 +425,7 @@ class DropoffLocationsController extends GetxController {
     }
   }
 
+  /// Search for locations or recycling centers based on query
   Future<void> searchLocation(String query) async {
     if (query.trim().isEmpty) {
       returnToCurrentLocation();
@@ -418,8 +436,8 @@ class DropoffLocationsController extends GetxController {
       isLoading.value = true;
       searchQuery.value = query;
 
-      // Check if searching for specific recycling center or location
-      final isLocation = googlePlacesService.isLocationQuery(query);
+      // Use GooglePlacesConfig to determine query type
+      final isLocation = GooglePlacesConfig.isLocationQuery(query);
 
       if (isLocation) {
         // Search for location and show nearby centers
@@ -473,6 +491,7 @@ class DropoffLocationsController extends GetxController {
           name: query,
           latitude: currentLocation.value!.latitude,
           longitude: currentLocation.value!.longitude,
+          radius: GooglePlacesConfig.defaultRadiusMeters,
         );
 
         if (centers.isEmpty) {
@@ -524,6 +543,7 @@ class DropoffLocationsController extends GetxController {
     }
   }
 
+  /// Return to current location view
   Future<void> returnToCurrentLocation() async {
     try {
       if (currentLocation.value == null) return;
@@ -553,15 +573,18 @@ class DropoffLocationsController extends GetxController {
     }
   }
 
+  /// Update search query text
   void updateSearchQuery(String query) {
     searchQuery.value = query;
   }
 
+  /// Toggle partner-only filter
   void togglePartnerFilter() {
     showPartnerOnly.value = !showPartnerOnly.value;
     applyFilters();
   }
 
+  /// Update search radius and reload centers
   Future<void> updateRadius(double radiusKm) async {
     currentRadius.value = radiusKm * 1000;
     final targetLocation = isSearchMode.value ? searchedLocation.value : currentLocation.value;
@@ -570,11 +593,13 @@ class DropoffLocationsController extends GetxController {
     }
   }
 
+  /// Update minimum rating filter
   void updateMinRating(double rating) {
     minRating.value = rating;
     applyFilters();
   }
 
+  /// Toggle material filter for recycling centers
   void toggleMaterialFilter(String material) {
     if (selectedMaterials.contains(material)) {
       selectedMaterials.remove(material);
@@ -584,11 +609,13 @@ class DropoffLocationsController extends GetxController {
     applyFilters();
   }
 
+  /// Update opening hours filter
   void updateOpeningHoursFilter(OpeningHoursFilter filter) {
     openingHoursFilter.value = filter;
     applyFilters();
   }
 
+  /// Clear all active filters
   void clearFilters() {
     searchQuery.value = '';
     showPartnerOnly.value = false;
@@ -599,12 +626,14 @@ class DropoffLocationsController extends GetxController {
     applyFilters();
   }
 
+  /// Get formatted text showing center counts
   String get placeCountText {
     final count = filteredCenters.length;
     final partnerCount = filteredCenters.where((c) => c.status == 'active').length;
     return '$count centers ($partnerCount partners)';
   }
 
+  /// Refresh centers data
   Future<void> refreshData() async {
     final targetLocation = isSearchMode.value ? searchedLocation.value : currentLocation.value;
     if (targetLocation != null) {

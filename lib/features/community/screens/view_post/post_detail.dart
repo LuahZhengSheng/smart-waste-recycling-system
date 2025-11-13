@@ -37,86 +37,128 @@ class PostDetailsScreen extends StatelessWidget {
       backgroundColor: dark ? FColors.communityDarkBackground : FColors.white,
       appBar: FAppBar(
         showBackArrow: true,
-        backgroundColor: dark ? FColors.communityDarkBackground : FColors.white,
         title: const Text('Details'),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Main scrollable content
-            Expanded(
-              child: Obx(() {
-                if (controller.isLoading.value) {
-                  return _buildLoadingState(dark);
-                }
+        child: Obx(() {
+          final isPostDisabled = controller.post.value.isDisabled;
 
-                if (controller.post.value.postId.isEmpty) {
-                  return _buildNotFoundState(context, dark);
-                }
+          // 添加统一的加载状态
+          if (controller.isLoading.value) {
+            return const Center(
+              child: CircularProgressIndicator(color: FColors.primary),
+            );
+          }
 
-                return ListView(
-                  children: [
-                    // Post content
-                    FPostCard(
-                      post: controller.post.value,
-                      isInDetailScreen: true,
-                    ),
+          return Column(
+            children: [
+              // Main scrollable content
+              Expanded(
+                child: Obx(() {
+                  if (controller.post.value.postId.isEmpty) {
+                    return _buildNotFoundState(context, dark);
+                  }
 
-                    const SizedBox(height: FSizes.spaceBtwSections),
-
-                    // Comments section
-                    Container(
-                      color: dark ? FColors.communityDarkBackground : FColors.white,
-                      child: Column(
-                        children: [
-                          // Comments header with sorting
-                          const FCommentsHeader(),
-
-                          // Comments list
-                          Obx(() => FCommentsList(
-                            postId: postId,
-                            comments: controller.sortedComments,
-                          )),
-                        ],
+                  return ListView(
+                    children: [
+                      // Post content
+                      FPostCard(
+                        post: controller.post.value,
+                        isInDetailScreen: true,
                       ),
-                    ),
-                  ],
-                );
-              }),
-            ),
 
-            // Write comment input at bottom
-            FWriteCommentInput(postId: postId),
-          ],
-        ),
+                      const SizedBox(height: FSizes.spaceBtwSections),
+
+                      // Comments section
+                      Container(
+                        color: dark ? FColors.communityDarkBackground : FColors.white,
+                        child: Column(
+                          children: [
+                            // Comments header with sorting
+                            const FCommentsHeader(),
+
+                            // Comments list
+                            Obx(() {
+                              // 当评论列表更新时，加载用户数据
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (controller.sortedComments.isNotEmpty) {
+                                  commentController.loadUserDataForComments(controller.sortedComments);
+                                }
+                              });
+
+                              return FCommentsList(
+                                postId: postId,
+                                comments: controller.sortedComments,
+                                isPostDisabled: isPostDisabled,
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+
+              // Write comment input at bottom - Disabled if post is disabled
+              if (isPostDisabled)
+                _buildDisabledOverlay(context, dark)
+              else
+                FWriteCommentInput(postId: postId),
+            ],
+          );
+        }),
       ),
     );
   }
 
-  Widget _buildLoadingState(bool dark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildDisabledOverlay(BuildContext context, bool dark) {
+    return Container(
+      padding: const EdgeInsets.all(FSizes.md),
+      decoration: BoxDecoration(
+        color: dark ? FColors.communityDarkSurface : FColors.white,
+        border: Border(
+          top: BorderSide(
+            color: dark ? FColors.communityDarkBorder : FColors.grey.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: FColors.primary.withOpacity(0.1),
-              shape: BoxShape.circle,
+              color: FColors.error.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: CircularProgressIndicator(
-              color: FColors.primary,
-              backgroundColor: dark ? FColors.communityDarkBorder : FColors.grey.withOpacity(0.2),
-              strokeWidth: 3,
+            child: Icon(
+              Iconsax.slash,
+              color: FColors.error,
+              size: 20,
             ),
           ),
-          const SizedBox(height: FSizes.spaceBtwItems),
-          Text(
-            'Loading post...',
-            style: TextStyle(
-              color: dark ? FColors.darkText : FColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+          const SizedBox(width: FSizes.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Comments Disabled',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: FColors.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'This post has been disabled',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: dark ? FColors.darkTextSecondary : FColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -352,3 +394,4 @@ class _FMediaViewerState extends State<FMediaViewer> {
     );
   }
 }
+

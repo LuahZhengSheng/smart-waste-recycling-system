@@ -83,8 +83,8 @@ class EventCard extends StatelessWidget {
                   // Location
                   EventInfoRow(
                     icon: Iconsax.location,
-                    text: event.location.shortAddress.isNotEmpty
-                        ? event.location.shortAddress
+                    text: event.location.fullAddress.isNotEmpty
+                        ? event.location.fullAddress
                         : 'Event Location',
                   ),
 

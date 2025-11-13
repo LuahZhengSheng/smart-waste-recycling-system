@@ -1,4 +1,4 @@
-import '../../../utils/constants/google_places_config.dart';
+import '../../../config/google_places_config.dart';
 
 class GooglePlace {
   final String placeId;

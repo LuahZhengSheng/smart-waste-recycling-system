@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../utils/helpers/helper_functions.dart';
 import 'location_model.dart';
+import 'address_model.dart';
+import 'geopoint_model.dart';
 import 'event_registration_model.dart';
 import 'dart:math' as math;
 
@@ -71,16 +73,21 @@ class Event {
       contactPhoneNo: json['contactPhoneNo'] ?? '',
       location: Location.fromJson(json['location'] ?? {}),
       poster: json['poster'] ?? '',
-      startDateTime: DateTime.parse(json['startDateTime'] ?? DateTime.now().toIso8601String()),
-      endDateTime: DateTime.parse(json['endDateTime'] ?? DateTime.now().toIso8601String()),
-      registrationDeadline: DateTime.parse(json['registrationDeadline'] ?? DateTime.now().toIso8601String()),
+      startDateTime: DateTime.parse(
+          json['startDateTime'] ?? DateTime.now().toIso8601String()),
+      endDateTime: DateTime.parse(
+          json['endDateTime'] ?? DateTime.now().toIso8601String()),
+      registrationDeadline: DateTime.parse(
+          json['registrationDeadline'] ?? DateTime.now().toIso8601String()),
       maxParticipants: json['maxParticipants']?.toInt() ?? 0,
       registeredCount: json['registeredCount']?.toInt() ?? 0,
-      createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+      createdAt: DateTime.parse(
+          json['createdAt'] ?? DateTime.now().toIso8601String()),
       status: json['status'] ?? 'active',
       eventRegistrations: (json['eventRegistrations'] as List<dynamic>?)
           ?.map((reg) => EventRegistration.fromJson(reg))
-          .toList() ?? [],
+          .toList() ??
+          [],
     );
   }
 
@@ -89,22 +96,38 @@ class Event {
     final data = doc.data();
     if (data == null) return Event.empty();
 
+    // Parse location as contained object
+    Location location = Location.empty();
+    if (data.containsKey('location') && data['location'] != null) {
+      try {
+        location = Location.fromJson(
+            Map<String, dynamic>.from(data['location'] ?? {}));
+      } catch (e) {
+        print('Error parsing location for event ${doc.id}: $e');
+        location = Location.empty();
+      }
+    }
+
     return Event(
       eventId: doc.id,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
       contactEmail: data['contactEmail'] ?? '',
       contactPhoneNo: data['contactPhoneNo'] ?? '',
-      location: Location.fromJson(Map<String, dynamic>.from(data['location'] ?? {})),
+      location: location,
       poster: data['poster'] ?? '',
-      startDateTime: (data['startDateTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      endDateTime: (data['endDateTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      registrationDeadline: (data['registrationDeadline'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      startDateTime:
+      (data['startDateTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      endDateTime:
+      (data['endDateTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      registrationDeadline:
+      (data['registrationDeadline'] as Timestamp?)?.toDate() ??
+          DateTime.now(),
       maxParticipants: (data['maxParticipants'] as num?)?.toInt() ?? 0,
       registeredCount: (data['registeredCount'] as num?)?.toInt() ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       status: data['status'] ?? 'active',
-      eventRegistrations: [], // Registrations are typically loaded separately
+      eventRegistrations: [],
     );
   }
 
@@ -125,7 +148,8 @@ class Event {
       'registeredCount': registeredCount,
       'createdAt': createdAt.toIso8601String(),
       'status': status,
-      'eventRegistrations': eventRegistrations.map((reg) => reg.toJson()).toList(),
+      'eventRegistrations':
+      eventRegistrations.map((reg) => reg.toJson()).toList(),
     };
   }
 
@@ -150,17 +174,20 @@ class Event {
 
   /// Returns formatted start date and time
   String get formattedStartDateTime {
-    return FHelperFunctions.getFormattedDate(startDateTime, format: 'dd MMM yyyy, HH:mm');
+    return FHelperFunctions.getFormattedDate(startDateTime,
+        format: 'dd MMM yyyy, HH:mm');
   }
 
   /// Returns formatted end date and time
   String get formattedEndDateTime {
-    return FHelperFunctions.getFormattedDate(endDateTime, format: 'dd MMM yyyy, HH:mm');
+    return FHelperFunctions.getFormattedDate(endDateTime,
+        format: 'dd MMM yyyy, HH:mm');
   }
 
   /// Returns formatted registration deadline
   String get formattedRegistrationDeadline {
-    return FHelperFunctions.getFormattedDate(registrationDeadline, format: 'dd MMM yyyy, HH:mm');
+    return FHelperFunctions.getFormattedDate(registrationDeadline,
+        format: 'dd MMM yyyy, HH:mm');
   }
 
   /// Returns event duration in hours
