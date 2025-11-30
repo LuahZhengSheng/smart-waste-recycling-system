@@ -55,6 +55,15 @@
         <key>io.flutter.embedded_views_preview</key>
         <true/>
 
+       <!-- ==================== URL SCHEMES FOR OPENING WEB LINKS ==================== -->
+       <!-- Required for url_launcher to open web URLs -->
+       <!-- Used for: viewing emission data sources, opening external links -->
+       <key>LSApplicationQueriesSchemes</key>
+       <array>
+            <string>https</string>
+            <string>http</string>
+       </array>
+
 		<!-- ==================== DEEP LINK CONFIGURATIONS ==================== -->
 		<!-- Custom URL Schemes for Deep Linking -->
 		<!-- Used for: FCM notification clicks, external app links -->

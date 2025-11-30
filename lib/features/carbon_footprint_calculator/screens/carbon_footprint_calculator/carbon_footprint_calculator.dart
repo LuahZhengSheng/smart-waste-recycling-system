@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fyp/common/widgets/appbar/appbar.dart';
 import 'package:fyp/common/widgets/list_tiles/emissions_category_item_tile.dart';
 import 'package:fyp/features/carbon_footprint_calculator/screens/carbon_footprint_calculator/land_travel.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/food/food.dart';
+import 'package:fyp/features/carbon_footprint_calculator/screens/food/food_input.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 

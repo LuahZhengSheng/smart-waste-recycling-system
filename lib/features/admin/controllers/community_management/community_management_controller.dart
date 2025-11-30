@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/data/repositories/community/post_repository.dart';
 import 'package:fyp/data/repositories/user/user_repository.dart';
 import 'package:fyp/features/community/models/post_model.dart';
@@ -132,14 +131,14 @@ class CommunityManagementController extends GetxController {
   void applyFiltersAndSearch() {
     List<PostModel> result = List.from(allPosts);
 
-    // 添加详细的调试信息
+    // æ·»åŠ è¯¦ç»†çš„è°ƒè¯•ä¿¡æ¯
     print('=== DEBUG: applyFiltersAndSearch() ===');
     print('Total posts in allPosts: ${allPosts.length}');
     print('Current filter: ${currentFilter.value}');
     print('Disabled posts count: ${allPosts.where((post) => post.isDisabled).length}');
     print('Active posts count: ${allPosts.where((post) => !post.isDisabled).length}');
 
-    // 打印前几个帖子的 isDisabled 状态
+    // æ‰“å°å‰å‡ ä¸ªå¸–å­çš„ isDisabled çŠ¶æ€
     if (allPosts.isNotEmpty) {
       print('First 5 posts isDisabled status:');
       for (int i = 0; i < allPosts.length && i < 5; i++) {
@@ -309,7 +308,7 @@ class CommunityManagementController extends GetxController {
 
       await _postRepository.savePost(updatedPost);
 
-      // 实时更新本地数据
+      // å®žæ—¶æ›´æ–°æœ¬åœ°æ•°æ®
       _updateLocalPost(updatedPost);
 
       FLoaders.successSnackBar(
@@ -324,25 +323,25 @@ class CommunityManagementController extends GetxController {
     }
   }
 
-  /// 实时更新本地帖子数据
+  /// å®žæ—¶æ›´æ–°æœ¬åœ°å¸–å­æ•°æ®
   void _updateLocalPost(PostModel updatedPost) {
-    // 更新 allPosts 中的帖子
+    // æ›´æ–° allPosts ä¸­çš„å¸–å­
     final index = allPosts.indexWhere((p) => p.postId == updatedPost.postId);
     if (index != -1) {
       allPosts[index] = updatedPost;
     }
 
-    // 更新 filteredPosts 中的帖子
+    // æ›´æ–° filteredPosts ä¸­çš„å¸–å­
     final filteredIndex = filteredPosts.indexWhere((p) => p.postId == updatedPost.postId);
     if (filteredIndex != -1) {
       filteredPosts[filteredIndex] = updatedPost;
     }
 
-    // 重新应用筛选（确保帖子在正确的标签页显示）
+    // é‡æ–°åº”ç”¨ç­›é€‰ï¼ˆç¡®ä¿å¸–å­åœ¨æ­£ç¡®çš„æ ‡ç­¾é¡µæ˜¾ç¤ºï¼‰
     applyFiltersAndSearch();
   }
 
-  /// 监听单个帖子的实时更新（用于 disable/recover 操作）
+  /// ç›‘å¬å•ä¸ªå¸–å­çš„å®žæ—¶æ›´æ–°ï¼ˆç”¨äºŽ disable/recover æ“ä½œï¼‰
   void _setupPostUpdateListener(String postId) {
     _postRepository.getPostByIdStream(postId).listen((updatedPost) {
       if (updatedPost != null) {

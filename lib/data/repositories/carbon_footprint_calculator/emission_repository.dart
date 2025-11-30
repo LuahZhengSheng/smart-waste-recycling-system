@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fyp/features/carbon_footprint_calculator/models/emission_model.dart';
 import 'package:get/get.dart';
 
-import '../../../config/emission_config.dart';
+import '../../../config/emission_config/air_travel.dart';
+import '../../../features/carbon_footprint_calculator/models/emission_model.dart';
 
 class EmissionRepository extends GetxController {
   static EmissionRepository get instance => Get.find();
@@ -132,7 +132,7 @@ class EmissionRepository extends GetxController {
     // Check if cache is still valid
     if (!forceRefresh &&
         _lastAverageFetchTime.value != null &&
-        now.difference(_lastAverageFetchTime.value!) < EmissionConfig.avgEmissionsCacheDuration &&
+        now.difference(_lastAverageFetchTime.value!) < AirTravelEmissionConfig.avgEmissionsCacheDuration &&
         _cachedAverageEmissions.isNotEmpty) {
       return Map<String, double>.from(_cachedAverageEmissions);
     }

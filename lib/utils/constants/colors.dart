@@ -74,6 +74,23 @@ class FColors {
   static const Color darkTextSecondary = Color(0xFF9E9E9E); // Secondary text in dark mode
   static const Color darkDivider = Color(0xFF2C2C2C); // Divider in dark mode
 
+  // -------------------- Transaction Details Colors --------------------
+  static const Color transactionEarning = Color(0xFF4CAF50); // Green for earning
+  static const Color transactionSpending = Color(0xFFE53935); // Red for spending
+  static const Color transactionCardLight = Color(0xFFFFFFFF);
+  static const Color transactionCardDark = Color(0xFF2A2A2A);
+  static const Color transactionBorderLight = Color(0xFFE0E0E0);
+  static const Color transactionBorderDark = Color(0xFF3A3A3A);
+  static const Color transactionLabelLight = Color(0xFF757575);
+  static const Color transactionLabelDark = Color(0xFF9E9E9E);
+  static const Color transactionValueLight = Color(0xFF212121);
+  static const Color transactionValueDark = Color(0xFFE0E0E0);
+
+  // Badge Colors for Transaction Status
+  static const Color badgeCompleted = Color(0xFF4CAF50);
+  static const Color badgePending = Color(0xFFFFA726);
+  static const Color badgeExpired = Color(0xFF757575);
+
   // -------------------- Carbon Footprint Calculator Module Colors --------------------
   
   // Category Colors - vibrant and distinct

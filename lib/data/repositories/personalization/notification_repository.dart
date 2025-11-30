@@ -1,12 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
+import 'package:get/get.dart';
 import 'package:fyp/data/repositories/authentication/authentication_repository.dart';
 import 'package:fyp/features/personalization/models/notification_model.dart';
-import 'package:get/get.dart';
 
 class NotificationRepository extends GetxController {
   static NotificationRepository get instance => Get.find();
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final Uuid _uuid = const Uuid();
 
   /// Get current user ID
   String get _currentUserId => AuthenticationRepository.instance.authUser?.uid ?? '';
@@ -14,6 +16,89 @@ class NotificationRepository extends GetxController {
   /// Get notifications collection reference for current user
   CollectionReference get _notificationsRef =>
       _db.collection('users').doc(_currentUserId).collection('notifications');
+
+  /// Create bulk notifications for multiple users
+  Future<void> createBulkNotificationsForUsers({
+    required List<String> userIds,
+    required String title,
+    required String message,
+    required String type,
+    String? eventId,
+  }) async {
+    try {
+      final batch = _db.batch();
+      final timestamp = FieldValue.serverTimestamp();
+
+      for (final userId in userIds) {
+        final notificationId = _uuid.v4();
+        final notificationRef = _db
+            .collection('users')
+            .doc(userId)
+            .collection('notifications')
+            .doc(notificationId);
+
+        final notificationData = {
+          'notificationId': notificationId,
+          'title': title,
+          'message': message,
+          'type': type,
+          'isRead': false,
+          'createdAt': timestamp,
+        };
+
+        // 如果有事件ID，添加到通知数据中
+        if (eventId != null && eventId.isNotEmpty) {
+          notificationData['eventId'] = eventId;
+        }
+
+        batch.set(notificationRef, notificationData);
+      }
+
+      await batch.commit();
+      print('✅ Created notification records for ${userIds.length} users');
+    } catch (e) {
+      print('❌ Error creating bulk notification records: $e');
+      throw 'Failed to create notification records: $e';
+    }
+  }
+
+  /// Create single notification for a user
+  Future<void> createNotificationForUser({
+    required String userId,
+    required String title,
+    required String message,
+    required String type,
+    String? eventId,
+  }) async {
+    try {
+      final notificationId = _uuid.v4();
+      final notificationRef = _db
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .doc(notificationId);
+
+      final notificationData = {
+        'notificationId': notificationId,
+        'title': title,
+        'message': message,
+        'type': type,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      // 如果有事件ID，添加到通知数据中
+      if (eventId != null && eventId.isNotEmpty) {
+        notificationData['eventId'] = eventId;
+      }
+
+      await notificationRef.set(notificationData);
+      print('✅ Created notification record for user $userId');
+    } catch (e) {
+      print('❌ Error creating notification record: $e');
+      throw 'Failed to create notification record: $e';
+    }
+  }
 
   /// Get real-time notifications stream with pagination
   Stream<List<NotificationModel>> getNotificationsStream({
@@ -167,6 +252,7 @@ class NotificationRepository extends GetxController {
     required String title,
     required String message,
     required String type,
+    String? eventId,
   }) async {
     try {
       await _notificationsRef.add({
@@ -175,6 +261,7 @@ class NotificationRepository extends GetxController {
         'type': type,
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
+        if (eventId != null && eventId.isNotEmpty) 'eventId': eventId,
       });
     } catch (e) {
       throw 'Failed to create notification: $e';

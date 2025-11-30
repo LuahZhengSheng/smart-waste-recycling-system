@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/features/carbon_footprint_calculator/controllers/emission_profile_controller.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:fyp/utils/constants/colors.dart';
@@ -7,6 +6,7 @@ import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 
 import '../../../../common/widgets/appbar/appbar.dart';
+import '../../controllers/emission_profile_controller.dart';
 
 class EmissionsProfileScreen extends StatelessWidget {
   const EmissionsProfileScreen({super.key});
@@ -104,7 +104,7 @@ class EmissionsProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: FSizes.xs),
           Text(
-            '${controller.totalEmissions.toStringAsFixed(2)} kg',
+            controller.totalEmissionTonsLabel,
             style: Theme.of(context).textTheme.headlineLarge?.copyWith(
               color: FColors.white,
               fontWeight: FontWeight.bold,
@@ -244,14 +244,12 @@ class EmissionsProfileScreen extends StatelessWidget {
                       const SizedBox(height: FSizes.xs),
                       Text(
                         category.emission > 0
-                            ? '${category.emission.toStringAsFixed(2)} kg CO₂e'
+                            ? '${(category.emission / 1000).toStringAsFixed(2)} t CO₂e'
                             : 'Not calculated yet',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: category.emission > 0
                               ? category.getColor(darkMode: dark)
-                              : (dark
-                              ? FColors.darkGrey
-                              : FColors.textSecondary),
+                              : (dark ? FColors.darkGrey : FColors.textSecondary),
                           fontWeight: category.emission > 0
                               ? FontWeight.w600
                               : FontWeight.normal,

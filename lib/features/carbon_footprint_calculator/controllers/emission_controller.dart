@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/emission_profile/emission_profile.dart';
 import 'package:get/get.dart';
 
 import '../../../data/repositories/carbon_footprint_calculator/emission_repository.dart';
+import '../screens/emission_profile/emission_profile.dart';
 
 class EmissionsController extends GetxController {
   static EmissionsController get instance => Get.find();
@@ -17,6 +17,9 @@ class EmissionsController extends GetxController {
   final avgEmissions = <String, double>{}.obs;
   final comparisonPercentage = 0.0.obs;
   final selectedCategory = Rx<String?>(null);
+
+  /// 图表是否可以解锁：需要用户有数据，且平均值也已加载
+  bool get canShowChart => hasCalculatedEmissions.value && avgEmissions.isNotEmpty;
 
   StreamSubscription? _emissionsSubscription;
 
@@ -123,8 +126,9 @@ class EmissionsController extends GetxController {
 
   /// Get comparison text
   String get comparisonText {
-    if (!hasCalculatedEmissions.value) {
-      return 'No data available';
+    // 还没满足比较条件：要么用户没有数据，要么平均值还没加载
+    if (!canShowChart) {
+      return 'No comparison available yet';
     }
 
     final percentage = comparisonPercentage.value.abs();

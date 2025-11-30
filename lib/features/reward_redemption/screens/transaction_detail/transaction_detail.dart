@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/common/widgets/appbar/appbar.dart';
-import 'package:fyp/features/reward_redemption/models/redemption_model.dart';
-import 'package:fyp/features/reward_redemption/models/reward_model.dart';
-import 'package:fyp/utils/constants/colors.dart';
-import 'package:fyp/utils/constants/sizes.dart';
-import 'package:fyp/utils/helpers/helper_functions.dart';
-import 'package:fyp/utils/formatters/formatter.dart';
+import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:intl/intl.dart';
 
-import '../../../recycling_center/models/recycle_activity_model.dart';
-import '../../controllers/reward_point_controller.dart';
+import '../../../../common/widgets/appbar/appbar.dart';
+import '../../../../utils/constants/colors.dart';
+import '../../../../utils/constants/sizes.dart';
+import '../../../../utils/formatters/formatter.dart';
+import '../../../../utils/helpers/helper_functions.dart';
+import '../../controllers/transaction_detail_controller.dart';
 
 class TransactionDetailsScreen extends StatelessWidget {
   final String transactionId;
@@ -23,432 +22,452 @@ class TransactionDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.put(TransactionDetailsController());
     final dark = FHelperFunctions.isDarkMode(context);
-    final controller = RewardPointsController.instance;
-    final isEarning = transactionType == 'earning';
+
+    // Load transaction details
+    controller.loadTransactionDetails(
+      transactionId: transactionId,
+      type: transactionType,
+    );
 
     return Scaffold(
-      backgroundColor: dark ? const Color(0xFF0A0E21) : const Color(0xFFF8FAFC),
+      backgroundColor: dark ? FColors.dark : FColors.light,
       appBar: FAppBar(
         showBackArrow: true,
-        title: Text('Transaction Details'),
+        title: Text("Transaction Details"),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(FSizes.defaultSpace),
-        child: isEarning
-            ? _buildEarningTransaction(controller, dark, context)
-            : _buildSpendingTransaction(controller, dark, context),
-      ),
-    );
-  }
-
-  Widget _buildEarningTransaction(
-      RewardPointsController controller,
-      bool dark,
-      BuildContext context,
-      ) {
-    return StreamBuilder<RecyclingActivity>(
-      stream: controller.getActivityStream(transactionId),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return Center(child: CircularProgressIndicator(color: FColors.primary));
-        }
-
-        final activity = snapshot.data!;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Points Summary Card
-            _buildPointsSummaryCard(
-              dark: dark,
-              isEarning: true,
-              points: activity.pointsEarned,
-            ),
-
-            const SizedBox(height: FSizes.spaceBtwSections),
-
-            // Transaction Details Card
-            _buildTransactionDetailsCard(
-              dark: dark,
-              isEarning: true,
-              context: context,
-              id: activity.activityId,
-              description: 'Recycling Activity',
-              date: activity.createdAt,
-            ),
-
-            const SizedBox(height: FSizes.spaceBtwSections),
-
-            // Recycling Activity Details
-            _buildEarningDetailsCard(dark, context, activity, controller),
-
-            const SizedBox(height: FSizes.spaceBtwSections),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildSpendingTransaction(
-      RewardPointsController controller,
-      bool dark,
-      BuildContext context,
-      ) {
-    return StreamBuilder<RedemptionModel>(
-      stream: controller.getRedemptionStream(transactionId),
-      builder: (context, redemptionSnapshot) {
-        if (!redemptionSnapshot.hasData) {
-          return Center(child: CircularProgressIndicator(color: FColors.primary));
-        }
-
-        final redemption = redemptionSnapshot.data!;
-
-        return StreamBuilder<RewardModel>(
-          stream: controller.getRewardStream(redemption.rewardId),
-          builder: (context, rewardSnapshot) {
-            final points = rewardSnapshot.hasData ? rewardSnapshot.data!.pointsNeeded : 0;
-            final description = rewardSnapshot.hasData ? rewardSnapshot.data!.title : 'Reward Redemption';
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Points Summary Card
-                _buildPointsSummaryCard(
-                  dark: dark,
-                  isEarning: false,
-                  points: points,
+                CircularProgressIndicator(color: FColors.primary),
+                const SizedBox(height: FSizes.md),
+                Text(
+                  'Loading transaction details...',
+                  style: TextStyle(
+                    color: dark ? FColors.white : FColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-
-                const SizedBox(height: FSizes.spaceBtwSections),
-
-                // Transaction Details Card
-                _buildTransactionDetailsCard(
-                  dark: dark,
-                  isEarning: false,
-                  context: context,
-                  id: redemption.redemptionId,
-                  description: description,
-                  date: redemption.createdAt,
-                ),
-
-                const SizedBox(height: FSizes.spaceBtwSections),
-
-                // Redemption Details
-                _buildSpendingDetailsCard(dark, context, redemption, rewardSnapshot.data),
-
-                const SizedBox(height: FSizes.spaceBtwSections),
               ],
-            );
-          },
+            ),
+          );
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(FSizes.defaultSpace),
+          child: transactionType == 'earning'
+              ? _buildEarningTransactionDetails(controller, dark)
+              : _buildSpendingTransactionDetails(controller, dark),
         );
-      },
+      }),
     );
   }
 
-  Widget _buildPointsSummaryCard({
-    required bool dark,
-    required bool isEarning,
-    required int points,
-  }) {
-    final pointsColor = isEarning ? FColors.success : FColors.error;
-    final pointsPrefix = isEarning ? '+' : '-';
+  /// Build earning transaction details
+  Widget _buildEarningTransactionDetails(
+      TransactionDetailsController controller,
+      bool dark,
+      ) {
+    return Obx(() {
+      final activity = controller.activity.value;
+      final center = controller.recyclingCenter.value;
+      final staff = controller.staff.value;
+      final category = controller.wasteCategory.value;
 
+      if (activity == null) {
+        return Center(
+          child: Text(
+            'Transaction not found',
+            style: TextStyle(
+              color: dark ? FColors.white : FColors.textPrimary,
+            ),
+          ),
+        );
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Transaction Header Card
+          _buildTransactionHeaderCard(
+            dark: dark,
+            icon: Iconsax.arrow_up_3,
+            iconColor: FColors.transactionEarning,
+            iconBgColor: FColors.transactionEarning.withOpacity(0.1),
+            title: 'Recycling Reward',
+            points: '+${activity.pointsEarned}',
+            isEarning: true,
+          ),
+
+          const SizedBox(height: FSizes.spaceBtwSections),
+
+          // Transaction Details Section
+          _buildSectionHeader('Transaction Details', dark),
+          const SizedBox(height: FSizes.md),
+          _buildInfoCard(
+            dark: dark,
+            children: [
+              _buildInfoRow(
+                'Transaction ID',
+                activity.activityId.substring(0, 8).toUpperCase(),
+                dark,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Date & Time',
+                DateFormat('MMMM d, yyyy \'at\' h:mm:ss a').format(activity.createdAt),
+                dark,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Transaction Type',
+                'Recycling Reward',
+                dark,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Points Earned',
+                '+${activity.pointsEarned} points',
+                dark,
+                valueColor: FColors.transactionEarning,
+                isBold: true,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Status',
+                'Completed',
+                dark,
+                trailing: _buildStatusBadge('Completed', dark),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: FSizes.spaceBtwSections),
+
+          // Recycling Details Section
+          _buildSectionHeader('Recycling Details', dark),
+          const SizedBox(height: FSizes.md),
+          _buildInfoCard(
+            dark: dark,
+            children: [
+              _buildInfoRow(
+                'Waste Type',
+                activity.wasteObject,
+                dark,
+                isBold: true,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Waste Category',
+                category?.name ?? 'Loading...',
+                dark,
+                trailing: category != null
+                    ? Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: category.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        category.icon,
+                        size: 16,
+                        color: category.color,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        category.name,
+                        style: TextStyle(
+                          color: category.color,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                    : null,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Weight',
+                '${activity.weight.toStringAsFixed(2)} kg',
+                dark,
+                isBold: true,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Recycling Center',
+                center?.name ?? 'Loading...',
+                dark,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Processed By',
+                staff?.username ?? 'Loading...',
+                dark,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: FSizes.spaceBtwSections),
+
+          // Support Image Section
+          if (activity.supportImage.isNotEmpty) ...[
+            _buildSectionHeader('Support Image', dark),
+            const SizedBox(height: FSizes.md),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
+              child: FutureBuilder<String>(
+                future: activity.getSupportImageUrl(activity.userId),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                    return Image.network(
+                      snapshot.data!,
+                      width: double.infinity,
+                      height: 200,
+                      fit: BoxFit.cover,
+                    );
+                  }
+                  return Container(
+                    width: double.infinity,
+                    height: 200,
+                    color: dark ? FColors.darkContainer : FColors.lightContainer,
+                    child: Center(
+                      child: Icon(
+                        Iconsax.gallery,
+                        size: 48,
+                        color: dark ? FColors.darkGrey : FColors.grey,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+      );
+    });
+  }
+
+  /// Build spending transaction details
+  Widget _buildSpendingTransactionDetails(
+      TransactionDetailsController controller,
+      bool dark,
+      ) {
+    return Obx(() {
+      final redemption = controller.redemption.value;
+      final reward = controller.reward.value;
+
+      if (redemption == null) {
+        return Center(
+          child: Text(
+            'Transaction not found',
+            style: TextStyle(
+              color: dark ? FColors.white : FColors.textPrimary,
+            ),
+          ),
+        );
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Transaction Header Card
+          _buildTransactionHeaderCard(
+            dark: dark,
+            icon: Iconsax.arrow_down_1,
+            iconColor: FColors.transactionSpending,
+            iconBgColor: FColors.transactionSpending.withOpacity(0.1),
+            title: 'Reward Redemption',
+            points: '-${redemption.points}',
+            isEarning: false,
+          ),
+
+          const SizedBox(height: FSizes.spaceBtwSections),
+
+          // Transaction Details Section
+          _buildSectionHeader('Transaction Details', dark),
+          const SizedBox(height: FSizes.md),
+          _buildInfoCard(
+            dark: dark,
+            children: [
+              _buildInfoRow(
+                'Transaction ID',
+                redemption.redemptionId.substring(0, 8).toUpperCase(),
+                dark,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Date & Time',
+                DateFormat('MMMM d, yyyy \'at\' h:mm:ss a').format(redemption.createdAt),
+                dark,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Transaction Type',
+                'Reward Redemption',
+                dark,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Points Spent',
+                '-${redemption.points} points',
+                dark,
+                valueColor: FColors.transactionSpending,
+                isBold: true,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Status',
+                redemption.status == 'active' ? 'Completed' : 'Expired',
+                dark,
+                trailing: _buildStatusBadge(
+                  redemption.status == 'active' ? 'Completed' : 'Expired',
+                  dark,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: FSizes.spaceBtwSections),
+
+          // Reward Details Section
+          _buildSectionHeader('Reward Details', dark),
+          const SizedBox(height: FSizes.md),
+          _buildInfoCard(
+            dark: dark,
+            children: [
+              _buildInfoRow(
+                'Reward ID',
+                redemption.rewardId.substring(0, 8).toUpperCase(),
+                dark,
+              ),
+              _buildDivider(dark),
+              // Reward Image
+              if (reward != null && reward.rewardImage.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: FSizes.md),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
+                    child: Image.network(
+                      reward.rewardImage,
+                      width: double.infinity,
+                      height: 150,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: double.infinity,
+                          height: 150,
+                          color: dark ? FColors.darkContainer : FColors.lightContainer,
+                          child: Icon(
+                            Iconsax.gift,
+                            size: 48,
+                            color: dark ? FColors.darkGrey : FColors.grey,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                _buildDivider(dark),
+              ],
+              _buildInfoRow(
+                'Reward',
+                reward?.title ?? 'Loading...',
+                dark,
+                isBold: true,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'Expiry Date',
+                FFormatter.formatDate(redemption.validUntil),
+                dark,
+                valueColor: redemption.isExpired ? FColors.error : null,
+              ),
+              _buildDivider(dark),
+              _buildInfoRow(
+                'PIN Code',
+                redemption.formattedPinCode,
+                dark,
+                isBold: true,
+                trailing: IconButton(
+                  icon: Icon(
+                    Iconsax.copy,
+                    size: 20,
+                    color: FColors.primary,
+                  ),
+                  onPressed: () {
+                    // Copy PIN to clipboard
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    });
+  }
+
+  /// Build transaction header card with icon and points
+  Widget _buildTransactionHeaderCard({
+    required bool dark,
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String title,
+    required String points,
+    required bool isEarning,
+  }) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(FSizes.xl),
+      padding: const EdgeInsets.all(FSizes.lg),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isEarning
-              ? [FColors.success, FColors.success.withOpacity(0.8)]
-              : [FColors.error, FColors.error.withOpacity(0.8)],
+              ? [
+            FColors.transactionEarning,
+            FColors.transactionEarning.withOpacity(0.8),
+          ]
+              : [
+            FColors.transactionSpending,
+            FColors.transactionSpending.withOpacity(0.8),
+          ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
         boxShadow: [
           BoxShadow(
-            color: pointsColor.withOpacity(0.3),
+            color: (isEarning ? FColors.transactionEarning : FColors.transactionSpending)
+                .withOpacity(0.3),
             blurRadius: 16,
-            offset: const Offset(0, 8),
+            offset: const Offset(0, 6),
+            spreadRadius: -2,
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              isEarning ? Iconsax.arrow_up_3 : Iconsax.arrow_down_1,
-              color: FColors.white,
-              size: 32,
-            ),
-          ),
-          const SizedBox(height: FSizes.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '$pointsPrefix ${points.abs()}',
-                style: const TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.w900,
-                  color: FColors.white,
-                  letterSpacing: -1.5,
-                ),
-              ),
-              const SizedBox(width: FSizes.xs),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  'Points',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: FColors.white.withOpacity(0.9),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTransactionDetailsCard({
-    required bool dark,
-    required bool isEarning,
-    required BuildContext context,
-    required String id,
-    required String description,
-    required DateTime date,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(FSizes.lg),
-      decoration: BoxDecoration(
-        color: dark ? const Color(0xFF1A1F36).withOpacity(0.8) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: dark
-              ? FColors.darkGrey.withOpacity(0.3)
-              : FColors.grey.withOpacity(0.2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Transaction Details',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: dark ? FColors.white : FColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: FSizes.lg),
-          _buildDetailRow(
-            context: context,
-            icon: Iconsax.hashtag,
-            label: 'Transaction ID',
-            value: id,
-            dark: dark,
-          ),
-          _buildDivider(dark),
-          _buildDetailRow(
-            context: context,
-            icon: Iconsax.note_text,
-            label: 'Description',
-            value: description,
-            dark: dark,
-          ),
-          _buildDivider(dark),
-          _buildDetailRow(
-            context: context,
-            icon: Iconsax.calendar,
-            label: 'Date & Time',
-            value: '${FFormatter.formatDate(date)} • ${_formatTime(date)}',
-            dark: dark,
-          ),
-          _buildDivider(dark),
-          _buildDetailRow(
-            context: context,
-            icon: isEarning ? Iconsax.arrow_up_3 : Iconsax.arrow_down_1,
-            label: 'Type',
-            value: isEarning ? 'Earning' : 'Spending',
-            dark: dark,
-            valueColor: isEarning ? FColors.success : FColors.error,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEarningDetailsCard(
-      bool dark,
-      BuildContext context,
-      RecyclingActivity activity,
-      RewardPointsController controller,
-      ) {
-    return StreamBuilder(
-      stream: controller.getCenterByStaffIdStream(activity.centerStaffId),
-      builder: (context, centerSnapshot) {
-        return Container(
-          padding: const EdgeInsets.all(FSizes.lg),
-          decoration: BoxDecoration(
-            color: dark ? const Color(0xFF1A1F36).withOpacity(0.8) : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: dark
-                  ? FColors.darkGrey.withOpacity(0.3)
-                  : FColors.grey.withOpacity(0.2),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Recycling Activity Details',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: dark ? FColors.white : FColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: FSizes.lg),
-              _buildDetailRow(
-                context: context,
-                icon: Iconsax.activity,
-                label: 'Activity ID',
-                value: activity.activityId,
-                dark: dark,
-              ),
-              _buildDivider(dark),
-              if (centerSnapshot.hasData && centerSnapshot.data != null) ...[
-                _buildDetailRow(
-                  context: context,
-                  icon: Iconsax.building,
-                  label: 'Recycling Center',
-                  value: centerSnapshot.data!.name,
-                  dark: dark,
-                ),
-                _buildDivider(dark),
-              ],
-              _buildDetailRow(
-                context: context,
-                icon: Iconsax.trash,
-                label: 'Waste Type',
-                value: activity.wasteObject,
-                dark: dark,
-              ),
-              _buildDivider(dark),
-              _buildDetailRow(
-                context: context,
-                icon: Iconsax.weight,
-                label: 'Weight',
-                value: '${activity.weight.toStringAsFixed(2)} kg',
-                dark: dark,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSpendingDetailsCard(
-      bool dark,
-      BuildContext context,
-      RedemptionModel redemption,
-      RewardModel? reward,
-      ) {
-    return Container(
-      padding: const EdgeInsets.all(FSizes.lg),
-      decoration: BoxDecoration(
-        color: dark ? const Color(0xFF1A1F36).withOpacity(0.8) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: dark
-              ? FColors.darkGrey.withOpacity(0.3)
-              : FColors.grey.withOpacity(0.2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Redemption Details',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: dark ? FColors.white : FColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: FSizes.lg),
-          _buildDetailRow(
-            context: context,
-            icon: Iconsax.ticket,
-            label: 'Redemption ID',
-            value: redemption.redemptionId,
-            dark: dark,
-          ),
-          _buildDivider(dark),
-          if (reward != null) ...[
-            _buildDetailRow(
-              context: context,
-              icon: Iconsax.gift,
-              label: 'Reward',
-              value: reward.title,
-              dark: dark,
-            ),
-            _buildDivider(dark),
-          ],
-          _buildDetailRow(
-            context: context,
-            icon: Iconsax.security_safe,
-            label: 'PIN Code',
-            value: _formatPinCode(redemption.pinCode),
-            dark: dark,
-            isMonospace: true,
-          ),
-          _buildDivider(dark),
-          _buildDetailRow(
-            context: context,
-            icon: Iconsax.verify,
-            label: 'Status',
-            value: redemption.statusDisplayText,
-            dark: dark,
-            valueColor: redemption.isActive
-                ? FColors.success
-                : FColors.error,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required String value,
-    required bool dark,
-    Color? valueColor,
-    bool isMonospace = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: FSizes.sm),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(FSizes.md),
             decoration: BoxDecoration(
-              color: FColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(FSizes.cardRadiusMd),
             ),
-            child: Icon(icon, color: FColors.primary, size: 18),
+            child: Icon(
+              icon,
+              color: FColors.white,
+              size: 32,
+            ),
           ),
           const SizedBox(width: FSizes.md),
           Expanded(
@@ -456,24 +475,39 @@ class TransactionDetailsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: dark
-                        ? FColors.white.withOpacity(0.6)
-                        : FColors.textSecondary,
-                    fontSize: 12,
+                  title,
+                  style: TextStyle(
+                    color: FColors.white.withOpacity(0.9),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: valueColor ??
-                        (dark ? FColors.white : FColors.textPrimary),
-                    fontFamily: isMonospace ? 'Courier' : null,
-                    letterSpacing: isMonospace ? 1.5 : 0.3,
-                  ),
+                const SizedBox(height: FSizes.xs),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      points,
+                      style: const TextStyle(
+                        color: FColors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1,
+                      ),
+                    ),
+                    const SizedBox(width: FSizes.xs),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        'Pts',
+                        style: TextStyle(
+                          color: FColors.white.withOpacity(0.9),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -483,28 +517,120 @@ class TransactionDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDivider(bool dark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: FSizes.xs),
-      child: Divider(
-        color: dark
-            ? FColors.darkGrey.withOpacity(0.3)
-            : FColors.grey.withOpacity(0.2),
-        height: 1,
+  /// Build section header
+  Widget _buildSectionHeader(String title, bool dark) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        color: dark ? FColors.white : FColors.textPrimary,
       ),
     );
   }
 
-  String _formatTime(DateTime dateTime) {
-    final hour = dateTime.hour.toString().padLeft(2, '0');
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+  /// Build info card container
+  Widget _buildInfoCard({
+    required bool dark,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(FSizes.md),
+      decoration: BoxDecoration(
+        color: dark ? FColors.transactionCardDark : FColors.transactionCardLight,
+        borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
+        border: Border.all(
+          color: dark ? FColors.transactionBorderDark : FColors.transactionBorderLight,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: children,
+      ),
+    );
   }
 
-  String _formatPinCode(String pinCode) {
-    if (pinCode.length == 6) {
-      return '${pinCode.substring(0, 3)} ${pinCode.substring(3)}';
+  /// Build info row
+  Widget _buildInfoRow(
+      String label,
+      String value,
+      bool dark, {
+        Color? valueColor,
+        bool isBold = false,
+        Widget? trailing,
+      }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: FSizes.sm),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: dark ? FColors.transactionLabelDark : FColors.transactionLabelLight,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          trailing ??
+              Flexible(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: valueColor ??
+                        (dark ? FColors.transactionValueDark : FColors.transactionValueLight),
+                    fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  /// Build divider
+  Widget _buildDivider(bool dark) {
+    return Divider(
+      color: dark ? FColors.transactionBorderDark : FColors.transactionBorderLight,
+      height: 1,
+    );
+  }
+
+  /// Build status badge
+  Widget _buildStatusBadge(String status, bool dark) {
+    Color badgeColor;
+    switch (status.toLowerCase()) {
+      case 'completed':
+        badgeColor = FColors.badgeCompleted;
+        break;
+      case 'pending':
+        badgeColor = FColors.badgePending;
+        break;
+      case 'expired':
+        badgeColor = FColors.badgeExpired;
+        break;
+      default:
+        badgeColor = FColors.grey;
     }
-    return pinCode;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: badgeColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: badgeColor,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+      ),
+    );
   }
 }

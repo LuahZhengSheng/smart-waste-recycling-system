@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:uuid/uuid.dart';
 import '../../../../data/repositories/event/event_repository.dart';
 import '../../../../data/repositories/event/event_registration_repository.dart';
 import '../../../../data/repositories/event/reminder_repository.dart';
+import '../../../../data/repositories/personalization/notification_repository.dart';
 import '../../../../data/services/notification/fcm_service.dart';
 import '../../../../features/event/models/event_model.dart';
 import '../../../../utils/constants/colors.dart';
@@ -22,9 +21,8 @@ class EventManagementController extends GetxController {
   final EventRepository _eventRepository = Get.put(EventRepository());
   final EventRegistrationRepository _registrationRepository = Get.put(EventRegistrationRepository());
   final ReminderRepository _reminderRepository = Get.put(ReminderRepository());
+  final NotificationRepository _notificationRepository = Get.put(NotificationRepository());
   final FCMService _fcmService = FCMService();
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final Uuid _uuid = const Uuid();
 
   // Search controller
   final TextEditingController searchController = TextEditingController();
@@ -485,32 +483,14 @@ class EventManagementController extends GetxController {
     required String type,
   }) async {
     try {
-      final batch = _firestore.batch();
-      final timestamp = FieldValue.serverTimestamp();
-
-      for (final userId in userIds) {
-        final notificationId = _uuid.v4();
-        final notificationRef = _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('notifications')
-            .doc(notificationId);
-
-        final notificationData = {
-          'notificationId': notificationId,
-          'title': title,
-          'message': body,
-          'type': type,
-          'eventId': eventId,
-          'isRead': false,
-          'createdAt': timestamp,
-        };
-
-        batch.set(notificationRef, notificationData);
-      }
-
-      await batch.commit();
-      print('✅ Created notification records for ${userIds.length} users');
+      // 使用 NotificationRepository 来创建通知记录
+      await _notificationRepository.createBulkNotificationsForUsers(
+        userIds: userIds,
+        title: title,
+        message: body,
+        type: type,
+        eventId: eventId,
+      );
     } catch (e) {
       print('❌ Error creating notification records: $e');
       // 不重新抛出异常，避免影响主要业务逻辑
@@ -634,7 +614,7 @@ class EventManagementController extends GetxController {
   }
 }
 
-// Confirmation Dialogs
+// Confirmation Dialogs (保持不变)
 class _ConfirmPublishDialog extends StatelessWidget {
   final Event event;
   final bool isPublishing;

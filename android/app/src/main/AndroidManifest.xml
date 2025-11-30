@@ -47,6 +47,17 @@
 
     <queries>
         <provider android:authorities="com.facebook.katana.provider.PlatformProvider" />
+
+        <!-- Required for opening web URLs (url_launcher) -->
+        <!-- Used for: viewing emission data sources, opening external links -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
     </queries>
 
     <application

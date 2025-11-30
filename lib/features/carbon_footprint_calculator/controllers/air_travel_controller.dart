@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:fyp/data/repositories/authentication/authentication_repository.dart';
-import 'package:fyp/features/carbon_footprint_calculator/models/emission_model.dart';
-import 'package:fyp/utils/helpers/helper_functions.dart';
 import 'package:get/get.dart';
 
-import '../../../config/emission_config.dart';
+import '../../../config/emission_config/air_travel.dart';
+import '../../../data/repositories/authentication/authentication_repository.dart';
 import '../../../data/repositories/carbon_footprint_calculator/emission_repository.dart';
+import '../../../utils/helpers/helper_functions.dart';
+import '../models/emission_model.dart';
 
 class AirTravelController extends GetxController {
   static AirTravelController get instance => Get.find();
@@ -63,7 +63,7 @@ class AirTravelController extends GetxController {
     isLoading.value = true;
     try {
       final existingEmission =
-      await _emissionRepo.getLatestEmissionByCategory('Air Travel');
+          await _emissionRepo.getLatestEmissionByCategory('Air Travel');
 
       if (existingEmission != null) {
         final inputs = existingEmission.inputs;
@@ -123,20 +123,20 @@ class AirTravelController extends GetxController {
     );
 
     // Calculate emissions for each class
-    economyEmissions.value =
-        economyDist * EmissionConfig.getAirTravelEmissionFactor('economy');
+    economyEmissions.value = economyDist *
+        AirTravelEmissionConfig.getAirTravelEmissionFactor('economy');
 
     premiumEconomyEmissions.value = premiumDist *
-        EmissionConfig.getAirTravelEmissionFactor('premium_economy');
+        AirTravelEmissionConfig.getAirTravelEmissionFactor('premium_economy');
 
-    businessEmissions.value =
-        businessDist * EmissionConfig.getAirTravelEmissionFactor('business');
+    businessEmissions.value = businessDist *
+        AirTravelEmissionConfig.getAirTravelEmissionFactor('business');
 
     firstEmissions.value =
-        firstDist * EmissionConfig.getAirTravelEmissionFactor('first');
+        firstDist * AirTravelEmissionConfig.getAirTravelEmissionFactor('first');
 
-    averageEmissions.value =
-        averageDist * EmissionConfig.getAirTravelEmissionFactor('average');
+    averageEmissions.value = averageDist *
+        AirTravelEmissionConfig.getAirTravelEmissionFactor('average');
 
     // Calculate total
     totalEmissions.value = economyEmissions.value +
@@ -159,23 +159,38 @@ class AirTravelController extends GetxController {
   /// Calculate fuel combustion and well-to-tank breakdown
   void _calculateBreakdown(double economyDist, double premiumDist,
       double businessDist, double firstDist, double averageDist) {
-    fuelCombustion.value =
-        (economyDist * EmissionConfig.getAirTravelFuelCombustion('economy')) +
-            (premiumDist *
-                EmissionConfig.getAirTravelFuelCombustion('premium_economy')) +
-            (businessDist *
-                EmissionConfig.getAirTravelFuelCombustion('business')) +
-            (firstDist * EmissionConfig.getAirTravelFuelCombustion('first')) +
-            (averageDist * EmissionConfig.getAirTravelFuelCombustion('average'));
+    fuelCombustion.value = (economyDist *
+            AirTravelEmissionConfig.getAirTravelFuelCombustion('economy')) +
+        (premiumDist *
+            AirTravelEmissionConfig.getAirTravelFuelCombustion(
+                'premium_economy')) +
+        (businessDist *
+            AirTravelEmissionConfig.getAirTravelFuelCombustion('business')) +
+        (firstDist *
+            AirTravelEmissionConfig.getAirTravelFuelCombustion('first')) +
+        (averageDist *
+            AirTravelEmissionConfig.getAirTravelFuelCombustion('average'));
 
-    wellToTank.value =
-        (economyDist * EmissionConfig.getAirTravelWellToTank('economy')) +
-            (premiumDist *
-                EmissionConfig.getAirTravelWellToTank('premium_economy')) +
-            (businessDist * EmissionConfig.getAirTravelWellToTank('business')) +
-            (firstDist * EmissionConfig.getAirTravelWellToTank('first')) +
-            (averageDist * EmissionConfig.getAirTravelWellToTank('average'));
+    wellToTank.value = (economyDist *
+            AirTravelEmissionConfig.getAirTravelWellToTank('economy')) +
+        (premiumDist *
+            AirTravelEmissionConfig.getAirTravelWellToTank('premium_economy')) +
+        (businessDist *
+            AirTravelEmissionConfig.getAirTravelWellToTank('business')) +
+        (firstDist * AirTravelEmissionConfig.getAirTravelWellToTank('first')) +
+        (averageDist *
+            AirTravelEmissionConfig.getAirTravelWellToTank('average'));
   }
+
+  /// Breakdown for UI (by class)
+  Map<String, double> get breakdownByClass => {
+    if (economyEmissions.value > 0) 'Economy Class': economyEmissions.value,
+    if (premiumEconomyEmissions.value > 0)
+      'Premium Economy': premiumEconomyEmissions.value,
+    if (businessEmissions.value > 0) 'Business Class': businessEmissions.value,
+    if (firstEmissions.value > 0) 'First Class': firstEmissions.value,
+    if (averageEmissions.value > 0) 'Average Class': averageEmissions.value,
+  };
 
   /// Save emissions to Firestore
   Future<void> saveEmissions() async {
@@ -189,19 +204,19 @@ class AirTravelController extends GetxController {
     try {
       // Get existing emission or create new
       final existingEmission =
-      await _emissionRepo.getLatestEmissionByCategory('Air Travel');
+          await _emissionRepo.getLatestEmissionByCategory('Air Travel');
 
       // Prepare inputs (save one-way distances and round trip flags)
       final inputs = {
         'economy_distance':
-        double.tryParse(economyDistanceController.text) ?? 0.0,
+            double.tryParse(economyDistanceController.text) ?? 0.0,
         'premium_economy_distance':
-        double.tryParse(premiumEconomyDistanceController.text) ?? 0.0,
+            double.tryParse(premiumEconomyDistanceController.text) ?? 0.0,
         'business_distance':
-        double.tryParse(businessDistanceController.text) ?? 0.0,
+            double.tryParse(businessDistanceController.text) ?? 0.0,
         'first_distance': double.tryParse(firstDistanceController.text) ?? 0.0,
         'average_distance':
-        double.tryParse(averageDistanceController.text) ?? 0.0,
+            double.tryParse(averageDistanceController.text) ?? 0.0,
         'economy_round_trip': economyRoundTrip.value,
         'premium_economy_round_trip': premiumEconomyRoundTrip.value,
         'business_round_trip': businessRoundTrip.value,
@@ -209,8 +224,8 @@ class AirTravelController extends GetxController {
         'average_round_trip': averageRoundTrip.value,
         'fuel_combustion': fuelCombustion.value,
         'well_to_tank': wellToTank.value,
-        'data_source': EmissionConfig.dataSource,
-        'data_year': EmissionConfig.dataYear,
+        'data_source': AirTravelEmissionConfig.dataSource,
+        'data_year': AirTravelEmissionConfig.dataYear,
       };
 
       EmissionModel emission;
@@ -260,10 +275,21 @@ class AirTravelController extends GetxController {
   }
 
   /// Get formatted emission with unit
-  String getFormattedEmission(double emission) {
-    if (emission >= 1000) {
-      return '${(emission / 1000).toStringAsFixed(2)} tonnes';
+  String formatEmissionTons(double emissionKg) {
+    // emissionKg 是 kg
+    final tons = emissionKg / 1000.0;
+
+    // 阈值：小于 0.01 t（10 kg）时，用 kg 显示
+    if (tons < 0.01) {
+      return '${emissionKg.toStringAsFixed(1)} kg';
     }
-    return '${emission.toStringAsFixed(2)} kg';
+
+    // 否则用 t 显示
+    return '${tons.toStringAsFixed(2)} t';
+  }
+
+  /// Preview 专用：一律用 kg，保留 1–2 位小数
+  String formatPreviewKg(double emission) {
+    return '${emission.toStringAsFixed(1)} kg';
   }
 }

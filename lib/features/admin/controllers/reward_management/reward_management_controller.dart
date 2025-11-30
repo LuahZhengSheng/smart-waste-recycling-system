@@ -298,19 +298,19 @@ class RewardManagementController extends GetxController {
     final tomorrow = now.add(const Duration(days: 1));
 
     if (reward.remainingQuantity <= 0) {
+      // 先关掉可能存在的 snackbar，避免被覆盖
+      if (Get.isSnackbarOpen) {
+        Get.closeCurrentSnackbar();
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
       FAdminLoaders.warningSnackBar(
         title: 'Cannot Activate Reward',
-        message: 'Reward cannot be activated because remaining quantity is 0. Please update the quantity first.',
+        message:
+        'Reward cannot be activated because remaining quantity is 0. Please update the quantity first.',
       );
 
       print('❌ Activation failed: remaining quantity is 0');
-
-      // 关闭可能存在的 snackbar
-      // if (Get.isSnackbarOpen) {
-      //   Get.closeCurrentSnackbar();
-      //   await Future.delayed(const Duration(milliseconds: 100));
-      // }
-
       return false;
     }
 

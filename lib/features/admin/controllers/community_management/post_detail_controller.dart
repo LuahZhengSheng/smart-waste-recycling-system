@@ -15,25 +15,34 @@ class PostDetailController extends GetxController {
 
   PostDetailController(this.initialPost);
 
-  final PostRepository _postRepository = Get.put(PostRepository());
-  final CommentRepository _commentRepository = Get.put(CommentRepository());
-  final ReplyRepository _replyRepository = Get.put(ReplyRepository());
-  final UserRepository _userRepository = Get.put(UserRepository());
+  final PostRepository postRepository = Get.put(PostRepository());
+  final CommentRepository commentRepository = Get.put(CommentRepository());
+  final ReplyRepository replyRepository = Get.put(ReplyRepository());
+  final UserRepository userRepository = Get.put(UserRepository());
 
   // Observables
   final Rx<PostModel> currentPost = PostModel.empty().obs;
   final RxList<Comment> comments = <Comment>[].obs;
   final RxMap<String, UserModel> usersCache = <String, UserModel>{}.obs;
+
   final RxBool isLoadingComments = false.obs;
   final RxBool hasMoreComments = true.obs;
+
   final RxBool hasContentChanged = false.obs;
+
+  /// 只负责提示有 comment 数变化，不自动刷新
   final RxBool hasCommentsChanged = false.obs;
-  final RxString commentsChangeMessage = ''.obs;
-  final RxInt currentCommentCount = 0.obs;
+
+  /// 显示在界面上的评论数（只在 refresh 时更新，不跟 stream）
+  final RxInt displayCommentCount = 0.obs;
+
   final RxInt commentsPage = 1.obs;
   final int commentsPerPage = 20;
 
-  // For reply expansion
+  /// 标记是否正在进行初始加载（用于显示 loading 状态）
+  final RxBool isInitialLoading = true.obs;
+
+  // Reply 相关
   final RxMap<String, bool> expandedComments = <String, bool>{}.obs;
   final RxMap<String, List<Reply>> commentReplies = <String, List<Reply>>{}.obs;
   final RxMap<String, bool> loadingReplies = <String, bool>{}.obs;
@@ -42,60 +51,61 @@ class PostDetailController extends GetxController {
   final int repliesPerPage = 20;
 
   // Stream subscriptions
-  StreamSubscription? _postStreamSubscription;
-  StreamSubscription? _commentCountStreamSubscription;
+  StreamSubscription<PostModel?>? postStreamSubscription;
+  StreamSubscription<PostModel?>? commentCountStreamSubscription;
 
-  // Last known comment count for detecting changes
-  int _lastKnownCommentCount = 0;
+  // Stream 监听到的最新 comment 数量（不直接显示在 UI）
+  int latestCommentCount = 0;
+  // 添加标记，表示是否已经完成初始加载
+  bool _isInitialLoadComplete = false;
 
   @override
   void onInit() {
     super.onInit();
     currentPost.value = initialPost;
-    _lastKnownCommentCount = initialPost.commentCount;
-    currentCommentCount.value = initialPost.commentCount;
+    latestCommentCount = initialPost.commentCount;
+    displayCommentCount.value = 0; // 改为 0，等加载完才更新
 
-    _listenToPostChanges();
-    _listenToCommentCountChanges();
-    loadInitialData();
-  }
-
-  void _listenToPostChanges() {
-    _postStreamSubscription = _postRepository.getPostByIdStream(initialPost.postId).listen((post) {
-      if (post != null) {
-        // Check if important fields changed
-        if (_hasImportantChanges(currentPost.value, post)) {
-          hasContentChanged.value = true;
-        }
-        currentPost.value = post;
-      }
+    // 先执行初始加载
+    loadInitialData().then((_) {
+      // 初始加载完成后才启动 stream 监听
+      listenToPostChanges();
+      listenToCommentCountChanges();
     });
   }
 
-  void _listenToCommentCountChanges() {
-    // Listen to post updates to detect comment count changes
-    _commentCountStreamSubscription = _postRepository
-        .getPostByIdStream(initialPost.postId)
-        .listen((post) {
-      if (post != null && post.commentCount != _lastKnownCommentCount) {
-        final difference = post.commentCount - _lastKnownCommentCount;
-
-        if (difference > 0) {
-          commentsChangeMessage.value = 'New comment${difference > 1 ? 's' : ''} available ($difference)';
-        } else if (difference < 0) {
-          commentsChangeMessage.value = 'Comment${difference.abs() > 1 ? 's' : ''} deleted (${difference.abs()})';
-        }
-
-        hasCommentsChanged.value = true;
-        _lastKnownCommentCount = post.commentCount;
-        currentCommentCount.value = post.commentCount;
-      }
-    });
+  /// 实时监听 post 本身（内容、类型、禁用状态、media 长度等）
+  void listenToPostChanges() {
+    postStreamSubscription =
+        postRepository.getPostByIdStream(initialPost.postId).listen((post) {
+          if (post != null) {
+            if (hasImportantChanges(currentPost.value, post)) {
+              hasContentChanged.value = true;
+            }
+            currentPost.value = post;
+          }
+        });
   }
 
-  bool _hasImportantChanges(PostModel oldPost, PostModel newPost) {
+  /// Stream 监听 commentCount 变化，用于显示提醒（但不更新 UI 显示的数量）
+  void listenToCommentCountChanges() {
+    commentCountStreamSubscription =
+        postRepository.getPostByIdStream(initialPost.postId).listen((post) {
+          if (post != null && post.commentCount != latestCommentCount) {
+            // 只有在初始加载完成后才显示通知
+            if (_isInitialLoadComplete) {
+              // 检测到 comment 数量变化，显示提醒
+              hasCommentsChanged.value = true;
+            }
+
+            // 更新 stream 监听到的最新数量（但不更新 displayCommentCount）
+            latestCommentCount = post.commentCount;
+          }
+        });
+  }
+
+  bool hasImportantChanges(PostModel oldPost, PostModel newPost) {
     if (oldPost.postId.isEmpty) return false;
-
     return oldPost.content != newPost.content ||
         oldPost.postType != newPost.postType ||
         oldPost.isDisabled != newPost.isDisabled ||
@@ -104,16 +114,32 @@ class PostDetailController extends GetxController {
 
   Future<void> loadInitialData() async {
     try {
-      // Load poster info
-      await _loadUserData(currentPost.value.userId);
+      isInitialLoading.value = true; // 开始初始加载
 
-      // Load initial comments
+      // 先获取最新的 post 数据
+      final latestPost =
+      await postRepository.getPostById(currentPost.value.postId);
+      if (latestPost != null) {
+        currentPost.value = latestPost;
+        latestCommentCount = latestPost.commentCount;
+        displayCommentCount.value = latestPost.commentCount;
+      }
+
+      // 加载发帖人
+      await loadUserData(currentPost.value.userId);
+
+      // 首次加载 comments
       await loadMoreComments();
+
+      // 标记初始加载完成
+      _isInitialLoadComplete = true;
     } catch (e) {
       FLoaders.errorSnackBar(
         title: 'Error',
         message: 'Failed to load post details: $e',
       );
+    } finally {
+      isInitialLoading.value = false; // 结束初始加载
     }
   }
 
@@ -123,24 +149,24 @@ class PostDetailController extends GetxController {
     try {
       isLoadingComments.value = true;
 
-      final newComments = await _commentRepository.getCommentsPaginated(
+      final newComments = await commentRepository.getCommentsPaginated(
         postId: currentPost.value.postId,
         limit: commentsPerPage,
-        lastDoc: comments.isNotEmpty ? null : null, // Simplified for demo
+        lastDoc: null,
       );
 
       if (newComments.isEmpty) {
         hasMoreComments.value = false;
       } else {
-        // Load user data for comment authors
+        // 加载评论作者信息
         final userIds = newComments.map((c) => c.userId).toSet();
-        await _loadUsersData(userIds);
+        await loadUsersData(userIds);
 
         comments.addAll(newComments);
         commentsPage.value++;
 
-        // Check if we have all comments
-        if (comments.length >= currentCommentCount.value) {
+        // 如果已经拿满当前显示数量，就不再显示 Load More
+        if (comments.length >= displayCommentCount.value) {
           hasMoreComments.value = false;
         }
       }
@@ -154,18 +180,78 @@ class PostDetailController extends GetxController {
     }
   }
 
+  /// 仅在用户点击 Refresh 按钮时调用
+  Future<void> refreshComments() async {
+    try {
+      // 记录刷新前的评论数量
+      final oldCommentCount = comments.length;
+
+      // 清空当前 comments 和回复分页相关状态
+      comments.clear();
+      commentsPage.value = 1;
+      hasMoreComments.value = true;
+
+      expandedComments.clear();
+      commentReplies.clear();
+      loadingReplies.clear();
+      hasMoreRepliesMap.clear();
+      repliesPageMap.clear();
+
+      // 隐藏顶部提示
+      hasCommentsChanged.value = false;
+
+      // 【关键】更新显示的评论数量为 stream 监听到的最新值
+      displayCommentCount.value = latestCommentCount;
+
+      // 重新加载 comments
+      await loadMoreComments();
+
+      // 计算变化
+      final newCommentCount = comments.length;
+      final difference = newCommentCount - oldCommentCount;
+
+      // 只在有变化时才显示提示
+      if (difference > 0) {
+        final message = difference == 1
+            ? 'Refreshed: 1 new comment added'
+            : 'Refreshed: $difference new comments added';
+        FLoaders.successSnackBar(
+          title: 'Refreshed',
+          message: message,
+        );
+      } else if (difference < 0) {
+        final removed = difference.abs();
+        final message = removed == 1
+            ? 'Refreshed: 1 comment removed'
+            : 'Refreshed: $removed comments removed';
+        FLoaders.successSnackBar(
+          title: 'Refreshed',
+          message: message,
+        );
+      }
+      // 如果 difference == 0，不显示任何提示
+    } catch (e) {
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to refresh comments: $e',
+      );
+    }
+  }
+
+  // ---- 以下为原有的用户/回复相关方法，保持不变 ----
+
   Future<void> toggleCommentExpansion(String commentId) async {
     final isCurrentlyExpanded = expandedComments[commentId] ?? false;
 
     if (isCurrentlyExpanded) {
-      // Collapse - just hide replies
       expandedComments[commentId] = false;
+      expandedComments.refresh();
     } else {
-      // Expand - load replies if not loaded yet
       expandedComments[commentId] = true;
-      expandedComments.refresh(); // Force UI update
+      expandedComments.refresh();
 
-      if (commentReplies[commentId] == null || commentReplies[commentId]!.isEmpty) {
+      if (commentReplies[commentId] == null ||
+          commentReplies[commentId]!.isEmpty) {
         await loadReplies(commentId);
       }
     }
@@ -174,40 +260,33 @@ class PostDetailController extends GetxController {
   Future<void> loadReplies(String commentId) async {
     try {
       loadingReplies[commentId] = true;
-      loadingReplies.refresh(); // Force UI update
+      loadingReplies.refresh();
+
       repliesPageMap[commentId] = 1;
 
-      final replies = await _replyRepository.getRepliesPaginated(
+      final replies = await replyRepository.getRepliesPaginated(
         commentId: commentId,
         limit: repliesPerPage,
+        lastDoc: null,
       );
 
-      print('Loaded ${replies.length} replies for comment $commentId');
-
-      // Load user data for reply authors
       final userIds = replies.map((r) => r.userId).toSet();
-      await _loadUsersData(userIds);
+      await loadUsersData(userIds);
 
       commentReplies[commentId] = replies;
-      commentReplies.refresh(); // Force UI update
+      commentReplies.refresh();
 
-      // Check if there are more replies
       final comment = comments.firstWhere((c) => c.commentId == commentId);
       hasMoreRepliesMap[commentId] = replies.length < comment.replyCount;
-      hasMoreRepliesMap.refresh(); // Force UI update
-
-      print('Has more replies: ${hasMoreRepliesMap[commentId]}');
-      print('Reply count: ${comment.replyCount}, Loaded: ${replies.length}');
-
+      hasMoreRepliesMap.refresh();
     } catch (e) {
-      print('Failed to load replies for comment $commentId: $e');
       FLoaders.errorSnackBar(
         title: 'Error',
         message: 'Failed to load replies: $e',
       );
     } finally {
       loadingReplies[commentId] = false;
-      loadingReplies.refresh(); // Force UI update
+      loadingReplies.refresh();
     }
   }
 
@@ -216,55 +295,58 @@ class PostDetailController extends GetxController {
 
     try {
       loadingReplies[commentId] = true;
+      loadingReplies.refresh();
 
       final currentPage = repliesPageMap[commentId] ?? 1;
       repliesPageMap[commentId] = currentPage + 1;
 
-      final newReplies = await _replyRepository.getRepliesPaginated(
+      final newReplies = await replyRepository.getRepliesPaginated(
         commentId: commentId,
         limit: repliesPerPage,
+        lastDoc: null,
       );
 
       if (newReplies.isEmpty) {
         hasMoreRepliesMap[commentId] = false;
       } else {
-        // Load user data for reply authors
         final userIds = newReplies.map((r) => r.userId).toSet();
-        await _loadUsersData(userIds);
+        await loadUsersData(userIds);
 
         final existingReplies = commentReplies[commentId] ?? [];
         commentReplies[commentId] = [...existingReplies, ...newReplies];
 
-        // Check if we have all replies
         final comment = comments.firstWhere((c) => c.commentId == commentId);
         if (commentReplies[commentId]!.length >= comment.replyCount) {
           hasMoreRepliesMap[commentId] = false;
         }
       }
     } catch (e) {
-      print('Failed to load more replies: $e');
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to load more replies: $e',
+      );
     } finally {
       loadingReplies[commentId] = false;
+      loadingReplies.refresh();
     }
   }
 
-  Future<void> _loadUserData(String userId) async {
+  Future<void> loadUserData(String userId) async {
     if (usersCache.containsKey(userId)) return;
-
     try {
-      final user = await _userRepository.fetchOtherUserDetails(userId);
+      final user = await userRepository.fetchOtherUserDetails(userId);
       usersCache[userId] = user;
     } catch (e) {
       print('Failed to load user data for $userId: $e');
     }
   }
 
-  Future<void> _loadUsersData(Set<String> userIds) async {
+  Future<void> loadUsersData(Set<String> userIds) async {
     try {
-      final newUserIds = userIds.where((id) => !usersCache.containsKey(id)).toSet();
-
+      final newUserIds =
+      userIds.where((id) => !usersCache.containsKey(id)).toSet();
       if (newUserIds.isNotEmpty) {
-        final usersData = await _userRepository.getUsersProfileData(newUserIds);
+        final usersData = await userRepository.getUsersProfileData(newUserIds);
         usersCache.addAll(usersData);
       }
     } catch (e) {
@@ -276,48 +358,17 @@ class PostDetailController extends GetxController {
     hasContentChanged.value = false;
   }
 
-  Future<void> refreshComments() async {
-    try {
-      // Clear current comments and reset pagination
-      comments.clear();
-      commentsPage.value = 1;
-      hasMoreComments.value = true;
-      expandedComments.clear();
-      commentReplies.clear();
-      loadingReplies.clear();
-      hasMoreRepliesMap.clear();
-      repliesPageMap.clear();
-
-      // Hide the notification
-      hasCommentsChanged.value = false;
-
-      // Reload comments
-      await loadMoreComments();
-
-      FLoaders.successSnackBar(
-        title: 'Refreshed',
-        message: 'Comments have been refreshed',
-      );
-    } catch (e) {
-      FLoaders.errorSnackBar(
-        title: 'Error',
-        message: 'Failed to refresh comments: $e',
-      );
-    }
-  }
-
   Future<void> togglePostStatus() async {
     try {
       final updatedPost = currentPost.value.copyWith(
         isDisabled: !currentPost.value.isDisabled,
         updatedAt: DateTime.now(),
       );
-
-      await _postRepository.savePost(updatedPost);
-
+      await postRepository.savePost(updatedPost);
       FLoaders.successSnackBar(
         title: 'Success',
-        message: 'Post ${currentPost.value.isDisabled ? 'recovered' : 'disabled'} successfully',
+        message:
+        'Post ${currentPost.value.isDisabled ? 'recovered' : 'disabled'} successfully',
       );
     } catch (e) {
       FLoaders.errorSnackBar(
@@ -329,8 +380,8 @@ class PostDetailController extends GetxController {
 
   @override
   void onClose() {
-    _postStreamSubscription?.cancel();
-    _commentCountStreamSubscription?.cancel();
+    postStreamSubscription?.cancel();
+    commentCountStreamSubscription?.cancel();
     super.onClose();
   }
 }

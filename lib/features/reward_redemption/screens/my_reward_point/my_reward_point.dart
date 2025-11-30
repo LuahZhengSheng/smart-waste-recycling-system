@@ -3,7 +3,6 @@ import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 import 'package:fyp/utils/formatters/formatter.dart';
-import 'package:fyp/utils/popups/loaders.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:intl/intl.dart';
@@ -13,7 +12,6 @@ import '../../../recycling_center/models/recycle_activity_model.dart';
 import '../../controllers/reward_point_controller.dart';
 import '../../models/reward_redemption_enums.dart';
 import '../transaction_detail/transaction_detail.dart';
-import '../../../../data/repositories/personalization/recycling_activity_repository.dart';
 import '../../../reward_redemption/models/redemption_model.dart';
 
 class MyRewardPointsScreen extends StatelessWidget {
@@ -31,9 +29,8 @@ class MyRewardPointsScreen extends StatelessWidget {
         title: Text("My Reward Points"),
       ),
       body: Obx(() {
-        if (controller.isLoading.value &&
-            controller.allEarningActivities.isEmpty &&
-            controller.allSpendingRedemptions.isEmpty) {
+        // Show initial loading when first loading all transactions
+        if (controller.isInitialLoading.value) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -41,7 +38,7 @@ class MyRewardPointsScreen extends StatelessWidget {
                 CircularProgressIndicator(color: FColors.primary),
                 const SizedBox(height: FSizes.md),
                 Text(
-                  'Loading...',
+                  'Loading transactions...',
                   style: TextStyle(
                     color: dark ? FColors.white : FColors.textPrimary,
                     fontWeight: FontWeight.w500,
@@ -67,7 +64,7 @@ class MyRewardPointsScreen extends StatelessWidget {
               // Date Filter Row
               _buildDateFilterRow(controller, dark, context),
 
-              // Tab Bar View
+              // Tab Bar View (移除 Stack 和 loading overlay)
               Expanded(
                 child: _buildTabBarView(controller, dark),
               ),
@@ -78,10 +75,12 @@ class MyRewardPointsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCompactPointsCard(RewardPointsController controller, bool dark) {
+  Widget _buildCompactPointsCard(
+      RewardPointsController controller, bool dark) {
     return Obx(() => Container(
       margin: const EdgeInsets.all(FSizes.defaultSpace),
-      padding: const EdgeInsets.symmetric(horizontal: FSizes.xl, vertical: FSizes.lg),
+      padding: const EdgeInsets.symmetric(
+          horizontal: FSizes.xl, vertical: FSizes.lg),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -166,9 +165,7 @@ class MyRewardPointsScreen extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: dark
-            ? FColors.darkerGrey
-            : FColors.grey.withOpacity(0.1),
+        color: dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: TabBar(
@@ -189,9 +186,7 @@ class MyRewardPointsScreen extends StatelessWidget {
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         labelColor: FColors.white,
-        unselectedLabelColor: dark
-            ? FColors.darkGrey
-            : FColors.textSecondary,
+        unselectedLabelColor: dark ? FColors.darkGrey : FColors.textSecondary,
         labelStyle: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 13,
@@ -235,16 +230,14 @@ class MyRewardPointsScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Container(
             constraints: BoxConstraints(
-              minHeight: 52, // 设置最小高度
+              minHeight: 52,
             ),
             padding: const EdgeInsets.symmetric(
               horizontal: FSizes.md,
-              vertical: FSizes.md, // 保持适当的垂直padding
+              vertical: FSizes.md,
             ),
             decoration: BoxDecoration(
-              color: dark
-                  ? FColors.darkerGrey
-                  : FColors.white,
+              color: dark ? FColors.darkerGrey : FColors.white,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -353,127 +346,120 @@ class MyRewardPointsScreen extends StatelessWidget {
       int index,
       RewardPointsController controller,
       ) {
-    return FutureBuilder(
-      future: controller.getCenterByStaffId(activity.centerStaffId),
-      builder: (context, centerSnapshot) {
-        final centerName = centerSnapshot.hasData && centerSnapshot.data != null
-            ? centerSnapshot.data!.name
-            : 'Recycling Center';
+    // 使用缓存数据，不需要 FutureBuilder
+    final center = controller.getCenterByStaffIdCached(activity.centerStaffId);
+    final centerName = center?.name ?? 'Recycling Center';
 
-        return Container(
-          margin: EdgeInsets.only(
-            bottom: FSizes.md,
-            top: index == 0 ? FSizes.sm : 0,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => Get.to(() => TransactionDetailsScreen(
-                transactionId: activity.activityId,
-                transactionType: 'earning',
-              )),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(FSizes.md),
-                decoration: BoxDecoration(
-                  color: dark
-                      ? FColors.darkerGrey
-                      : FColors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      margin: EdgeInsets.only(
+        bottom: FSizes.md,
+        top: index == 0 ? FSizes.sm : 0,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => Get.to(() => TransactionDetailsScreen(
+            transactionId: activity.activityId,
+            transactionType: 'earning',
+          )),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(FSizes.md),
+            decoration: BoxDecoration(
+              color: dark ? FColors.darkerGrey : FColors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        centerName,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: dark ? FColors.white : FColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: FSizes.xs),
+                      Row(
                         children: [
+                          Icon(
+                            Iconsax.calendar,
+                            size: 12,
+                            color: dark
+                                ? FColors.white.withOpacity(0.5)
+                                : FColors.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
                           Text(
-                            centerName,
+                            '${FFormatter.formatDate(activity.createdAt)} • ${_formatTime(activity.createdAt)}',
                             style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: dark ? FColors.white : FColors.textPrimary,
+                              fontSize: 12,
+                              color: dark
+                                  ? FColors.white.withOpacity(0.6)
+                                  : FColors.textSecondary,
                             ),
-                          ),
-                          const SizedBox(height: FSizes.xs),
-                          Row(
-                            children: [
-                              Icon(
-                                Iconsax.calendar,
-                                size: 12,
-                                color: dark
-                                    ? FColors.white.withOpacity(0.5)
-                                    : FColors.textSecondary,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${FFormatter.formatDate(activity.createdAt)} • ${_formatTime(activity.createdAt)}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: dark
-                                      ? FColors.white.withOpacity(0.6)
-                                      : FColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: FSizes.xs),
-                          Row(
-                            children: [
-                              Icon(
-                                Iconsax.weight,
-                                size: 12,
-                                color: dark
-                                    ? FColors.white.withOpacity(0.5)
-                                    : FColors.textSecondary,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${activity.weight.toStringAsFixed(1)} kg • ${activity.wasteObject}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: dark
-                                      ? FColors.white.withOpacity(0.6)
-                                      : FColors.textSecondary,
-                                ),
-                              ),
-                            ],
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: FSizes.md),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '+${activity.pointsEarned}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: FColors.success,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        Text(
-                          'Pts',
-                          style: TextStyle(
-                            fontSize: 11,
+                      const SizedBox(height: FSizes.xs),
+                      Row(
+                        children: [
+                          Icon(
+                            Iconsax.weight,
+                            size: 12,
                             color: dark
-                                ? FColors.white.withOpacity(0.6)
+                                ? FColors.white.withOpacity(0.5)
                                 : FColors.textSecondary,
-                            fontWeight: FontWeight.w500,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Text(
+                            '${activity.weight.toStringAsFixed(1)} kg • ${activity.wasteObject}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: dark
+                                  ? FColors.white.withOpacity(0.6)
+                                  : FColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: FSizes.md),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '+${activity.pointsEarned}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: FColors.success,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    Text(
+                      'Pts',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: dark
+                            ? FColors.white.withOpacity(0.6)
+                            : FColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
-              ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -483,108 +469,99 @@ class MyRewardPointsScreen extends StatelessWidget {
       int index,
       RewardPointsController controller,
       ) {
-    return FutureBuilder(
-      future: controller.getRewardById(redemption.rewardId),
-      builder: (context, rewardSnapshot) {
-        final rewardTitle = rewardSnapshot.hasData
-            ? rewardSnapshot.data!.title
-            : 'Reward Redemption';
-        final points = rewardSnapshot.hasData
-            ? rewardSnapshot.data!.pointsNeeded
-            : 0;
+    // 使用缓存数据，不需要 FutureBuilder
+    final reward = controller.getRewardByIdCached(redemption.rewardId);
+    final rewardTitle = reward?.title ?? 'Reward Redemption';
+    final points = reward?.pointsNeeded ?? 0;
 
-        return Container(
-          margin: EdgeInsets.only(
-            bottom: FSizes.md,
-            top: index == 0 ? FSizes.sm : 0,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => Get.to(() => TransactionDetailsScreen(
-                transactionId: redemption.redemptionId,
-                transactionType: 'spending',
-              )),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(FSizes.md),
-                decoration: BoxDecoration(
-                  color: dark
-                      ? FColors.darkerGrey
-                      : FColors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      margin: EdgeInsets.only(
+        bottom: FSizes.md,
+        top: index == 0 ? FSizes.sm : 0,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => Get.to(() => TransactionDetailsScreen(
+            transactionId: redemption.redemptionId,
+            transactionType: 'spending',
+          )),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(FSizes.md),
+            decoration: BoxDecoration(
+              color: dark ? FColors.darkerGrey : FColors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        rewardTitle,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: dark ? FColors.white : FColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: FSizes.xs),
+                      Row(
                         children: [
-                          Text(
-                            rewardTitle,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: dark ? FColors.white : FColors.textPrimary,
-                            ),
+                          Icon(
+                            Iconsax.calendar,
+                            size: 12,
+                            color: dark
+                                ? FColors.white.withOpacity(0.5)
+                                : FColors.textSecondary,
                           ),
-                          const SizedBox(height: FSizes.xs),
-                          Row(
-                            children: [
-                              Icon(
-                                Iconsax.calendar,
-                                size: 12,
-                                color: dark
-                                    ? FColors.white.withOpacity(0.5)
-                                    : FColors.textSecondary,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${FFormatter.formatDate(redemption.createdAt)} • ${_formatTime(redemption.createdAt)}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: dark
-                                      ? FColors.white.withOpacity(0.6)
-                                      : FColors.textSecondary,
-                                ),
-                              ),
-                            ],
+                          const SizedBox(width: 4),
+                          Text(
+                            '${FFormatter.formatDate(redemption.createdAt)} • ${_formatTime(redemption.createdAt)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: dark
+                                  ? FColors.white.withOpacity(0.6)
+                                  : FColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: FSizes.md),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '-$points',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: FColors.error,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                    const SizedBox(width: FSizes.md),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '-$points',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: FColors.error,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        Text(
-                          'Pts',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: dark
-                                ? FColors.white.withOpacity(0.6)
-                                : FColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'Pts',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: dark
+                            ? FColors.white.withOpacity(0.6)
+                            : FColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
-              ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 

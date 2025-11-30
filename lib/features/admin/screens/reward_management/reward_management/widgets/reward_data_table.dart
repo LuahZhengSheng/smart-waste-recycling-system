@@ -747,8 +747,10 @@ class _AdminRewardDataTableState extends State<RewardDataTable> {
           ),
           ElevatedButton(
             onPressed: () {
+              Get.back(); // 先关闭对话框
+
+              // 再执行状态切换（内部会根据情况弹 warning / success snackbar）
               widget.controller.toggleRewardStatus(reward);
-              Get.back();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: isActivating

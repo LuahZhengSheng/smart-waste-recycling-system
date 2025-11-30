@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/air_travel/air_travel_input.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/energy/energy_input.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/food/food.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/land_travel/land_travel_input.dart';
-import 'package:fyp/features/carbon_footprint_calculator/screens/stuff/stuff_input.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../data/repositories/carbon_footprint_calculator/emission_repository.dart';
+import '../screens/air_travel/air_travel_input.dart';
+import '../screens/energy/energy_input.dart';
+import '../screens/food/food_input.dart';
+import '../screens/land_travel/land_travel_input.dart';
+import '../screens/new_stuff/new_stuff_input.dart';
 import '../utils/emission_utils.dart';
 
 class EmissionCategory {
@@ -40,6 +40,8 @@ class EmissionsProfileController extends GetxController {
 
   final categories = <EmissionCategory>[].obs;
   final isLoading = true.obs;
+
+  String get totalEmissionTonsLabel => '${(totalEmissions / 1000).toStringAsFixed(2)} t';
 
   StreamSubscription? _emissionsSubscription;
 
@@ -130,7 +132,7 @@ class EmissionsProfileController extends GetxController {
         Get.to(() => const FoodInputScreen());
         break;
       case 'stuff':
-        Get.to(() => const StuffInputScreen());
+        Get.to(() => const NewStuffInputScreen());
         break;
     }
   }
