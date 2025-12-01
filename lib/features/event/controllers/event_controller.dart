@@ -72,7 +72,6 @@ class EventController extends GetxController
 
     // Load events and reminders
     loadEvents();
-    _loadReminders();
 
     // Listen to search and filter changes
     ever(searchQuery, (_) => filterEvents());
@@ -110,16 +109,9 @@ class EventController extends GetxController
       isLoading(true);
 
       _eventsSubscription?.cancel();
-      _eventsSubscription = eventRepository.getAllEvents().listen(
+      _eventsSubscription = eventRepository.getAllPublishedEvents().listen(
         (events) {
           allEvents.assignAll(events);
-
-          // Load poster URLs for all events
-          for (final event in events) {
-            if (event.poster.isNotEmpty) {
-              _loadEventPoster(event.eventId, event.poster);
-            }
-          }
 
           filterEvents();
           isLoading(false);
@@ -138,22 +130,6 @@ class EventController extends GetxController
         title: 'Error',
         message: 'Failed to load events',
       );
-    }
-  }
-
-  /// Load event poster from Firebase Storage
-  Future<void> _loadEventPoster(String eventId, String posterFileName) async {
-    if (eventPosterUrls.containsKey(eventId)) return;
-
-    try {
-      isLoadingPoster[eventId] = true;
-      final url = await eventRepository.getEventPosterUrl(posterFileName);
-      eventPosterUrls[eventId] = url;
-    } catch (e) {
-      print('Error loading poster for event $eventId: $e');
-      eventPosterUrls[eventId] = null;
-    } finally {
-      isLoadingPoster[eventId] = false;
     }
   }
 
@@ -324,26 +300,30 @@ class EventController extends GetxController
     try {
       isRegistering(true);
 
-      // Get registration ID first to delete reminder
+      // 1️⃣ 先拿到该用户在这个 event 的 registrationId（最新那条）
       final registrationId = await eventRegistrationRepository
           .getUserRegistrationId(currentUserId, event.eventId);
 
-      await eventRegistrationRepository.cancelRegistration(
-          currentUserId, event.eventId);
-
-      // Remove reminder if exists
-      if (eventReminders[event.eventId] == true) {
-        await _deleteReminder(registrationId, event.eventId);
+      // 2️⃣ 如果有 registrationId，先删掉所有对应的 reminders
+      if (registrationId.isNotEmpty) {
+        await reminderRepository.deleteAllRemindersByRegistration(registrationId);
+        print('✅ Deleted all reminders for registration: $registrationId');
       }
+
+      // 3️⃣ 再标记 registration 为 isCancelled = true，并更新 event 的 registeredCount
+      await eventRegistrationRepository.cancelRegistration(
+        currentUserId,
+        event.eventId,
+      );
 
       FLoaders.successSnackBar(
         title: 'Cancellation Successful',
-        message: 'Your registration has been cancelled',
+        message: 'Your registration has been cancelled.',
       );
     } catch (e) {
       FLoaders.errorSnackBar(
-        title: 'Cancellation Failed',
-        message: e.toString(),
+        title: 'Error',
+        message: 'Failed to cancel registration: ${e.toString()}',
       );
     } finally {
       isRegistering(false);
@@ -356,127 +336,30 @@ class EventController extends GetxController
   }
 
   /// Get user's registered events
-  Stream<List<Event>> getUserEvents() {
-    return eventRegistrationRepository.getUserRegisteredEvents(currentUserId);
-  }
+  // Stream<List<Event>> getUserEvents() {
+  //   return eventRegistrationRepository.getUserRegisteredEvents(currentUserId);
+  // }
 
   // ==================== Reminder Management ====================
 
-  /// Load user's event reminders
-  void _loadReminders() {
+  /// Get registration ID for current user and event
+  Future<String?> getRegistrationId(String eventId) async {
     try {
-      // Reminders will be loaded on-demand when checking specific events
-    } catch (e) {
-      FLoaders.errorSnackBar(
-        title: 'Error loading reminders',
-        message: e.toString(),
-      );
-    }
-  }
-
-  /// Check if event has reminder enabled
-  Future<bool> hasReminder(String eventId) async {
-    try {
-      if (eventReminders.containsKey(eventId)) {
-        return eventReminders[eventId]!;
+      final userId = authRepository.authUser?.uid;
+      if (userId == null || userId.isEmpty) {
+        print('❌ User not authenticated');
+        return null;
       }
 
-      final registrationId = await eventRegistrationRepository
-          .getUserRegistrationId(currentUserId, eventId);
-      if (registrationId.isEmpty) {
-        eventReminders[eventId] = false;
-        return false;
-      }
-
-      final reminderExists =
-          await reminderRepository.checkReminderExists(registrationId);
-      eventReminders[eventId] = reminderExists;
-      return reminderExists;
-    } catch (e) {
-      return eventReminders[eventId] ?? false;
-    }
-  }
-
-  /// Toggle reminder for event
-  Future<void> toggleReminder(String eventId, bool value) async {
-    try {
-      final registrationId = await eventRegistrationRepository
-          .getUserRegistrationId(currentUserId, eventId);
-      if (registrationId.isEmpty) {
-        throw 'User is not registered for this event';
-      }
-
-      if (value) {
-        await _createReminder(eventId, registrationId);
-      } else {
-        await _deleteReminder(registrationId, eventId);
-      }
-
-      eventReminders[eventId] = value;
-
-      FLoaders.successSnackBar(
-        title: value ? 'Reminder Set' : 'Reminder Removed',
-        message: value
-            ? 'You will be notified 1 day before the event starts'
-            : 'Reminder has been removed',
-        duration: 2,
-      );
-    } catch (e) {
-      FLoaders.errorSnackBar(
-        title: 'Error',
-        message: 'Failed to update reminder: ${e.toString()}',
-      );
-      rethrow;
-    }
-  }
-
-  /// Create a new reminder (EventController 负责创建提醒)
-  Future<void> _createReminder(String eventId, String registrationId) async {
-    try {
-      // 通过 eventId 获取事件详情
-      final event = await eventRepository.getEventById(eventId).first;
-
-      // Calculate reminder time (1 day before event start) - 转换为 UTC
-      final remindAtDateTime =
-          event.startDateTime.subtract(const Duration(days: 1));
-      final remindAtUtc = Timestamp.fromDate(remindAtDateTime.toUtc());
-
-      // Create reminder model - 不再需要手动生成 reminderId
-      final reminder = Reminder(
-        reminderId: '', // 留空，Firestore 会自动生成
-        registrationId: registrationId,
-        title: 'Event Reminder: ${event.title}',
-        message:
-            'Your event "${event.title}" starts tomorrow at ${event.location.address.area}. Don\'t forget to attend!',
-        remindAt: remindAtUtc, // 使用 UTC 时间
-        createdAt: Timestamp.now(), // 使用当前 UTC 时间
-        isSent: false,
+      final registrationId = await eventRegistrationRepository.getRegistrationId(
+        userId,
+        eventId,
       );
 
-      // Save to Firestore - 返回自动生成的 reminderId
-      final generatedReminderId =
-          await reminderRepository.createReminder(reminder);
-
-      print(
-          'Reminder created successfully: $generatedReminderId for event: ${event.title}');
+      return registrationId;
     } catch (e) {
-      print('Error creating reminder: $e');
-      rethrow;
-    }
-  }
-
-  /// Delete an existing reminder
-  Future<void> _deleteReminder(String registrationId, String eventId) async {
-    try {
-      final reminder =
-          await reminderRepository.getReminderByRegistration(registrationId);
-      if (reminder != null) {
-        await reminderRepository.deleteReminder(reminder.reminderId);
-        print('Reminder deleted: ${reminder.reminderId} for event: $eventId');
-      }
-    } catch (e) {
-      print('Error deleting reminder: $e');
-      rethrow;
+      print('❌ Error getting registration ID: $e');
+      return null;
     }
   }
 

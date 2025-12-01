@@ -7,8 +7,10 @@ import '../../../../data/repositories/event/event_repository.dart';
 import '../../../../data/repositories/event/event_registration_repository.dart';
 import '../../../../data/repositories/event/reminder_repository.dart';
 import '../../../../data/repositories/user/user_repository.dart';
+import '../../../../data/services/event/event_cancellation_service.dart';
 import '../../../../features/authentication/models/user_model.dart';
 import '../../../../features/event/models/event_model.dart';
+import '../../../event/models/event_registration_model.dart';
 import '../../screens/event_management/edit_event/edit_event.dart';
 
 class AdminEventDetailController extends GetxController {
@@ -19,6 +21,7 @@ class AdminEventDetailController extends GetxController {
   final EventRegistrationRepository _registrationRepository = Get.put(EventRegistrationRepository());
   final UserRepository _userRepository = Get.put(UserRepository());
   final ReminderRepository _reminderRepository = Get.put(ReminderRepository());
+  final EventCancellationService _cancellationService = Get.put(EventCancellationService());
 
   // Observables
   final Rx<Event> event = Event.empty().obs;
@@ -70,7 +73,6 @@ class AdminEventDetailController extends GetxController {
 
       // Get all user IDs
       final userIds = registrationDocs.map((doc) {
-        // 修复类型错误：使用 as Map<String, dynamic> 进行类型转换
         final data = doc.data() as Map<String, dynamic>;
         return data['userId'] as String;
       }).toSet();
@@ -78,20 +80,27 @@ class AdminEventDetailController extends GetxController {
       // Fetch users data
       final usersData = await _userRepository.getUsersProfileData(userIds);
 
-      // Combine registrations with user data
-      final List<EventRegistrationWithUser> regWithUsers = [];
+      // 🆕 按用户分组，每个用户只取最新的注册记录
+      final Map<String, EventRegistrationWithUser> latestRegistrationsByUser = {};
+
       for (final doc in registrationDocs) {
-        // 修复类型错误：将 DocumentSnapshot<Object?> 转换为 DocumentSnapshot<Map<String, dynamic>>
         final registration = _createRegistrationFromDocument(doc);
         final user = usersData[registration.userId] ?? UserModel.empty();
 
-        regWithUsers.add(EventRegistrationWithUser(
-          registration: registration,
-          user: user,
-        ));
+        // 🆕 如果该用户还没有记录，或者当前记录更新，则更新
+        if (!latestRegistrationsByUser.containsKey(registration.userId) ||
+            registration.createdAt.isAfter(
+                latestRegistrationsByUser[registration.userId]!.registration.createdAt)) {
+          latestRegistrationsByUser[registration.userId] = EventRegistrationWithUser(
+            registration: registration,
+            user: user,
+          );
+        }
       }
 
-      eventRegistrations.value = regWithUsers;
+      // 🆕 只保留每个用户的最新注册记录
+      eventRegistrations.value = latestRegistrationsByUser.values.toList();
+
       _calculateStatistics();
       applySortAndFilter();
       isLoading.value = false;
@@ -100,9 +109,29 @@ class AdminEventDetailController extends GetxController {
         title: 'Error',
         message: 'Failed to load registrations: $error',
       );
-      print('$error');
+      print(error);
       isLoading.value = false;
     });
+  }
+
+  void _calculateStatistics() {
+    // 🆕 现在 eventRegistrations 中每个用户只有一条最新记录
+    totalRegistrations.value = eventRegistrations.length;
+
+    // 🆕 统计最新状态为 active 的用户数
+    activeRegistrations.value = eventRegistrations
+        .where((reg) => !reg.registration.isCancelled)
+        .length;
+
+    // 🆕 统计最新状态为 cancelled 的用户数
+    cancelledRegistrations.value = eventRegistrations
+        .where((reg) => reg.registration.isCancelled)
+        .length;
+
+    print('📊 Statistics Updated:');
+    print('   Total: ${totalRegistrations.value}');
+    print('   Active: ${activeRegistrations.value}');
+    print('   Cancelled: ${cancelledRegistrations.value}');
   }
 
   /// 修复方法：从 DocumentSnapshot<Object?> 创建 EventRegistration
@@ -116,12 +145,6 @@ class AdminEventDetailController extends GetxController {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isCancelled: data['isCancelled'] ?? false,
     );
-  }
-
-  void _calculateStatistics() {
-    totalRegistrations.value = eventRegistrations.length;
-    activeRegistrations.value = eventRegistrations.where((reg) => !reg.registration.isCancelled).length;
-    cancelledRegistrations.value = eventRegistrations.where((reg) => reg.registration.isCancelled).length;
   }
 
   void applySortAndFilter() {
@@ -195,43 +218,14 @@ class AdminEventDetailController extends GetxController {
     Get.to(() => EditEventScreen(event: event.value));
   }
 
-  Future<void> cancelEvent() async {
-    try {
-      final confirmed = await Get.dialog<bool>(
-        _ConfirmCancelEventDialog(event: event.value),
-      );
+  /// Cancel event using shared service
+  Future<void> cancelEvent(Event event) async {
+    final success = await _cancellationService.showCancelEventDialogAndExecute(event);
 
-      if (confirmed != true) return;
-
-      // Update event status
-      final updatedEvent = event.value.copyWith(
-        status: 'cancelled',
-        isPublish: false,
-      );
-      await _eventRepository.updateEvent(updatedEvent);
-
-      // Delete all reminders for this event
-      for (final regWithUser in eventRegistrations) {
-        final reminder = await _reminderRepository.getReminderByRegistration(
-          regWithUser.registration.registrationId,
-        );
-        if (reminder != null) {
-          await _reminderRepository.deleteReminder(reminder.reminderId);
-        }
-      }
-
-      FAdminLoaders.successSnackBar(
-        title: 'Event Cancelled',
-        message: 'Event has been cancelled successfully',
-      );
-
-      Get.back(); // Go back to event management
-    } catch (e) {
-      FAdminLoaders.errorSnackBar(
-        title: 'Error',
-        message: 'Failed to cancel event: $e',
-      );
-      print('$e');
+    if (success) {
+      // Event was cancelled successfully
+      // The list will auto-update due to stream subscription
+      print('✅ Event cancelled from EventManagementController');
     }
   }
 
@@ -249,12 +243,12 @@ class AdminEventDetailController extends GetxController {
       );
       await _eventRepository.updateEvent(updatedEvent);
 
+      Get.back(); // Go back to event management
+
       FAdminLoaders.successSnackBar(
         title: 'Event Deleted',
         message: 'Event has been deleted successfully',
       );
-
-      Get.back(); // Go back to event management
     } catch (e) {
       FAdminLoaders.errorSnackBar(
         title: 'Error',
@@ -274,103 +268,6 @@ class EventRegistrationWithUser {
     required this.registration,
     required this.user,
   });
-}
-
-// Confirmation Dialogs
-class _ConfirmCancelEventDialog extends StatelessWidget {
-  final Event event;
-
-  const _ConfirmCancelEventDialog({required this.event});
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = Get.isDarkMode;
-
-    return AlertDialog(
-      backgroundColor: dark ? FColors.adminDarkSurface : FColors.adminLightSurface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      title: Text(
-        'Cancel Event',
-        style: TextStyle(
-          color: dark ? FColors.adminDarkText : FColors.adminLightText,
-        ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Are you sure you want to cancel "${event.title}"?',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'This will:',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: dark ? FColors.adminDarkText : FColors.adminLightText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '• Send cancellation notifications to all registered users',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-              fontSize: 13,
-            ),
-          ),
-          Text(
-            '• Delete all event reminders',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-              fontSize: 13,
-            ),
-          ),
-          Text(
-            '• Hide the event from users',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'This action cannot be undone.',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkError : FColors.adminLightError,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Get.back(result: false),
-          child: Text(
-            'No, Keep Event',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-            ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: () => Get.back(result: true),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: dark ? FColors.adminDarkError : FColors.adminLightError,
-          ),
-          child: const Text(
-            'Yes, Cancel Event',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _ConfirmDeleteEventDialog extends StatelessWidget {
@@ -421,126 +318,5 @@ class _ConfirmDeleteEventDialog extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-/// Model representing an event registration
-class EventRegistration {
-  final String registrationId;
-  final String userId;
-  final DateTime createdAt;
-  final bool isCancelled;
-
-  const EventRegistration({
-    required this.registrationId,
-    required this.userId,
-    required this.createdAt,
-    this.isCancelled = false,
-  });
-
-  /// Creates an empty EventRegistration instance
-  static EventRegistration empty() => EventRegistration(
-    registrationId: '',
-    userId: '',
-    createdAt: DateTime.now(),
-    isCancelled: false,
-  );
-
-  /// Creates EventRegistration instance from JSON map
-  factory EventRegistration.fromJson(Map<String, dynamic> json) {
-    return EventRegistration(
-      registrationId: json['registrationId'] ?? '',
-      userId: json['userId'] ?? '',
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : DateTime.now(),
-      isCancelled: json['isCancelled'] ?? false,
-    );
-  }
-
-  /// Creates EventRegistration instance from Firebase DocumentSnapshot
-  factory EventRegistration.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
-    final data = snapshot.data();
-    if (data == null) return EventRegistration.empty();
-
-    return EventRegistration(
-      registrationId: snapshot.id,
-      userId: data['userId'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      isCancelled: data['isCancelled'] ?? false,
-    );
-  }
-
-  /// Converts EventRegistration instance to JSON map
-  Map<String, dynamic> toJson() {
-    return {
-      'registrationId': registrationId,
-      'userId': userId,
-      'createdAt': createdAt.toIso8601String(),
-      'isCancelled': isCancelled,
-    };
-  }
-
-  /// Converts EventRegistration instance to Firestore map (with Timestamp)
-  Map<String, dynamic> toFirestore() {
-    return {
-      'userId': userId,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'isCancelled': isCancelled,
-    };
-  }
-
-  /// Returns formatted creation date
-  String get formattedCreatedAt {
-    // You'll need to implement or import your date formatting function
-    // For now, using basic formatting
-    return '${createdAt.day}/${createdAt.month}/${createdAt.year}';
-  }
-
-  /// Returns registration status text
-  String get statusText {
-    return isCancelled ? 'Cancelled' : 'Active';
-  }
-
-  /// Checks if registration is active
-  bool get isActive => !isCancelled;
-
-  /// Creates a copy of EventRegistration with updated fields
-  EventRegistration copyWith({
-    String? registrationId,
-    String? userId,
-    DateTime? createdAt,
-    bool? isCancelled,
-  }) {
-    return EventRegistration(
-      registrationId: registrationId ?? this.registrationId,
-      userId: userId ?? this.userId,
-      createdAt: createdAt ?? this.createdAt,
-      isCancelled: isCancelled ?? this.isCancelled,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'EventRegistration(registrationId: $registrationId, userId: $userId, createdAt: $createdAt, isCancelled: $isCancelled)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-
-    return other is EventRegistration &&
-        other.registrationId == registrationId &&
-        other.userId == userId &&
-        other.createdAt == createdAt &&
-        other.isCancelled == isCancelled;
-  }
-
-  @override
-  int get hashCode {
-    return registrationId.hashCode ^
-    userId.hashCode ^
-    createdAt.hashCode ^
-    isCancelled.hashCode;
   }
 }

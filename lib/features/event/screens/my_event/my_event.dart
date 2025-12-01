@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
+
 import '../../../../common/widgets/appbar/appbar.dart';
 import '../../../../utils/constants/colors.dart';
 import '../../../../utils/constants/sizes.dart';
@@ -158,12 +159,13 @@ class MyEventsScreen extends StatelessWidget {
               }),
             ),
 
-            // Events List
+            // 🆕 Events List - 使用 StreamBuilder 实时更新
             Expanded(
               child: TabBarView(
                 controller: controller.tabController,
                 children: List.generate(5, (index) {
                   return Obx(() {
+                    // 🆕 监听 filteredEvents 变化
                     if (controller.filteredEvents.isEmpty) {
                       return _buildEmptyState(index, dark);
                     }
@@ -182,14 +184,16 @@ class MyEventsScreen extends StatelessWidget {
                           final isCancelled =
                               controller.cancelledEventIds[event.eventId] ??
                                   false;
+
                           return MyEventCard(
                             event: event,
                             isCancelled: isCancelled,
-                            onTap: () =>
-                                Get.to(() => EventDetailsScreen(event: event)),
-                            showCancelButton: index == 0 ||
-                                index ==
-                                    1, // Show for All and Upcoming tabs
+                            onTap: () => Get.to(() => EventDetailsScreen(
+                              event: event,
+                              isCancelled: isCancelled,
+                              isFromMyEvents: true,
+                            )),
+                            showCancelButton: index == 0 || index == 1,
                           );
                         },
                       ),

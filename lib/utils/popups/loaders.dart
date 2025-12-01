@@ -755,4 +755,110 @@ class FLoaders {
       isScrollControlled: true,
     );
   }
+
+  /// 🆕 Show Map Confirmation Dialog
+  static Future<bool?> showMapConfirmationDialog({
+    required String venueName,
+    required String address,
+  }) {
+    return Get.dialog<bool>(
+      Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: FColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Iconsax.map_1,
+                  color: FColors.primary,
+                  size: 40,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Title
+              const Text(
+                'Open in Maps?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Venue Name
+              Text(
+                venueName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Address
+              Text(
+                address,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: FColors.textSecondary,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back(result: false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Get.back(result: true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: FColors.primary,
+                        foregroundColor: FColors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Open Maps'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: true,
+    );
+  }
 }

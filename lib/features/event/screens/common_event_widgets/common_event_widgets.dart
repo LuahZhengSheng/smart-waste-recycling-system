@@ -4,15 +4,20 @@ import 'package:fyp/utils/constants/colors.dart';
 import 'package:fyp/utils/constants/sizes.dart';
 import 'package:fyp/utils/helpers/helper_functions.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/event_model.dart';
 import '../../utils/event_utils.dart';
 
-/// Reusable Event Header Widget with Image/Icon
+/// Reusable Event Header Widget with Poster Background
 class EventHeaderWidget extends StatelessWidget {
   final Event event;
   final bool showStatusBadge;
   final bool showDateBadge;
   final bool isCancelled;
+
+  // 🆕 新增参数：指定使用哪种状态系统
+  final RegistrationStatus? registrationStatus; // For Events Screen
+  final AttendanceStatus? attendanceStatus;     // For My Events Screen
 
   const EventHeaderWidget({
     super.key,
@@ -20,28 +25,217 @@ class EventHeaderWidget extends StatelessWidget {
     this.showStatusBadge = true,
     this.showDateBadge = true,
     this.isCancelled = false,
+    this.registrationStatus,
+    this.attendanceStatus,
   });
 
   @override
   Widget build(BuildContext context) {
-    // 优先显示主办方取消状态
-    final bool showOrganizerCancelled = event.isCancelledByOrganizer;
-    final bool showUserCancelled = isCancelled && !showOrganizerCancelled;
-
-    // 根据状态决定显示的文本、图标和颜色
-    final String statusText = _getStatusText(showOrganizerCancelled, showUserCancelled);
-    final IconData statusIcon = _getStatusIcon(showOrganizerCancelled, showUserCancelled);
-    final Color statusColor = _getStatusColor(showOrganizerCancelled, showUserCancelled);
+    // 确定要显示的状态、颜色和图标
+    final statusInfo = _getStatusInfo();
 
     return Container(
       height: 140,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: EventUtils.getEventColor(event.title),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
         ),
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 【背景图片 - Poster】
+            _buildPosterBackground(),
+
+            // 【渐变遮罩层 - 确保文字可读性】
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.4),
+                    Colors.black.withOpacity(0.2),
+                  ],
+                ),
+              ),
+            ),
+
+            // Status Badge
+            if (showStatusBadge && statusInfo != null)
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusInfo['color'].withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: statusInfo['color'].withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        statusInfo['icon'],
+                        size: 12,
+                        color: FColors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        statusInfo['text'],
+                        style: const TextStyle(
+                          color: FColors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Date Badge
+            if (showDateBadge && !_isCancelledByOrganizer())
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Iconsax.calendar_1,
+                        size: 12,
+                        color: FColors.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        EventUtils.formatEventDate(event.startDateTime),
+                        style: const TextStyle(
+                          color: FColors.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // 【主办方取消时的额外覆盖层】
+            if (_isCancelledByOrganizer())
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 【新增】获取状态信息
+  Map<String, dynamic>? _getStatusInfo() {
+    // 优先级 1: 使用传入的 registrationStatus (Events Screen)
+    if (registrationStatus != null) {
+      return {
+        'text': registrationStatus!.displayName,
+        'icon': registrationStatus!.icon,
+        'color': registrationStatus!.color,
+      };
+    }
+
+    // 优先级 2: 使用传入的 attendanceStatus (My Events Screen)
+    if (attendanceStatus != null) {
+      return {
+        'text': attendanceStatus!.displayName,
+        'icon': attendanceStatus!.icon,
+        'color': attendanceStatus!.color,
+      };
+    }
+
+    // 优先级 3: 旧逻辑兼容
+    if (_isCancelledByOrganizer()) {
+      return {
+        'text': 'Cancelled by Organizer',
+        'icon': Iconsax.close_circle,
+        'color': FColors.error,
+      };
+    }
+
+    if (isCancelled) {
+      return {
+        'text': 'Cancelled by You',
+        'icon': Iconsax.close_square,
+        'color': FColors.error,
+      };
+    }
+
+    return null;
+  }
+
+  /// 检查是否主办方取消
+  bool _isCancelledByOrganizer() {
+    return event.status == 'cancelled' || event.status == 'deleted';
+  }
+
+  /// 【构建 Poster 背景】
+  Widget _buildPosterBackground() {
+    // 如果有 poster URL，显示图片
+    if (event.poster.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: event.poster,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => _buildFallbackBackground(),
+        errorWidget: (context, url, error) => _buildFallbackBackground(),
+      );
+    }
+
+    // 没有 poster 时使用 fallback 背景
+    return _buildFallbackBackground();
+  }
+
+  /// 【Fallback 背景 - 使用原来的颜色 + 图标】
+  Widget _buildFallbackBackground() {
+    return Container(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -58,122 +252,13 @@ class EventHeaderWidget extends StatelessWidget {
             right: 16,
             bottom: 16,
             child: Opacity(
-              opacity: 0.4,
+              opacity: 0.3,
               child: EventUtils.buildEventIcon(event.title, size: 64),
             ),
           ),
-
-          // Status Badge
-          if (showStatusBadge)
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: statusColor.withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      statusIcon,
-                      size: 12,
-                      color: FColors.white,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      statusText,
-                      style: const TextStyle(
-                        color: FColors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // Date Badge
-          if (showDateBadge && !showOrganizerCancelled) // 主办方取消时不显示日期徽章
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Iconsax.calendar_1,
-                      size: 12,
-                      color: EventUtils.getEventIconColor(event.title),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      EventUtils.formatEventDate(event.startDateTime),
-                      style: TextStyle(
-                        color: EventUtils.getEventIconColor(event.title),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // 主办方取消时的覆盖层（可选，增加视觉提示）
-          if (showOrganizerCancelled)
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-              ),
-            ),
         ],
       ),
     );
-  }
-
-  Color _getStatusColor(bool organizerCancelled, bool userCancelled) {
-    if (organizerCancelled) return FColors.error; // 红色表示主办方取消
-    if (userCancelled) return FColors.warning; // 橙色表示用户取消
-    return EventUtils.getStatusColor(EventUtils.getEventStatus(event, userCancelled));
-  }
-
-  IconData _getStatusIcon(bool organizerCancelled, bool userCancelled) {
-    if (organizerCancelled) return Iconsax.close_circle; // 主办方取消图标
-    if (userCancelled) return Iconsax.close_square; // 用户取消图标
-    return EventUtils.getStatusIcon(EventUtils.getEventStatus(event, userCancelled));
-  }
-
-  String _getStatusText(bool organizerCancelled, bool userCancelled) {
-    if (organizerCancelled) return 'Cancelled by Organizer';
-    if (userCancelled) return 'Cancelled by You';
-    return EventUtils.getEventStatus(event, userCancelled).displayName;
   }
 }
 

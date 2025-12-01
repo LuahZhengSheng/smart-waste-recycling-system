@@ -95,7 +95,7 @@ class TransactionDetailsScreen extends StatelessWidget {
           // Transaction Header Card
           _buildTransactionHeaderCard(
             dark: dark,
-            icon: Iconsax.arrow_up_3,
+            icon: Iconsax.arrow_up_2,
             iconColor: FColors.transactionEarning,
             iconBgColor: FColors.transactionEarning.withOpacity(0.1),
             title: 'Recycling Reward',

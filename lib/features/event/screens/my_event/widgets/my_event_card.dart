@@ -28,7 +28,9 @@ class MyEventCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = FHelperFunctions.isDarkMode(context);
     final controller = MyEventsController.instance;
-    final status = EventUtils.getEventStatus(event, isCancelled);
+
+    // 🆕 确定 Attendance Status
+    final AttendanceStatus status = _getAttendanceStatus();
 
     return GestureDetector(
       onTap: onTap,
@@ -61,7 +63,7 @@ class MyEventCard extends StatelessWidget {
               event: event,
               showStatusBadge: true,
               showDateBadge: true,
-              isCancelled: isCancelled,
+              attendanceStatus: status, // 🆕 传入状态
             ),
 
             // Event Details
@@ -75,12 +77,14 @@ class MyEventCard extends StatelessWidget {
                     event.title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: isCancelled
+                      color: isCancelled ||
+                          event.isCancelledByOrganizer
                           ? (dark
                           ? FColors.darkGrey
                           : FColors.textSecondary)
                           : (dark ? FColors.darkText : FColors.textPrimary),
-                      decoration: isCancelled
+                      decoration: isCancelled ||
+                          event.isCancelledByOrganizer
                           ? TextDecoration.lineThrough
                           : null,
                       decorationColor: FColors.error,
@@ -90,21 +94,19 @@ class MyEventCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-
                   const SizedBox(height: 12),
 
                   // Time
                   EventInfoRow(
-                    icon: Iconsax.clock,
-                    text:
-                    '${EventUtils.formatTime(event.startDateTime)} - ${EventUtils.formatTime(event.endDateTime)}',
+                    icon: Iconsax.info_circle,
+                    text: event.description,
                   ),
 
                   // Location
                   EventInfoRow(
                     icon: Iconsax.location,
-                    text: event.location.shortAddress.isNotEmpty
-                        ? event.location.shortAddress
+                    text: event.location.venueName.isNotEmpty
+                        ? event.location.venueName
                         : 'Event Location',
                   ),
 
@@ -123,7 +125,8 @@ class MyEventCard extends StatelessWidget {
                       child: Obx(() => ElevatedButton.icon(
                         onPressed: controller.isLoading.value
                             ? null
-                            : () => controller.cancelRegistration(event.eventId),
+                            : () =>
+                            controller.cancelRegistration(event.eventId),
                         icon: controller.isLoading.value
                             ? SizedBox(
                           width: 14,
@@ -151,8 +154,7 @@ class MyEventCard extends StatelessWidget {
                           foregroundColor: FColors.white,
                           disabledBackgroundColor:
                           FColors.error.withOpacity(0.6),
-                          padding:
-                          const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -167,5 +169,31 @@ class MyEventCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// 🆕 确定 Attendance Status
+  AttendanceStatus _getAttendanceStatus() {
+    // 1. 主办方取消
+    if (event.isCancelledByOrganizer) {
+      return AttendanceStatus.cancelledByOrganizer;
+    }
+
+    // 2. 用户取消
+    if (isCancelled) {
+      return AttendanceStatus.cancelledByYou;
+    }
+
+    // 3. 已结束
+    if (event.hasEnded) {
+      return AttendanceStatus.completed;
+    }
+
+    // 4. 进行中
+    if (event.hasStarted) {
+      return AttendanceStatus.ongoing;
+    }
+
+    // 5. 即将开始
+    return AttendanceStatus.upcoming;
   }
 }

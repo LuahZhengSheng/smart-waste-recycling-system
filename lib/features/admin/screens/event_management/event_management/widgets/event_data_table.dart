@@ -427,19 +427,19 @@ class _EventDataTableState extends State<EventDataTable> {
               ),
               tooltip: 'View Event',
             ),
-            if (computedStatus != 'ongoing')
+            if (computedStatus == 'upcoming')
               IconButton(
-                onPressed: computedStatus == 'completed'
+                onPressed: (computedStatus == 'completed' || computedStatus == 'cancelled')
                     ? null
                     : () => widget.controller.editEvent(event),
                 icon: Icon(
                   Iconsax.edit,
-                  color: computedStatus == 'completed'
+                  color: (computedStatus == 'completed' || computedStatus == 'cancelled')
                       ? (widget.dark ? FColors.adminDarkTextMuted : FColors.adminLightTextMuted)
                       : (widget.dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary),
                   size: 18,
                 ),
-                tooltip: computedStatus == 'completed' ? 'Cannot edit completed event' : 'Edit Event',
+                tooltip: (computedStatus == 'completed' || computedStatus == 'cancelled') ? 'Cannot edit completed event' : 'Edit Event',
               ),
             if (computedStatus == 'upcoming')
               IconButton(

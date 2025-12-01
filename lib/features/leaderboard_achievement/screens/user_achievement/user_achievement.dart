@@ -19,70 +19,72 @@ class MyAchievementsScreen extends StatelessWidget {
     final dark = FHelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: dark ? FColors.dark : FColors.primaryBackground,
       appBar: FAppBar(
         showBackArrow: true,
         title: const Text('My Achievements'),
       ),
-      body: Obx(() {
-        if (controller.isLoading.value && controller.userAchievements.isEmpty) {
-          return const Center(
-            child: CircularProgressIndicator(color: FColors.primary),
-          );
-        }
+      body: Container(
+        color: dark ? FColors.dark : FColors.primaryBackground,
+        child: Obx(() {
+          if (controller.isLoading.value && controller.userAchievements.isEmpty) {
+            return const Center(
+              child: CircularProgressIndicator(color: FColors.primary),
+            );
+          }
 
-        if (controller.error.value.isNotEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: dark ? FColors.grey : FColors.darkGrey,
-                ),
-                const SizedBox(height: FSizes.md),
-                Text(
-                  controller.error.value,
-                  style: TextStyle(
-                    color: dark ? FColors.grey : FColors.textSecondary,
+          if (controller.error.value.isNotEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: dark ? FColors.grey : FColors.darkGrey,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: FSizes.md),
-                ElevatedButton(
-                  onPressed: () => controller.refreshAchievements(),
-                  child: const Text('Retry'),
-                ),
-              ],
+                  const SizedBox(height: FSizes.md),
+                  Text(
+                    controller.error.value,
+                    style: TextStyle(
+                      color: dark ? FColors.grey : FColors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: FSizes.md),
+                  ElevatedButton(
+                    onPressed: () => controller.refreshAchievements(),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () => controller.refreshAchievements(),
+            color: FColors.primary,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: FSizes.spaceBtwSections),
+
+                  // Header Section
+                  _buildHeaderSection(context, dark, controller),
+
+                  const SizedBox(height: FSizes.spaceBtwSections),
+
+                  // Achievement List by Category
+                  _buildAchievementsByCategory(context, dark, controller),
+
+                  const SizedBox(height: FSizes.spaceBtwSections),
+                ],
+              ),
             ),
           );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () => controller.refreshAchievements(),
-          color: FColors.primary,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: FSizes.spaceBtwSections),
-
-                // Header Section
-                _buildHeaderSection(context, dark, controller),
-
-                const SizedBox(height: FSizes.spaceBtwSections),
-
-                // Achievement List by Category
-                _buildAchievementsByCategory(context, dark, controller),
-
-                const SizedBox(height: FSizes.spaceBtwSections),
-              ],
-            ),
-          ),
-        );
-      }),
+        }),
+      ),
     );
   }
 

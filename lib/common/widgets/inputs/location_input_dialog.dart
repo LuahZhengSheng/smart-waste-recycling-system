@@ -451,11 +451,20 @@ class LocationInputDialog extends StatelessWidget {
           ),
           const SizedBox(height: FSizes.spaceBtwItems),
 
+          // 🆕 Venue Name (Optional)
+          TextFormField(
+            controller: controller.venueNameController,
+            decoration: _inputDecoration('Venue Name (Optional)', Iconsax.building),
+            style: _inputTextStyle(),
+            // 🆕 不添加 validator，表示非必填
+          ),
+          const SizedBox(height: FSizes.spaceBtwInputFields),
+
           // Unit Number
           TextFormField(
             controller: controller.unitNoController,
             decoration:
-                _inputDecoration('Unit/Building Number *', Iconsax.home_2),
+            _inputDecoration('Unit/Building Number *', Iconsax.home_2),
             style: _inputTextStyle(),
             validator: (value) =>
                 FValidator.validateEmptyText('Unit number', value),
@@ -516,7 +525,7 @@ class LocationInputDialog extends StatelessWidget {
             decoration: _inputDecoration('State *', Iconsax.global),
             style: _inputTextStyle(),
             dropdownColor:
-                dark ? FColors.adminDarkSurface : FColors.adminLightSurface,
+            dark ? FColors.adminDarkSurface : FColors.adminLightSurface,
             items: _malaysianStates.map((String state) {
               return DropdownMenuItem<String>(
                 value: state,
@@ -532,19 +541,19 @@ class LocationInputDialog extends StatelessWidget {
           ),
           const SizedBox(height: FSizes.xs),
           Obx(() => Text(
-                controller.isEditingMode.value
-                    ? controller.hasChanges.value
-                        ? 'Address changed. Fill all fields and wait 5 seconds to update map'
-                        : 'Edit the address fields to update map location'
-                    : 'Fill in all address fields and wait 5 seconds for automatic map validation',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontStyle: FontStyle.italic,
-                  color: dark
-                      ? FColors.adminDarkTextMuted
-                      : FColors.adminLightTextMuted,
-                ),
-              )),
+            controller.isEditingMode.value
+                ? controller.hasChanges.value
+                ? 'Address changed. Fill all fields and wait 5 seconds to update map'
+                : 'Edit the address fields to update map location'
+                : 'Fill in all address fields and wait 5 seconds for automatic map validation',
+            style: TextStyle(
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
+              color: dark
+                  ? FColors.adminDarkTextMuted
+                  : FColors.adminLightTextMuted,
+            ),
+          )),
         ],
       ),
     );

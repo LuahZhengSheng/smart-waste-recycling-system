@@ -242,11 +242,11 @@ class Event {
     final hours = difference.inHours % 24;
 
     if (days > 0) {
-      return '$days day${days != 1 ? 's' : ''} ${hours}h';
+      return '$days day${days != 1 ? 's' : ''} later';
     } else if (hours > 0) {
-      return '${hours}h ${difference.inMinutes % 60}m';
+      return '${hours}h later';
     } else {
-      return '${difference.inMinutes}m';
+      return '${difference.inMinutes}m later';
     }
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,12 +15,19 @@ class EventRepository extends GetxController {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // Storage paths
-  static const String _eventPosterPath = 'event/event_poster';
+  static const String _eventPosterPath = 'event_posters';
 
-  /// Create new event
-  Future<void> createEvent(Event event) async {
+  /// Create new event - 使用 Firestore 自动生成 ID
+  Future<String> createEvent(Event event) async {
     try {
-      await _db.collection('events').add(event.toJson());
+      final eventData = {
+        ...event.toJson(),
+        'isPublish': event.isPublish,
+      };
+
+      final docRef = await _db.collection('events').add(eventData);
+      print('✅ Event created with ID: ${docRef.id}');
+      return docRef.id;
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } catch (e) {
@@ -27,10 +35,20 @@ class EventRepository extends GetxController {
     }
   }
 
-  /// Update existing event
+  /// Update existing event - 包含 eventId 和 isPublish
   Future<void> updateEvent(Event event) async {
     try {
-      await _db.collection('events').doc(event.eventId).update(event.toJson());
+      if (event.eventId.isEmpty) {
+        throw 'Event ID cannot be empty for update';
+      }
+
+      final eventData = {
+        ...event.toJson(),
+        'isPublish': event.isPublish,
+      };
+
+      await _db.collection('events').doc(event.eventId).update(eventData);
+      print('✅ Event updated: ${event.eventId}');
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } catch (e) {
@@ -48,11 +66,10 @@ class EventRepository extends GetxController {
       final uploadTask = ref.putData(
         imageBytes,
         SettableMetadata(
-          contentType: 'image/webp', // 明确指定内容类型
+          contentType: 'image/webp',
         ),
       );
 
-      // 监听上传进度
       uploadTask.snapshotEvents.listen((taskSnapshot) {
         print('Storage - Upload progress: ${taskSnapshot.bytesTransferred}/${taskSnapshot.totalBytes}');
       });
@@ -63,11 +80,9 @@ class EventRepository extends GetxController {
       return fileName;
     } on FirebaseException catch (e) {
       print('Storage - FirebaseException: ${e.code} - ${e.message}');
-      print('Storage - Stack trace: ${e.stackTrace}');
       throw 'Firebase Storage error (${e.code}): ${e.message}';
     } catch (e) {
       print('Storage - Unexpected error: $e');
-      print('Storage - Stack trace: $e');
       throw 'Failed to upload event poster: $e';
     }
   }
@@ -80,7 +95,6 @@ class EventRepository extends GetxController {
       final ref = _storage.ref().child('$_eventPosterPath/$fileName');
       await ref.delete();
     } on FirebaseException catch (e) {
-      // Ignore if file doesn't exist
       if (e.code != 'object-not-found') {
         throw FFirebaseException(e.code).message;
       }
@@ -92,8 +106,6 @@ class EventRepository extends GetxController {
   /// Get event poster URL from Firebase Storage
   Future<String?> getEventPosterUrl(String fileName) async {
     try {
-      print('📁 Getting event poster URL for: $fileName');
-
       if (fileName.isEmpty) return null;
 
       String storagePath = fileName;
@@ -104,7 +116,6 @@ class EventRepository extends GetxController {
       final ref = _storage.ref().child(storagePath);
       final url = await ref.getDownloadURL();
 
-      print('✅ Event poster URL generated: $url');
       return url;
     } on FirebaseException catch (e) {
       print('📁 ❌ FirebaseException for event poster: ${e.code} - ${e.message}');
@@ -114,6 +125,196 @@ class EventRepository extends GetxController {
       return null;
     }
   }
+
+  // ==================== 🆕 Public Methods for EventRegistrationRepository ====================
+
+  /// 【新增】批量获取 Events by IDs（已转换 poster URL）
+  Future<List<Event>> getEventsByIds(List<String> eventIds) async {
+    try {
+      if (eventIds.isEmpty) return [];
+
+      // Split into chunks of 10 (Firestore 'in' query limit)
+      final chunks = <List<String>>[];
+      for (var i = 0; i < eventIds.length; i += 10) {
+        chunks.add(
+          eventIds.sublist(
+            i,
+            i + 10 > eventIds.length ? eventIds.length : i + 10,
+          ),
+        );
+      }
+
+      print('📦 批量获取 ${eventIds.length} 个 Events，分成 ${chunks.length} 批查询');
+
+      final allEvents = <Event>[];
+      for (var i = 0; i < chunks.length; i++) {
+        final chunk = chunks[i];
+        print('🔍 正在查询第 ${i + 1} 批，包含 ${chunk.length} 个活动');
+
+        // 🆕 只使用 FieldPath.documentId 查询，移除 status 过滤
+        final eventsQuery = await _db
+            .collection('events')
+            .where(FieldPath.documentId, whereIn: chunk)
+            .get();
+
+        for (final doc in eventsQuery.docs) {
+          final event = await _buildEventWithLocation(doc);
+
+          // 🆕 在客户端过滤掉 deleted 状态
+          if (event.status != 'deleted') {
+            final eventWithPoster = await _convertPosterToDownloadUrl(event);
+            allEvents.add(eventWithPoster);
+            print('  ✅ 添加活动: ${event.eventId} (${event.title}, status: ${event.status})');
+          } else {
+            print('  ⏩ 跳过已删除活动: ${event.eventId}');
+          }
+        }
+      }
+
+      print('✅ 成功获取 ${allEvents.length} 个 Events (排除 deleted)');
+      return allEvents;
+    } on FirebaseException catch (e) {
+      print('🔥 Firebase错误: ${e.code} - ${e.message}');
+      throw FFirebaseException(e.code).message;
+    } catch (e) {
+      print('💥 错误: $e');
+      throw 'Failed to get events by IDs: $e';
+    }
+  }
+
+  /// Listen to multiple events by their IDs (realtime)
+  Stream<List<Event>> listenEventsByIds(List<String> eventIds) {
+    if (eventIds.isEmpty) {
+      return Stream.value(<Event>[]);
+    }
+
+    // 分批：Firestore whereIn 最多 10 个 ID
+    final chunks = <List<String>>[];
+    for (var i = 0; i < eventIds.length; i += 10) {
+      chunks.add(
+        eventIds.sublist(
+          i,
+          i + 10 > eventIds.length ? eventIds.length : i + 10,
+        ),
+      );
+    }
+
+    // 创建一个 StreamController 来合并所有 chunks 的结果
+    final controller = StreamController<List<Event>>.broadcast();
+
+    // 每个 chunk 对应一个 stream subscription
+    final List<StreamSubscription<List<Event>>> subscriptions = [];
+
+    for (var chunk in chunks) {
+      final chunkStream = _db
+          .collection('events')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .snapshots()
+          .asyncMap((snapshot) async {
+        final events = await Future.wait(
+          snapshot.docs.map((doc) async {
+            final event = await _buildEventWithLocation(doc);
+            if (event.status != 'deleted') {
+              return await _convertPosterToDownloadUrl(event);
+            }
+            return null;
+          }),
+        );
+        return events.whereType<Event>().toList();
+      });
+
+      final subscription = chunkStream.listen(
+            (chunkEvents) {
+          // 每次任一 chunk 有变化，都重新收集所有 chunk 的最新数据
+          _collectAllEventsFromChunks(chunks, controller);
+        },
+        onError: (error) {
+          controller.addError(error);
+        },
+      );
+
+      subscriptions.add(subscription);
+    }
+
+    // 首次触发：收集所有 chunk 的初始数据
+    _collectAllEventsFromChunks(chunks, controller);
+
+    // 返回 controller 的 stream
+    return controller.stream;
+
+    // 清理方法（如果需要手动关闭）
+    controller.onCancel = () {
+      for (final sub in subscriptions) {
+        sub.cancel();
+      }
+    };
+  }
+
+  /// 辅助方法：从所有 chunks 收集最新的 Event 数据
+  Future<void> _collectAllEventsFromChunks(
+      List<List<String>> chunks, StreamController<List<Event>> controller) async {
+    try {
+      final allEvents = <Event>[];
+
+      // 并行获取每个 chunk 的最新数据
+      final futures = chunks.map((chunk) async {
+        final chunkStream = _db
+            .collection('events')
+            .where(FieldPath.documentId, whereIn: chunk)
+            .snapshots()
+            .asyncMap((snapshot) async {
+          final events = await Future.wait(
+            snapshot.docs.map((doc) async {
+              final event = await _buildEventWithLocation(doc);
+              if (event.status != 'deleted') {
+                return await _convertPosterToDownloadUrl(event);
+              }
+              return null;
+            }),
+          );
+          return events.whereType<Event>().toList();
+        });
+
+        // 取最新的值（用 first）
+        return await chunkStream.first;
+      });
+
+      final chunkResults = await Future.wait(futures);
+      for (final chunkEvents in chunkResults) {
+        allEvents.addAll(chunkEvents);
+      }
+
+      // 按 startDateTime 排序（可选）
+      allEvents.sort((a, b) => a.startDateTime.compareTo(b.startDateTime));
+
+      controller.add(allEvents);
+    } catch (e) {
+      controller.addError(e);
+    }
+  }
+
+  /// 【新增】验证 Event 是否可注册（供 EventRegistrationRepository 使用）
+  Future<void> validateEventForRegistration(String eventId) async {
+    try {
+      final event = await getEventByIdFuture(eventId);
+
+      if (event.isFullyBooked) {
+        throw 'Event is fully booked';
+      }
+
+      if (!event.isRegistrationOpen) {
+        throw 'Registration is closed for this event';
+      }
+
+      if (event.isCancelledByOrganizer) {
+        throw 'Event has been cancelled by organizer';
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // ==================== End of Public Methods ====================
 
   /// Get all events as stream
   Stream<List<Event>> getAllEvents() {
@@ -128,12 +329,37 @@ class EventRepository extends GetxController {
             return await _buildEventWithLocation(doc);
           }),
         );
-        // 转换 poster 为下载 URL
         return await _convertPostersToDownloadUrls(events);
       });
     } on FirebaseException catch (e) {
       throw FFirebaseException(e.code).message;
     } catch (e) {
+      throw 'Something went wrong. Please try again';
+    }
+  }
+
+  /// Get all published events as stream
+  Stream<List<Event>> getAllPublishedEvents() {
+    try {
+      return _db
+          .collection('events')
+          .where('status', isEqualTo: 'active')
+          .where('isPublish', isEqualTo: true)
+          .orderBy('startDateTime', descending: false)
+          .snapshots()
+          .asyncMap((snapshot) async {
+        final events = await Future.wait(
+          snapshot.docs.map((doc) async {
+            return await _buildEventWithLocation(doc);
+          }),
+        );
+        return await _convertPostersToDownloadUrls(events);
+      });
+    } on FirebaseException catch (e) {
+      print('$e');
+      throw FFirebaseException(e.code).message;
+    } catch (e) {
+      print('$e');
       throw 'Something went wrong. Please try again';
     }
   }
@@ -237,12 +463,26 @@ class EventRepository extends GetxController {
   /// Update event registered count
   Future<void> updateEventRegisteredCount(String eventId, int increment) async {
     try {
+      print('🔄 开始更新 registeredCount: eventId=$eventId, increment=$increment');
+
       await _db.collection('events').doc(eventId).update({
         'registeredCount': FieldValue.increment(increment),
       });
+
+      print('✅ registeredCount 更新成功');
+
+      // 🆕 验证更新是否成功
+      final doc = await _db.collection('events').doc(eventId).get();
+      final data = doc.data();
+      if (data != null) {
+        final count = (data['registeredCount'] as num?)?.toInt() ?? 0;
+        print('✅ 当前 registeredCount = $count');
+      }
     } on FirebaseException catch (e) {
+      print('🔥 Firebase 错误更新 registeredCount: ${e.code} - ${e.message}');
       throw FFirebaseException(e.code).message;
     } catch (e) {
+      print('💥 未知错误更新 registeredCount: $e');
       throw 'Something went wrong. Please try again';
     }
   }
@@ -291,7 +531,6 @@ class EventRepository extends GetxController {
             break;
         }
 
-        // 在返回前批量转换 poster
         return await _convertPostersToDownloadUrls(filtered);
       });
     } on FirebaseException catch (e) {
@@ -365,12 +604,10 @@ class EventRepository extends GetxController {
   /// 将单个 Event 的 poster 文件名转换为下载 URL
   Future<Event> _convertPosterToDownloadUrl(Event event) async {
     try {
-      // 已经是完整 URL 或为空时，直接返回
       if (event.poster.isEmpty || event.poster.startsWith('http')) {
         return event;
       }
 
-      // 生成下载 URL
       final downloadUrl = await getEventPosterUrl(event.poster);
       if (downloadUrl == null || downloadUrl.isEmpty) {
         return event;
@@ -397,5 +634,4 @@ class EventRepository extends GetxController {
     }
     return result;
   }
-
 }

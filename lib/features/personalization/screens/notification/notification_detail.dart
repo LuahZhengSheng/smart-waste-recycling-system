@@ -330,7 +330,7 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
         return Iconsax.info_circle;
       case 'achievement':
         return Iconsax.medal_star;
-      case 'reminder':
+      case 'event_updated':
         return Iconsax.timer;
       default:
         return Iconsax.notification;
@@ -343,8 +343,8 @@ class _NotificationDetailScreenState extends State<NotificationDetailScreen> {
         return 'System Notification';
       case 'achievement':
         return 'Achievement';
-      case 'event_reminder':
-        return 'Event Reminder';
+      case 'event_updated':
+        return 'Event Updates';
       case 'community_post':
         return 'Community Post';
       default:

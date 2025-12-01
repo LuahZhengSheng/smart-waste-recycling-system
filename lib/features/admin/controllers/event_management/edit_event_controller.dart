@@ -227,7 +227,7 @@ class EditEventController extends GetxController {
         endDateModified.value ||
         endTimeModified.value ||
         locationChanged.value ||
-        titleChanged.value;
+        descriptionChanged.value;
   }
 
   // 获取重要更改的详细信息
@@ -243,8 +243,8 @@ class EditEventController extends GetxController {
     if (locationChanged.value) {
       changes.add('Event location changed');
     }
-    if (titleChanged.value) {
-      changes.add('Event title changed');
+    if (descriptionChanged.value) {
+      changes.add('Event description changed');
     }
 
     return changes;
@@ -1260,7 +1260,7 @@ class EditEventController extends GetxController {
     // 只有在用户确认时才发送通知
     if (sendNotification) {
       try {
-        final eventManagementController = Get.find<EventManagementController>();
+        final eventManagementController = Get.put(EventManagementController());
         await eventManagementController.sendEventUpdateNotifications(oldEvent, updatedEvent);
         print('📢 Update notifications sent to registered users');
       } catch (e) {

@@ -165,7 +165,7 @@ class MyRewardPointsScreen extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.1),
+        color: dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: TabBar(
@@ -237,7 +237,7 @@ class MyRewardPointsScreen extends StatelessWidget {
               vertical: FSizes.md,
             ),
             decoration: BoxDecoration(
-              color: dark ? FColors.darkerGrey : FColors.white,
+              color: dark ? FColors.darkerGrey : FColors.grey.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(

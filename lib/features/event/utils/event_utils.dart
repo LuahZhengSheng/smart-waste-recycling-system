@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../utils/constants/colors.dart';
@@ -18,9 +20,11 @@ class EventUtils {
     final lowerTitle = title.toLowerCase();
     if (lowerTitle.contains('waste') || lowerTitle.contains('pollution')) {
       return FColors.eventWasteColor;
-    } else if (lowerTitle.contains('conference') || lowerTitle.contains('international')) {
+    } else if (lowerTitle.contains('conference') ||
+        lowerTitle.contains('international')) {
       return FColors.eventConferenceColor;
-    } else if (lowerTitle.contains('leadership') || lowerTitle.contains('women')) {
+    } else if (lowerTitle.contains('leadership') ||
+        lowerTitle.contains('women')) {
       return FColors.eventLeadershipColor;
     } else if (lowerTitle.contains('kids') || lowerTitle.contains('parents')) {
       return FColors.eventKidsColor;
@@ -34,9 +38,11 @@ class EventUtils {
     final lowerTitle = title.toLowerCase();
     if (lowerTitle.contains('waste') || lowerTitle.contains('pollution')) {
       return FColors.eventWasteIcon;
-    } else if (lowerTitle.contains('conference') || lowerTitle.contains('international')) {
+    } else if (lowerTitle.contains('conference') ||
+        lowerTitle.contains('international')) {
       return FColors.eventConferenceIcon;
-    } else if (lowerTitle.contains('leadership') || lowerTitle.contains('women')) {
+    } else if (lowerTitle.contains('leadership') ||
+        lowerTitle.contains('women')) {
       return FColors.eventLeadershipIcon;
     } else if (lowerTitle.contains('kids') || lowerTitle.contains('parents')) {
       return FColors.eventKidsIcon;
@@ -54,10 +60,12 @@ class EventUtils {
     if (lowerTitle.contains('waste') || lowerTitle.contains('pollution')) {
       iconData = Iconsax.trash;
       iconColor = FColors.eventWasteIcon;
-    } else if (lowerTitle.contains('conference') || lowerTitle.contains('international')) {
+    } else if (lowerTitle.contains('conference') ||
+        lowerTitle.contains('international')) {
       iconData = Iconsax.global;
       iconColor = FColors.eventConferenceIcon;
-    } else if (lowerTitle.contains('leadership') || lowerTitle.contains('women')) {
+    } else if (lowerTitle.contains('leadership') ||
+        lowerTitle.contains('women')) {
       iconData = Iconsax.crown;
       iconColor = FColors.eventLeadershipIcon;
     } else if (lowerTitle.contains('kids') || lowerTitle.contains('parents')) {
@@ -71,55 +79,83 @@ class EventUtils {
     return Icon(iconData, size: size, color: iconColor);
   }
 
-  /// Get status color based on event state
-  static Color getStatusColor(AttendanceStatus status) {
+  /// 🆕 Get attendance status color
+  static Color getAttendanceStatusColor(AttendanceStatus status) {
     switch (status) {
-      case AttendanceStatus.cancelled:
-        return FColors.cancelled;
       case AttendanceStatus.upcoming:
         return FColors.upcoming;
       case AttendanceStatus.ongoing:
         return FColors.ongoing;
       case AttendanceStatus.completed:
         return FColors.completed;
+      case AttendanceStatus.cancelledByYou:
+      case AttendanceStatus.cancelledByOrganizer:
+        return FColors.cancelled;
     }
   }
 
-  /// Get status icon based on event state
-  static IconData getStatusIcon(AttendanceStatus status) {
+  /// 🆕 Get attendance status icon
+  static IconData getAttendanceStatusIcon(AttendanceStatus status) {
     switch (status) {
       case AttendanceStatus.upcoming:
         return Iconsax.clock;
       case AttendanceStatus.ongoing:
-        return Iconsax.play_circle;
+        return Iconsax.play_circle5;
       case AttendanceStatus.completed:
-        return Iconsax.tick_circle;
-      case AttendanceStatus.cancelled:
-        return Iconsax.close_circle;
+        return Iconsax.tick_circle5;
+      case AttendanceStatus.cancelledByYou:
+      case AttendanceStatus.cancelledByOrganizer:
+        return Iconsax.close_circle5;
     }
+  }
+
+  /// Get status color based on event state (deprecated - use getAttendanceStatusColor)
+  @Deprecated('Use getAttendanceStatusColor instead')
+  static Color getStatusColor(AttendanceStatus status) {
+    return getAttendanceStatusColor(status);
+  }
+
+  /// Get status icon based on event state (deprecated - use getAttendanceStatusIcon)
+  @Deprecated('Use getAttendanceStatusIcon instead')
+  static IconData getStatusIcon(AttendanceStatus status) {
+    return getAttendanceStatusIcon(status);
   }
 
   // ==================== Event Status Utilities ====================
 
   /// Get event status based on event data and cancellation status
   static AttendanceStatus getEventStatus(Event event, bool isCancelled) {
-    if (isCancelled) {
-      return AttendanceStatus.cancelled;
+    if (event.isCancelledByOrganizer) {
+      return AttendanceStatus.cancelledByOrganizer;
     }
-
-    final now = DateTime.now();
-    if (event.endDateTime.isBefore(now)) {
+    if (isCancelled) {
+      return AttendanceStatus.cancelledByYou;
+    }
+    if (event.hasEnded) {
       return AttendanceStatus.completed;
-    } else if (event.startDateTime.isAfter(now)) {
-      return AttendanceStatus.upcoming;
-    } else {
+    }
+    if (event.hasStarted) {
       return AttendanceStatus.ongoing;
     }
+    return AttendanceStatus.upcoming;
   }
 
-  // ==================== Date & Time Format Utilities ====================
+  // ==================== 🆕 Date & Time Format Utilities ====================
 
-  /// Format event date for display
+  /// 🆕 Format full date (e.g., "December 1, 2025")
+  static String formatDate(DateTime dateTime) {
+    final month = _getMonthName(dateTime.month);
+    return '$month ${dateTime.day}, ${dateTime.year}';
+  }
+
+  /// 🆕 Format date with day of week (e.g., "Mon, Dec 1")
+  static String formatDateWithDay(DateTime dateTime) {
+    final day = _getDayAbbreviation(dateTime.weekday);
+    final month = _getMonthAbbreviation(dateTime.month);
+    return '$day, $month ${dateTime.day}';
+  }
+
+  /// Format event date for display (Today, Tomorrow, etc.)
   static String formatEventDate(DateTime dateTime) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -137,7 +173,7 @@ class EventUtils {
     }
   }
 
-  /// Format time to 12-hour format
+  /// Format time to 12-hour format (e.g., "2:30 PM")
   static String formatTime(DateTime dateTime) {
     final hour = dateTime.hour;
     final minute = dateTime.minute;
@@ -146,13 +182,93 @@ class EventUtils {
     return '${displayHour.toString()}:${minute.toString().padLeft(2, '0')} $period';
   }
 
+  /// 🆕 Format date range (e.g., "Dec 1 - Dec 5, 2025")
+  static String formatDateRange(DateTime start, DateTime end) {
+    if (start.year == end.year &&
+        start.month == end.month &&
+        start.day == end.day) {
+      // Same day
+      return formatDate(start);
+    } else if (start.year == end.year && start.month == end.month) {
+      // Same month
+      final month = _getMonthName(start.month);
+      return '$month ${start.day} - ${end.day}, ${start.year}';
+    } else if (start.year == end.year) {
+      // Same year
+      final startMonth = _getMonthAbbreviation(start.month);
+      final endMonth = _getMonthAbbreviation(end.month);
+      return '$startMonth ${start.day} - $endMonth ${end.day}, ${start.year}';
+    } else {
+      // Different years
+      return '${formatDate(start)} - ${formatDate(end)}';
+    }
+  }
+
+  /// 🆕 Format time range (e.g., "2:00 PM - 5:00 PM")
+  static String formatTimeRange(DateTime start, DateTime end) {
+    return '${formatTime(start)} - ${formatTime(end)}';
+  }
+
+  /// 🆕 Get time remaining until event (e.g., "2 days", "3 hours")
+  static String getTimeRemaining(DateTime eventDate) {
+    final now = DateTime.now();
+    final difference = eventDate.difference(now);
+
+    if (difference.isNegative) {
+      return 'Event has passed';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} ${difference.inDays == 1 ? 'day' : 'days'}';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} ${difference.inHours == 1 ? 'hour' : 'hours'}';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} ${difference.inMinutes == 1 ? 'minute' : 'minutes'}';
+    } else {
+      return 'Starting soon';
+    }
+  }
+
+  /// 🆕 Get full month name
+  static String _getMonthName(int month) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
+    ];
+    return months[month - 1];
+  }
+
   /// Get month abbreviation
   static String _getMonthAbbreviation(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return months[month - 1];
+  }
+
+  /// 🆕 Get day abbreviation
+  static String _getDayAbbreviation(int weekday) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days[weekday - 1];
   }
 
   // ==================== Button Utilities ====================
@@ -160,6 +276,9 @@ class EventUtils {
   /// Get button color based on registration state
   static Color getButtonColor(Event event, bool isRegistered) {
     if (isRegistered) return FColors.success;
+    if (event.hasEnded) return FColors.darkGrey;
+    if (event.isRegistrationClosed) return FColors.darkGrey;
+    if (event.isFullyBooked) return FColors.error;
     return FColors.primary;
   }
 
@@ -204,20 +323,55 @@ class EventUtils {
     }
   }
 
-  // ==================== External Action Utilities ====================
+  // ==================== 🆕 Copy & Share Utilities ====================
 
-  /// Share event details
-  static void shareEvent(Event event) {
-    FLoaders.customToast(message: 'Event sharing coming soon!');
+  /// 🆕 Copy text to clipboard with feedback
+  static void copyToClipboard(String text, String label) {
+    Clipboard.setData(ClipboardData(text: text));
+    FLoaders.successSnackBar(
+      title: 'Copied',
+      message: '$label copied to clipboard',
+    );
   }
 
-  /// Launch email app
+  /// 🆕 Share event details
+  static Future<void> shareEvent(Event event) async {
+    final text = '''
+Check out this event!
+
+${event.title}
+
+📅 ${formatDate(event.startDateTime)}
+🕐 ${formatTimeRange(event.startDateTime, event.endDateTime)}
+📍 ${event.location.venueName}
+
+${event.description}
+''';
+
+    try {
+      // TODO: Implement share functionality
+      await Clipboard.setData(ClipboardData(text: text));
+      FLoaders.successSnackBar(
+        title: 'Copied',
+        message: 'Event details copied to clipboard',
+      );
+    } catch (e) {
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to share event',
+      );
+    }
+  }
+
+  // ==================== 🆕 Contact Utilities ====================
+
+  /// 🆕 Launch email app with error handling
   static Future<void> launchEmail(String email) async {
     final Uri emailUri = Uri(scheme: 'mailto', path: email);
 
     try {
       if (await canLaunchUrl(emailUri)) {
-        await launchUrl(emailUri);
+        await launchUrl(emailUri, mode: LaunchMode.externalApplication);
       } else {
         FLoaders.errorSnackBar(
           title: 'Error',
@@ -232,13 +386,13 @@ class EventUtils {
     }
   }
 
-  /// Launch phone dialer
+  /// 🆕 Launch phone dialer with error handling
   static Future<void> launchPhone(String phone) async {
     final Uri phoneUri = Uri(scheme: 'tel', path: phone);
 
     try {
       if (await canLaunchUrl(phoneUri)) {
-        await launchUrl(phoneUri);
+        await launchUrl(phoneUri, mode: LaunchMode.externalApplication);
       } else {
         FLoaders.errorSnackBar(
           title: 'Error',
@@ -253,10 +407,26 @@ class EventUtils {
     }
   }
 
-  /// Open location in Google Maps with navigation
-  static Future<void> openInGoogleMaps(GeoPointModel geoPoint) async {
+  // ==================== 🆕 Map Utilities ====================
+
+  /// 🆕 Open location in Google Maps with confirmation
+  static Future<void> openInGoogleMaps({
+    required double latitude,
+    required double longitude,
+    required String venueName,
+    required String address,
+  }) async {
+    // Show confirmation dialog
+    final confirmed = await FLoaders.showMapConfirmationDialog(
+      venueName: venueName,
+      address: address,
+    );
+
+    if (confirmed != true) return;
+
+    // Open map
     final Uri mapsUri = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&destination=${geoPoint.latitude},${geoPoint.longitude}&travelmode=driving'
+      'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude',
     );
 
     try {
@@ -276,10 +446,86 @@ class EventUtils {
     }
   }
 
+  /// 🆕 Open location with navigation in Google Maps
+  static Future<void> openInGoogleMapsWithNavigation({
+    required double latitude,
+    required double longitude,
+    required String venueName,
+    required String address,
+  }) async {
+    // Show confirmation dialog
+    final confirmed = await FLoaders.showMapConfirmationDialog(
+      venueName: venueName,
+      address: address,
+    );
+
+    if (confirmed != true) return;
+
+    // Open map with navigation
+    final Uri mapsUri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude&travelmode=driving',
+    );
+
+    try {
+      if (await canLaunchUrl(mapsUri)) {
+        await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
+      } else {
+        FLoaders.errorSnackBar(
+          title: 'Error',
+          message: 'Could not open Google Maps',
+        );
+      }
+    } catch (e) {
+      FLoaders.errorSnackBar(
+        title: 'Error',
+        message: 'Failed to open maps: ${e.toString()}',
+      );
+    }
+  }
+
+  /// @deprecated Use openInGoogleMaps instead
+  @Deprecated('Use openInGoogleMaps with named parameters instead')
+  static Future<void> openInGoogleMapsOld(GeoPointModel geoPoint) async {
+    await openInGoogleMaps(
+      latitude: geoPoint.latitude,
+      longitude: geoPoint.longitude,
+      venueName: '',
+      address: '',
+    );
+  }
+
+  // ==================== 🆕 Validation Utilities ====================
+
+  /// 🆕 Check if email is valid
+  static bool isValidEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
+
+  /// 🆕 Check if phone is valid
+  static bool isValidPhone(String phone) {
+    return RegExp(r'^\+?[\d\s\-\(\)]+$').hasMatch(phone);
+  }
+
+  /// 🆕 Format phone number for display
+  static String formatPhoneNumber(String phone) {
+    // Remove all non-digit characters
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+
+    // Format based on length
+    if (digits.length == 10) {
+      return '(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}';
+    } else if (digits.length == 11 && digits.startsWith('1')) {
+      return '+1 (${digits.substring(1, 4)}) ${digits.substring(4, 7)}-${digits.substring(7)}';
+    } else {
+      return phone; // Return original if format is unknown
+    }
+  }
+
   // ==================== Lightbox Utilities ====================
 
   /// Show poster in lightbox
-  static void showPosterLightbox(BuildContext context, Event event, String? posterUrl) {
+  static void showPosterLightbox(
+      BuildContext context, Event event, String? posterUrl) {
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.9),
@@ -309,24 +555,25 @@ class EventUtils {
                   borderRadius: BorderRadius.circular(20),
                   child: posterUrl != null && posterUrl.isNotEmpty
                       ? Image.network(
-                    posterUrl,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                              : null,
-                          color: FColors.primary,
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return _buildDefaultPoster(event);
-                    },
-                  )
+                          posterUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes !=
+                                        null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                                color: FColors.primary,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildDefaultPoster(event);
+                          },
+                        )
                       : _buildDefaultPoster(event),
                 ),
               ),
@@ -383,7 +630,8 @@ class EventUtils {
             ),
             const SizedBox(height: FSizes.spaceBtwItems),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: FSizes.defaultSpace),
               child: Text(
                 event.title,
                 style: const TextStyle(

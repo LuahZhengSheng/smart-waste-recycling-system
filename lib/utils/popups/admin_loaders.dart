@@ -85,6 +85,96 @@ class FAdminLoaders {
     );
   }
 
+  /// Show loading dialog
+  static void loadingDialog() {
+    final dark = _isDark();
+
+    Get.dialog(
+      PopScope(
+        canPop: false, // 防止用户按返回键关闭
+        child: Container(
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.all(FSizes.lg),
+              decoration: BoxDecoration(
+                color: dark ? FColors.adminDarkSurface : FColors.adminLightSurface,
+                borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    color: dark ? FColors.adminDarkPrimary : FColors.adminLightPrimary,
+                  ),
+                  const SizedBox(height: FSizes.md),
+                  Text(
+                    'Processing...',
+                    style: TextStyle(
+                      color: dark ? FColors.adminDarkText : FColors.adminLightText,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  /// Show loading dialog with custom message
+  static void loadingDialogWithMessage(String message) {
+    final dark = _isDark();
+
+    Get.dialog(
+      PopScope(
+        canPop: false,
+        child: Container(
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.all(FSizes.lg),
+              decoration: BoxDecoration(
+                color: dark ? FColors.adminDarkSurface : FColors.adminLightSurface,
+                borderRadius: BorderRadius.circular(FSizes.cardRadiusLg),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    color: dark ? FColors.adminDarkPrimary : FColors.adminLightPrimary,
+                  ),
+                  const SizedBox(height: FSizes.md),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      color: dark ? FColors.adminDarkText : FColors.adminLightText,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  /// Close loading dialog
+  static void closeLoadingDialog() {
+    if (Get.isDialogOpen ?? false) {
+      Get.back();
+    }
+  }
+
   /// 显示更新确认对话框
   ///
   /// [title] - 对话框标题
@@ -525,6 +615,126 @@ class FAdminLoaders {
       confirmButtonText: 'Update',
       cancelButtonText: 'Cancel',
       icon: Iconsax.award,
+    );
+  }
+
+  /// Show cancel event confirmation dialog
+  static Future<bool> cancelEventDialog({
+    required String eventTitle,
+  }) async {
+    final dark = Get.isDarkMode;
+
+    final result = await Get.dialog<bool>(
+      AlertDialog(
+        backgroundColor: dark ? FColors.adminDarkSurface : FColors.adminLightSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Cancel Event',
+          style: TextStyle(
+            color: dark ? FColors.adminDarkText : FColors.adminLightText,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to cancel "$eventTitle"?',
+              style: TextStyle(
+                color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This will:',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: dark ? FColors.adminDarkText : FColors.adminLightText,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildBulletPoint(
+              'Cancel all active registrations',
+              dark,
+            ),
+            _buildBulletPoint(
+              'Delete all event reminders',
+              dark,
+            ),
+            _buildBulletPoint(
+              'Send cancellation notifications to all registered users',
+              dark,
+            ),
+            _buildBulletPoint(
+              'Hide the event from users',
+              dark,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                color: dark ? FColors.adminDarkError : FColors.adminLightError,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: Text(
+              'No, Keep Event',
+              style: TextStyle(
+                color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Get.back(result: true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: dark ? FColors.adminDarkError : FColors.adminLightError,
+            ),
+            child: const Text(
+              'Yes, Cancel Event',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+
+    return result ?? false;
+  }
+
+  /// Helper method to build bullet points
+  static Widget _buildBulletPoint(String text, bool dark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '• ',
+            style: TextStyle(
+              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
+              fontSize: 13,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

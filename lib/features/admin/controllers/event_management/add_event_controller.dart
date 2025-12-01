@@ -67,7 +67,7 @@ class AddEventController extends GetxController {
     final DateTime? picked = await showDatePicker(
       context: Get.context!,
       initialDate: selectedStartDate.value ?? DateTime.now().add(const Duration(days: 1)),
-      firstDate: DateTime.now(),
+      firstDate: DateTime.now(), // ✅ 已经限制了，但还需要额外检查
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
@@ -84,18 +84,28 @@ class AddEventController extends GetxController {
     );
 
     if (picked != null) {
+      // 🆕 检查是否选择了今天之前的日期（额外安全检查）
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final selectedDay = DateTime(picked.year, picked.month, picked.day);
+
+      if (selectedDay.isBefore(today)) {
+        FAdminLoaders.errorSnackBar(
+          title: 'Invalid Date',
+          message: 'Event start date cannot be in the past',
+        );
+        return;
+      }
+
       selectedStartDate.value = picked;
 
-      // 实时验证：如果结束日期在开始日期之前，重置结束日期
-      if (selectedEndDate.value != null && selectedEndDate.value!.isBefore(picked)) {
+      if (selectedEndDate.value != null &&
+          selectedEndDate.value!.isBefore(picked)) {
         selectedEndDate.value = picked;
         selectedEndTime.value = null;
       }
 
-      // 新增：验证注册截止时间
       _validateRegistrationDeadline();
-
-      // 新增：验证事件时长
       _validateEventDuration();
     }
   }
@@ -119,12 +129,39 @@ class AddEventController extends GetxController {
     );
 
     if (picked != null) {
+      // 🆕 如果选择的是今天，检查时间是否在过去
+      if (selectedStartDate.value != null) {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final selectedDay = DateTime(
+          selectedStartDate.value!.year,
+          selectedStartDate.value!.month,
+          selectedStartDate.value!.day,
+        );
+
+        // 如果选择的是今天
+        if (selectedDay.isAtSameMomentAs(today)) {
+          final selectedDateTime = DateTime(
+            selectedStartDate.value!.year,
+            selectedStartDate.value!.month,
+            selectedStartDate.value!.day,
+            picked.hour,
+            picked.minute,
+          );
+
+          // 检查是否在过去
+          if (selectedDateTime.isBefore(now)) {
+            FAdminLoaders.errorSnackBar(
+              title: 'Invalid Time',
+              message: 'Event start time cannot be in the past',
+            );
+            return;
+          }
+        }
+      }
+
       selectedStartTime.value = picked;
-
-      // 新增：验证注册截止时间
       _validateRegistrationDeadline();
-
-      // 新增：验证事件时长
       _validateEventDuration();
     }
   }
@@ -143,7 +180,7 @@ class AddEventController extends GetxController {
     final DateTime? picked = await showDatePicker(
       context: Get.context!,
       initialDate: initialDate,
-      firstDate: selectedStartDate.value ?? DateTime.now(),
+      firstDate: selectedStartDate.value ?? DateTime.now(), // ✅ 限制最早日期
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
@@ -160,8 +197,22 @@ class AddEventController extends GetxController {
     );
 
     if (picked != null) {
-      // 实时验证：结束日期不能在开始日期之前
-      if (selectedStartDate.value != null && picked.isBefore(selectedStartDate.value!)) {
+      // 🆕 额外检查：确保不早于今天
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final selectedDay = DateTime(picked.year, picked.month, picked.day);
+
+      if (selectedDay.isBefore(today)) {
+        FAdminLoaders.errorSnackBar(
+          title: 'Invalid Date',
+          message: 'Event end date cannot be in the past',
+        );
+        return;
+      }
+
+      // 检查是否早于开始日期
+      if (selectedStartDate.value != null &&
+          picked.isBefore(selectedStartDate.value!)) {
         FAdminLoaders.errorSnackBar(
           title: 'Invalid Date',
           message: 'End date cannot be before start date',
@@ -170,14 +221,11 @@ class AddEventController extends GetxController {
       }
 
       selectedEndDate.value = picked;
-
-      // 新增：验证事件时长
       _validateEventDuration();
     }
   }
 
   Future<void> selectEndTime() async {
-    // 必须先选择开始日期和时间
     if (selectedStartDate.value == null || selectedStartTime.value == null) {
       FAdminLoaders.warningSnackBar(
         title: 'Select Start Time First',
@@ -186,7 +234,6 @@ class AddEventController extends GetxController {
       return;
     }
 
-    // 必须先选择结束日期
     if (selectedEndDate.value == null) {
       FAdminLoaders.warningSnackBar(
         title: 'Select End Date First',
@@ -199,7 +246,7 @@ class AddEventController extends GetxController {
     if (selectedEndTime.value != null) {
       initialTime = selectedEndTime.value!;
     } else {
-      // 默认比开始时间晚2小时
+      // 默认为开始时间 + 2小时
       initialTime = TimeOfDay(
         hour: (selectedStartTime.value!.hour + 2) % 24,
         minute: selectedStartTime.value!.minute,
@@ -240,8 +287,28 @@ class AddEventController extends GetxController {
         picked.minute,
       );
 
-      // 实时验证：结束时间必须在开始时间之后
-      if (endDateTime.isBefore(startDateTime) || endDateTime.isAtSameMomentAs(startDateTime)) {
+      // 🆕 如果结束日期是今天，检查时间是否在过去
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final selectedDay = DateTime(
+        selectedEndDate.value!.year,
+        selectedEndDate.value!.month,
+        selectedEndDate.value!.day,
+      );
+
+      if (selectedDay.isAtSameMomentAs(today)) {
+        if (endDateTime.isBefore(now)) {
+          FAdminLoaders.errorSnackBar(
+            title: 'Invalid Time',
+            message: 'Event end time cannot be in the past',
+          );
+          return;
+        }
+      }
+
+      // 检查结束时间是否早于或等于开始时间
+      if (endDateTime.isBefore(startDateTime) ||
+          endDateTime.isAtSameMomentAs(startDateTime)) {
         FAdminLoaders.errorSnackBar(
           title: 'Invalid Time',
           message: 'End time must be after start time',
@@ -249,11 +316,11 @@ class AddEventController extends GetxController {
         return;
       }
 
-      // 实时验证：至少1小时间隔
+      // 🆕 检查活动时长是否至少1小时
       final duration = endDateTime.difference(startDateTime);
       if (duration.inHours < 1) {
         FAdminLoaders.errorSnackBar(
-          title: 'Invalid Time',
+          title: 'Invalid Duration',
           message: 'Event must last at least 1 hour',
         );
         return;

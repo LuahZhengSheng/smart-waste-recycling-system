@@ -66,7 +66,7 @@ class AdminEventDetailScreen extends StatelessWidget {
                 // Cancel button - only for upcoming
                 if (computedStatus == 'upcoming' && event.status != 'cancelled')
                   IconButton(
-                    onPressed: () => controller.cancelEvent(),
+                    onPressed: () => controller.cancelEvent(event),
                     icon: Icon(
                       Iconsax.close_circle,
                       color: dark
@@ -811,22 +811,22 @@ class AdminEventDetailScreen extends StatelessWidget {
           CircleAvatar(
             radius: 30,
             backgroundColor:
-                dark ? FColors.adminDarkPrimary : FColors.adminLightPrimary,
+            dark ? FColors.adminDarkPrimary : FColors.adminLightPrimary,
             backgroundImage:
-                user.profileImg != null && user.profileImg!.isNotEmpty
-                    ? NetworkImage(user.profileImg!)
-                    : null,
+            user.profileImg != null && user.profileImg!.isNotEmpty
+                ? NetworkImage(user.profileImg!)
+                : null,
             child: user.profileImg == null || user.profileImg!.isEmpty
                 ? Text(
-                    user.username.isNotEmpty
-                        ? user.username[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
+              user.username.isNotEmpty
+                  ? user.username[0].toUpperCase()
+                  : '?',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            )
                 : null,
           ),
           const SizedBox(width: FSizes.md),
@@ -834,22 +834,16 @@ class AdminEventDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        user.username,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: dark
-                              ? FColors.adminDarkText
-                              : FColors.adminLightText,
-                        ),
-                      ),
-                    ),
-                    _buildStatusChip(registration, controller, dark),
-                  ],
+                // 只保留username
+                Text(
+                  user.username,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: dark
+                        ? FColors.adminDarkText
+                        : FColors.adminLightText,
+                  ),
                 ),
                 const SizedBox(height: FSizes.xs),
                 Text(
@@ -875,9 +869,13 @@ class AdminEventDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: FSizes.md),
+          // 右侧从上到下：StatusChip, Registered, Time
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              // 状态chip现在在最上面
+              _buildStatusChip(registration, controller, dark),
+              const SizedBox(height: FSizes.xs),
               Text(
                 'Registered',
                 style: TextStyle(
@@ -920,15 +918,6 @@ class AdminEventDetailScreen extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: FSizes.xs),
           Text(
             text,
             style: TextStyle(

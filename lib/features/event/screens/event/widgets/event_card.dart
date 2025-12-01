@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import '../../../models/event_model.dart';
+import '../../../models/event_enums.dart';
 import '../../../../../utils/constants/colors.dart';
 import '../../../../../utils/helpers/helper_functions.dart';
 import '../../../utils/event_utils.dart';
@@ -19,6 +20,9 @@ class EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = FHelperFunctions.isDarkMode(context);
+
+    // 🆕 确定 Registration Status
+    final RegistrationStatus status = _getRegistrationStatus();
 
     return GestureDetector(
       onTap: onTap,
@@ -51,7 +55,7 @@ class EventCard extends StatelessWidget {
               event: event,
               showStatusBadge: true,
               showDateBadge: true,
-              isCancelled: false,
+              registrationStatus: status, // 🆕 传入状态
             ),
 
             // Event Details
@@ -71,21 +75,20 @@ class EventCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-
                   const SizedBox(height: 12),
 
                   // Time
                   EventInfoRow(
-                    icon: Iconsax.clock,
-                    text: '${EventUtils.formatTime(event.startDateTime)} - ${EventUtils.formatTime(event.endDateTime)}',
+                    icon: Iconsax.info_circle,
+                    text: event.description,
                   ),
 
                   // Location
                   EventInfoRow(
                     icon: Iconsax.location,
-                    text: event.location.fullAddress.isNotEmpty
-                        ? event.location.fullAddress
-                        : 'Event Location',
+                    text: event.location.venueName.isNotEmpty
+                        ? event.location.venueName
+                        : 'Event Location Not Set',
                   ),
 
                   const SizedBox(height: 12),
@@ -99,5 +102,21 @@ class EventCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// 🆕 确定 Registration Status
+  RegistrationStatus _getRegistrationStatus() {
+    // 1. 如果 registration deadline 已过 → Closed
+    if (event.isRegistrationClosed) {
+      return RegistrationStatus.closed;
+    }
+
+    // 2. 如果已满 → Full
+    if (event.isFullyBooked) {
+      return RegistrationStatus.full;
+    }
+
+    // 3. 其他情况 → Open
+    return RegistrationStatus.open;
   }
 }

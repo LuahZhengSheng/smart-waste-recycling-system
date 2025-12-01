@@ -4,11 +4,11 @@ import 'package:get/get.dart';
 import '../../../data/repositories/event/event_registration_repository.dart';
 import '../../../data/repositories/event/event_repository.dart';
 import '../../../data/repositories/authentication/authentication_repository.dart';
+import '../../../data/repositories/event/reminder_repository.dart';
 import '../../../utils/constants/colors.dart';
 import '../../../utils/popups/loaders.dart';
 import '../models/event_enums.dart';
 import '../models/event_model.dart';
-import '../utils/event_utils.dart';
 
 class MyEventsController extends GetxController
     with GetSingleTickerProviderStateMixin {
@@ -17,6 +17,7 @@ class MyEventsController extends GetxController
   // Repositories
   final eventRepository = Get.put(EventRepository());
   final eventRegistrationRepository = Get.put(EventRegistrationRepository());
+  final reminderRepository = Get.put(ReminderRepository());
   final _authRepo = AuthenticationRepository.instance;
 
   // Tab Controller
@@ -39,6 +40,7 @@ class MyEventsController extends GetxController
   // Stream subscriptions
   StreamSubscription<List<Event>>? _eventsSubscription;
   StreamSubscription<Map<String, bool>>? _cancelledSubscription;
+  StreamSubscription<List<String>>? _eventIdsSubscription;
 
   @override
   void onInit() {
@@ -56,6 +58,7 @@ class MyEventsController extends GetxController
 
   @override
   void onClose() {
+    _eventIdsSubscription?.cancel();
     _eventsSubscription?.cancel();
     _cancelledSubscription?.cancel();
     tabController.dispose();
@@ -80,43 +83,56 @@ class MyEventsController extends GetxController
         FLoaders.showLoading('Loading your events...');
       });
 
-      // Listen to registered events
-      _eventsSubscription =
-          eventRegistrationRepository.getUserRegisteredEvents(userId).listen(
-        (events) {
-          registeredEvents.value = events;
+      // 1️⃣ 先监听当前用户有哪些 active eventIds
+      _eventIdsSubscription?.cancel();
+      _eventIdsSubscription =
+          eventRegistrationRepository.getUserActiveEventIds(userId).listen(
+                (eventIds) {
+              print('🎯 My active eventIds: $eventIds');
 
-          // Load poster URLs for all events
-          for (final event in events) {
-            if (event.poster.isNotEmpty) {
-              _loadEventPoster(event.eventId, event.poster);
-            }
-          }
+              // 2️⃣ 每次 eventIds 变化，重建 events 的订阅
+              _eventsSubscription?.cancel();
+              _eventsSubscription =
+                  eventRepository.listenEventsByIds(eventIds).listen(
+                        (events) {
+                      registeredEvents.value = events;
+                      _filterEventsByTab();
 
-          _filterEventsByTab();
+                      if (FLoaders.stopLoading != null) {
+                        Future.delayed(Duration.zero, () {
+                          FLoaders.stopLoading();
+                        });
+                      }
+                    },
+                    onError: (error) {
+                      print('Error loading my events: $error');
+                      Future.delayed(Duration.zero, () {
+                        FLoaders.stopLoading();
+                        FLoaders.errorSnackBar(
+                          title: 'Error',
+                          message: 'Failed to load events: ${error.toString()}',
+                        );
+                      });
+                    },
+                  );
+            },
+            onError: (error) {
+              print('Error loading my eventIds: $error');
+              Future.delayed(Duration.zero, () {
+                FLoaders.stopLoading();
+                FLoaders.errorSnackBar(
+                  title: 'Error',
+                  message: 'Failed to load events: ${error.toString()}',
+                );
+              });
+            },
+          );
 
-          if (FLoaders.stopLoading != null) {
-            Future.delayed(Duration.zero, () {
-              FLoaders.stopLoading();
-            });
-          }
-        },
-        onError: (error) {
-          Future.delayed(Duration.zero, () {
-            FLoaders.stopLoading();
-            FLoaders.errorSnackBar(
-              title: 'Error',
-              message: 'Failed to load events: ${error.toString()}',
-            );
-          });
-        },
-      );
-
-      // Listen to cancelled registrations
+      // 3️⃣ 继续保留你原来的 cancelledSubscription（用来算“我自己取消”）
       _cancelledSubscription = eventRegistrationRepository
           .getUserCancelledRegistrations(userId)
           .listen(
-        (cancelledMap) {
+            (cancelledMap) {
           cancelledEventIds.value = cancelledMap;
           _filterEventsByTab();
         },
@@ -125,6 +141,7 @@ class MyEventsController extends GetxController
         },
       );
     } catch (e) {
+      print('$e');
       Future.delayed(Duration.zero, () {
         FLoaders.stopLoading();
         FLoaders.errorSnackBar(
@@ -132,22 +149,6 @@ class MyEventsController extends GetxController
           message: 'Failed to load events: ${e.toString()}',
         );
       });
-    }
-  }
-
-  /// Load event poster from Firebase Storage
-  Future<void> _loadEventPoster(String eventId, String posterFileName) async {
-    if (eventPosterUrls.containsKey(eventId)) return;
-
-    try {
-      isLoadingPoster[eventId] = true;
-      final url = await eventRepository.getEventPosterUrl(posterFileName);
-      eventPosterUrls[eventId] = url;
-    } catch (e) {
-      print('Error loading poster for event $eventId: $e');
-      eventPosterUrls[eventId] = null;
-    } finally {
-      isLoadingPoster[eventId] = false;
     }
   }
 
@@ -166,39 +167,42 @@ class MyEventsController extends GetxController
       case 1: // Upcoming
         filteredEvents.value = events
             .where((event) =>
-        !event.hasStarted &&
-            !_isEventCancelled(event.eventId) &&
-            !event.isCancelledByOrganizer) // 添加主办方取消检查
+                !event.hasStarted &&
+                !_isEventCancelled(event.eventId) &&
+                !event.isCancelledByOrganizer)
             .toList();
         break;
       case 2: // Ongoing
         filteredEvents.value = events
             .where((event) =>
-        event.hasStarted &&
-            !event.hasEnded &&
-            !_isEventCancelled(event.eventId) &&
-            !event.isCancelledByOrganizer) // 添加主办方取消检查
+                event.hasStarted &&
+                !event.hasEnded &&
+                !_isEventCancelled(event.eventId) &&
+                !event.isCancelledByOrganizer)
             .toList();
         break;
       case 3: // Completed
         filteredEvents.value = events
             .where((event) =>
-        event.hasEnded &&
-            !_isEventCancelled(event.eventId) &&
-            !event.isCancelledByOrganizer) // 添加主办方取消检查
+                event.hasEnded &&
+                !_isEventCancelled(event.eventId) &&
+                !event.isCancelledByOrganizer)
             .toList();
         break;
       case 4: // Cancelled
         filteredEvents.value = events
             .where((event) =>
-        _isEventCancelled(event.eventId) ||
-            event.isCancelledByOrganizer) // 包含用户取消和主办方取消
+                _isEventCancelled(event.eventId) ||
+                event.isCancelledByOrganizer)
             .toList();
         break;
     }
 
-    // Sort by start date
-    filteredEvents.sort((a, b) => a.startDateTime.compareTo(b.startDateTime));
+    // 【删除这行】不再按活动开始时间排序
+    // filteredEvents.sort((a, b) => a.startDateTime.compareTo(b.startDateTime));
+
+    // 【说明】events 已经按照注册时间（最近到最远）排好序了
+    // 过滤后会保持原有顺序，不需要额外排序
   }
 
   /// Apply time filter to events
@@ -275,13 +279,23 @@ class MyEventsController extends GetxController
         FLoaders.showLoading('Cancelling registration...');
       });
 
+      // 1️⃣ 先拿到该用户在这个 event 的 registrationId（最新那条）
+      final registrationId = await eventRegistrationRepository
+          .getUserRegistrationId(userId, eventId);
+
+      // 2️⃣ 如果有 registrationId，先删掉所有对应的 reminders
+      if (registrationId.isNotEmpty) {
+        await reminderRepository.deleteAllRemindersByRegistration(registrationId);
+        print('✅ Deleted all reminders for registration: $registrationId');
+      }
+
       await eventRegistrationRepository.cancelRegistration(userId, eventId);
 
       Future.delayed(Duration.zero, () {
         FLoaders.stopLoading();
         FLoaders.successSnackBar(
-          title: 'Success',
-          message: 'Registration cancelled successfully',
+          title: 'Cancellation Successful',
+          message: 'Your registration has been cancelled.',
         );
       });
     } catch (e) {
@@ -305,30 +319,30 @@ class MyEventsController extends GetxController
       case 1: // Upcoming
         return events
             .where((event) =>
-        !event.hasStarted &&
-            !_isEventCancelled(event.eventId) &&
-            !event.isCancelledByOrganizer)
+                !event.hasStarted &&
+                !_isEventCancelled(event.eventId) &&
+                !event.isCancelledByOrganizer)
             .length;
       case 2: // Ongoing
         return events
             .where((event) =>
-        event.hasStarted &&
-            !event.hasEnded &&
-            !_isEventCancelled(event.eventId) &&
-            !event.isCancelledByOrganizer)
+                event.hasStarted &&
+                !event.hasEnded &&
+                !_isEventCancelled(event.eventId) &&
+                !event.isCancelledByOrganizer)
             .length;
       case 3: // Completed
         return events
             .where((event) =>
-        event.hasEnded &&
-            !_isEventCancelled(event.eventId) &&
-            !event.isCancelledByOrganizer)
+                event.hasEnded &&
+                !_isEventCancelled(event.eventId) &&
+                !event.isCancelledByOrganizer)
             .length;
       case 4: // Cancelled
         return events
             .where((event) =>
-        _isEventCancelled(event.eventId) ||
-            event.isCancelledByOrganizer)
+                _isEventCancelled(event.eventId) ||
+                event.isCancelledByOrganizer)
             .length;
       default:
         return 0;

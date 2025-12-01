@@ -5,6 +5,7 @@ import '../../../../data/repositories/event/event_repository.dart';
 import '../../../../data/repositories/event/event_registration_repository.dart';
 import '../../../../data/repositories/event/reminder_repository.dart';
 import '../../../../data/repositories/personalization/notification_repository.dart';
+import '../../../../data/services/event/event_cancellation_service.dart';
 import '../../../../data/services/notification/fcm_service.dart';
 import '../../../../features/event/models/event_model.dart';
 import '../../../../utils/constants/colors.dart';
@@ -23,6 +24,7 @@ class EventManagementController extends GetxController {
   final ReminderRepository _reminderRepository = Get.put(ReminderRepository());
   final NotificationRepository _notificationRepository = Get.put(NotificationRepository());
   final FCMService _fcmService = FCMService();
+  final EventCancellationService _cancellationService = Get.put(EventCancellationService());
 
   // Search controller
   final TextEditingController searchController = TextEditingController();
@@ -300,52 +302,14 @@ class EventManagementController extends GetxController {
     }
   }
 
+  /// Cancel event using shared service
   Future<void> cancelEvent(Event event) async {
-    try {
-      // Show confirmation dialog
-      final confirmed = await Get.dialog<bool>(
-        _ConfirmCancelDialog(event: event),
-      );
+    final success = await _cancellationService.showCancelEventDialogAndExecute(event);
 
-      if (confirmed != true) return;
-
-      // 1. Update event status
-      final updatedEvent = event.copyWith(
-        status: 'cancelled',
-      );
-      await _eventRepository.updateEvent(updatedEvent);
-
-      // 2. Send cancellation notifications to all registered users
-      await _sendEventCancellationNotifications(event);
-
-      // 3. Delete all reminders for this event
-      await _deleteEventReminders(event.eventId);
-
-      // 4. Cancel all registrations for this event
-      await _cancelAllRegistrations(event.eventId);
-
-      FAdminLoaders.successSnackBar(
-        title: 'Event Cancelled',
-        message: 'Event has been cancelled and notifications sent',
-      );
-    } catch (e) {
-      FAdminLoaders.errorSnackBar(
-        title: 'Error',
-        message: 'Failed to cancel event: $e',
-      );
-      print('Error cancelling event: $e');
-    }
-  }
-
-  Future<void> _cancelAllRegistrations(String eventId) async {
-    try {
-      // 使用 repository 提供的方法来取消所有注册
-      await _registrationRepository.cancelAllEventRegistrations(eventId);
-
-      print('Successfully cancelled all registrations for event $eventId');
-    } catch (e) {
-      print('Error cancelling registrations: $e');
-      rethrow;
+    if (success) {
+      // Event was cancelled successfully
+      // The list will auto-update due to stream subscription
+      print('✅ Event cancelled from EventManagementController');
     }
   }
 
@@ -381,19 +345,20 @@ class EventManagementController extends GetxController {
   Future<void> sendEventUpdateNotifications(Event oldEvent, Event updatedEvent) async {
     try {
       // Get all registrations for this event
-      final registrationsSnapshot = await _registrationRepository
-          .getEventRegistrations(updatedEvent.eventId)
-          .first;
+      final registrations = await _registrationRepository
+          .getActiveEventRegistrationsOnce(updatedEvent.eventId);
 
-      // Collect user IDs
-      final userIds = <String>[];
-      for (final regDoc in registrationsSnapshot) {
+      // 2️⃣ 收集 userId（用 Set 去重：同一个用户只会出现一次）
+      final userIdSet = <String>{};
+      for (final regDoc in registrations) {
         final data = regDoc.data() as Map<String, dynamic>;
         final userId = data['userId'] as String?;
         if (userId != null && userId.isNotEmpty) {
-          userIds.add(userId);
+          userIdSet.add(userId);
         }
       }
+
+      final userIds = userIdSet.toList();
 
       // Determine what changed
       final changes = _getEventChanges(oldEvent, updatedEvent);
@@ -428,52 +393,6 @@ class EventManagementController extends GetxController {
     }
   }
 
-  Future<void> _sendEventCancellationNotifications(Event event) async {
-    try {
-      // Get all registrations for this event
-      final registrationsSnapshot = await _registrationRepository
-          .getEventRegistrations(event.eventId)
-          .first;
-
-      // Collect user IDs
-      final userIds = <String>[];
-      for (final regDoc in registrationsSnapshot) {
-        final data = regDoc.data() as Map<String, dynamic>;
-        final userId = data['userId'] as String?;
-        if (userId != null && userId.isNotEmpty) {
-          userIds.add(userId);
-        }
-      }
-
-      if (userIds.isNotEmpty) {
-        final notificationTitle = '🚫 Event Cancelled: ${event.title}';
-        final notificationBody = 'The event "${event.title}" scheduled for ${_formatEventDate(event.startDateTime)} has been cancelled. We apologize for any inconvenience.';
-
-        // 为每个用户创建通知记录
-        await _createNotificationRecordsForUsers(
-          userIds: userIds,
-          title: notificationTitle,
-          body: notificationBody,
-          eventId: event.eventId,
-          type: 'event_cancelled',
-        );
-
-        // 发送 FCM 推送通知
-        await _sendBulkFCMNotification(
-          userIds: userIds,
-          title: notificationTitle,
-          body: notificationBody,
-          eventId: event.eventId,
-          type: 'event_cancelled',
-        );
-      }
-
-      print('📢 Sent cancellation notifications to ${userIds.length} users for event ${event.eventId}');
-    } catch (e) {
-      print('❌ Error sending cancellation notifications: $e');
-    }
-  }
-
   // 为多个用户创建通知记录
   Future<void> _createNotificationRecordsForUsers({
     required List<String> userIds,
@@ -494,27 +413,6 @@ class EventManagementController extends GetxController {
     } catch (e) {
       print('❌ Error creating notification records: $e');
       // 不重新抛出异常，避免影响主要业务逻辑
-    }
-  }
-
-  Future<void> _deleteEventReminders(String eventId) async {
-    try {
-      // Get all registrations for this event
-      final registrationsSnapshot = await _registrationRepository
-          .getEventRegistrations(eventId)
-          .first;
-
-      for (final regDoc in registrationsSnapshot) {
-        // Delete reminder for each registration
-        final reminder = await _reminderRepository
-            .getReminderByRegistration(regDoc.id);
-
-        if (reminder != null) {
-          await _reminderRepository.deleteReminder(reminder.reminderId);
-        }
-      }
-    } catch (e) {
-      print('Error deleting event reminders: $e');
     }
   }
 
@@ -665,109 +563,6 @@ class _ConfirmPublishDialog extends StatelessWidget {
           child: Text(
             isPublishing ? 'Publish' : 'Unpublish',
             style: const TextStyle(color: Colors.white),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ConfirmCancelDialog extends StatelessWidget {
-  final Event event;
-
-  const _ConfirmCancelDialog({required this.event});
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = Get.isDarkMode;
-
-    return AlertDialog(
-      backgroundColor: dark ? FColors.adminDarkSurface : FColors.adminLightSurface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      title: Text(
-        'Cancel Event',
-        style: TextStyle(
-          color: dark ? FColors.adminDarkText : FColors.adminLightText,
-        ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Are you sure you want to cancel "${event.title}"?',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'This will:',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: dark ? FColors.adminDarkText : FColors.adminLightText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '• Send cancellation notifications to all registered users',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-              fontSize: 13,
-            ),
-          ),
-          Text(
-            '• Delete all event reminders',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-              fontSize: 13,
-            ),
-          ),
-          Text(
-            '• Cancel all active registrations',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-              fontSize: 13,
-            ),
-          ),
-          Text(
-            '• Hide the event from users',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'This action cannot be undone.',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkError : FColors.adminLightError,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Get.back(result: false),
-          child: Text(
-            'No, Keep Event',
-            style: TextStyle(
-              color: dark ? FColors.adminDarkTextSecondary : FColors.adminLightTextSecondary,
-            ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: () => Get.back(result: true),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: dark ? FColors.adminDarkError : FColors.adminLightError,
-          ),
-          child: const Text(
-            'Yes, Cancel Event',
-            style: TextStyle(color: Colors.white),
           ),
         ),
       ],

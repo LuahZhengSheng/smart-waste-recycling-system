@@ -1,3 +1,10 @@
+import 'dart:ui';
+
+import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
+
+import '../../../utils/constants/colors.dart';
+
 /// Event-related enumerations
 /// Time filter options for events
 enum TimeFilter {
@@ -68,53 +75,65 @@ extension EventStatusFilterExtension on EventStatusFilter {
   }
 }
 
-/// Event registration status
+/// Event registration status for Events Screen
 enum RegistrationStatus {
-  notRegistered,
-  registered,
-  cancelled,
-  waitlisted,
+  open('Open', FColors.primary, Iconsax.tick_circle),
+  full('Full', FColors.warning, Iconsax.danger),
+  closed('Closed', FColors.error, Iconsax.close_circle);
+
+  final String displayName;
+  final Color color;
+  final IconData icon;
+
+  const RegistrationStatus(this.displayName, this.color, this.icon);
 }
 
 /// Extension to get display name for RegistrationStatus
-extension RegistrationStatusExtension on RegistrationStatus {
-  String get displayName {
-    switch (this) {
-      case RegistrationStatus.cancelled:
-        return 'Cancelled by Organizer';
-      case RegistrationStatus.notRegistered:
-        return 'Not Registered';
-      case RegistrationStatus.registered:
-        return 'Registered';
-      case RegistrationStatus.waitlisted:
-        return 'Waitlisted';
-    }
-  }
-}
+// extension RegistrationStatusExtension on RegistrationStatus {
+//   String get displayName {
+//     switch (this) {
+//       case RegistrationStatus.cancelled:
+//         return 'Cancelled by Organizer';
+//       case RegistrationStatus.notRegistered:
+//         return 'Not Registered';
+//       case RegistrationStatus.registered:
+//         return 'Registered';
+//       case RegistrationStatus.waitlisted:
+//         return 'Waitlisted';
+//     }
+//   }
+// }
 
-/// Event attendance status
+/// Event attendance status for My Events Screen
 enum AttendanceStatus {
-  cancelled,
-  upcoming,
-  ongoing,
-  completed,
+  upcoming('Upcoming', Color(0xFF3B82F6), Iconsax.calendar), // Blue
+  ongoing('Ongoing', FColors.warning, Iconsax.flash_1),
+  completed('Completed', Color(0xFF06B6D4), Iconsax.tick_square), // Cyan
+  cancelledByYou('Cancelled by You', FColors.error, Iconsax.close_square),
+  cancelledByOrganizer('Cancelled by Organizer', FColors.error, Iconsax.close_circle);
+
+  final String displayName;
+  final Color color;
+  final IconData icon;
+
+  const AttendanceStatus(this.displayName, this.color, this.icon);
 }
 
 /// Extension to get display name for AttendanceStatus
-extension AttendanceStatusExtension on AttendanceStatus {
-  String get displayName {
-    switch (this) {
-      case AttendanceStatus.cancelled:
-        return 'Cancelled by Organizer';
-      case AttendanceStatus.upcoming:
-        return 'Upcoming';
-      case AttendanceStatus.ongoing:
-        return 'Ongoing';
-      case AttendanceStatus.completed:
-        return 'Completed';
-    }
-  }
-}
+// extension AttendanceStatusExtension on AttendanceStatus {
+//   String get displayName {
+//     switch (this) {
+//       case AttendanceStatus.cancelled:
+//         return 'Cancelled by Organizer';
+//       case AttendanceStatus.upcoming:
+//         return 'Upcoming';
+//       case AttendanceStatus.ongoing:
+//         return 'Ongoing';
+//       case AttendanceStatus.completed:
+//         return 'Completed';
+//     }
+//   }
+// }
 
 /// Event notification type
 enum EventNotificationType {

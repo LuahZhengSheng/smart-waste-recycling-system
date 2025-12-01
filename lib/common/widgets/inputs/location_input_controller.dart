@@ -13,6 +13,7 @@ class LocationInputController extends GetxController {
   final GoogleMapsService _mapsService = GoogleMapsService();
 
   // Text controllers
+  late TextEditingController venueNameController;
   late TextEditingController unitNoController;
   late TextEditingController areaController;
   late TextEditingController postcodeController;
@@ -30,6 +31,7 @@ class LocationInputController extends GetxController {
   final RxBool hasChanges = false.obs;
   final RxBool _isInitialLoadComplete = false.obs; // 新增：初始加载完成标志
 
+  String _originalVenueName = '';
   String _originalUnitNo = '';
   String _originalArea = '';
   String _originalPostcode = '';
@@ -75,6 +77,7 @@ class LocationInputController extends GetxController {
   }
 
   void _initializeControllers() {
+    venueNameController = TextEditingController();
     unitNoController = TextEditingController();
     areaController = TextEditingController();
     postcodeController = TextEditingController();
@@ -84,6 +87,7 @@ class LocationInputController extends GetxController {
 
   void _loadInitialLocation() {
     final address = initialLocation!.address;
+    venueNameController.text = initialLocation!.venueName;
     unitNoController.text = address.unitNo;
     areaController.text = address.area;
     postcodeController.text = address.postcode;
@@ -174,6 +178,7 @@ class LocationInputController extends GetxController {
   void _checkForChanges() {
     if (isEditingMode.value) {
       // 编辑模式：检查实际变化
+      final hasVenueNameChanged = venueNameController.text.trim() != _originalVenueName;
       final hasUnitNoChanged = unitNoController.text.trim() != _originalUnitNo;
       final hasAreaChanged = areaController.text.trim() != _originalArea;
       final hasPostcodeChanged = postcodeController.text.trim() != _originalPostcode;
@@ -211,6 +216,7 @@ class LocationInputController extends GetxController {
   }
 
   void _saveOriginalAddress() {
+    _originalVenueName = venueNameController.text.trim();
     _originalUnitNo = unitNoController.text.trim();
     _originalArea = areaController.text.trim();
     _originalPostcode = postcodeController.text.trim();
@@ -504,9 +510,6 @@ class LocationInputController extends GetxController {
       postcode: postcodeController.text.trim(),
       city: cityController.text.trim(),
       state: stateController.text.trim(),
-      // fullAddress: validatedAddress.value.isNotEmpty
-      //     ? validatedAddress.value
-      //     : _formattedAddress,
       fullAddress: _formattedAddress,
       placeId: placeId.value,
     );
@@ -518,6 +521,7 @@ class LocationInputController extends GetxController {
 
     // 打印保存的地址信息
     print('📍 Saving Location:');
+    print('   📍 Venue Name: ${venueNameController.text.trim()}'); // 🆕
     print('   📍 Unit No: ${address.unitNo}');
     print('   📍 Area: ${address.area}');
     print('   📍 Postcode: ${address.postcode}');
@@ -529,12 +533,13 @@ class LocationInputController extends GetxController {
     print('   📍 Formatted Address: ${address.formattedAddress}');
     print('   📍 Has Place ID: ${address.hasPlaceId}');
 
-    return Location(address: address, geoPoint: geoPoint);
+    return Location(venueName: venueNameController.text.trim(), address: address, geoPoint: geoPoint);
   }
 
   @override
   void onClose() {
     _debounce?.cancel();
+    venueNameController.dispose();
     unitNoController.dispose();
     areaController.dispose();
     postcodeController.dispose();
