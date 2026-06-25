@@ -27,10 +27,15 @@ Features
      • Electronic waste (Smartphone, Laptop, Monitor, Printer, Computer Mouse, Computer Keyboard)
      
    - After detection:
+
      • Waste is classified according to Malaysia’s recycling guidelines.
+     
      • Users receive disposal instructions, including preparation steps and disposal locations.
+     
      • The system indicates whether the item is recyclable.
+     
      • Additional information is provided, such as reward points and estimated carbon footprint reduction.
+     
    - All detection results are stored and can be accessed through the Detection History feature.
 
 3. Recycling Center Locator
@@ -56,9 +61,13 @@ Features
 6. Community
    - Users can create posts to share recycling tips, ask questions, or discussions.
    - Features include:
+
      • Posting content with images and videos.
+     
      • Viewing posts from other users.
+     
      • Interacting through likes and comments.
+     
      • Accessing personal post history.
 
 7. Event Management
@@ -68,11 +77,17 @@ Features
 8. Carbon Footprint Calculator
    - The system provides a comprehensive carbon footprint calculator that helps users track their environmental impact.
    - It covers multiple categories such as:
+
      • Air travel
+     
      • Land transport
+     
      • Energy consumption
+     
      • Food habits
+     
      • Stuff
+     
    - The calculations are based on verified emission factors from sources such as BEIS, Energy Commission Malaysia (GEF), TNB, GHG Protocol, Climatiq, EPA
      WARM, etc.
    - Malaysia-specific data is prioritized whenever available. Otherwise, global averages are used.
@@ -81,9 +96,15 @@ Features
 
 9. Admin Panel
    - The web-based admin panel provides full system management capabilities, including:
+
      • User and manager management
+     
      • Partner recycling center and staff management
+     
      • Community content moderation
+     
      • Event management
+     
      • Reward management
+     
      • Achievement management
